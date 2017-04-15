@@ -12,9 +12,20 @@
 
 
 <script id="sharedShaderCode" type="x-shader/x-fragment">
-float getCurrentParticleIndex(vec2 uv, vec2 size) {
+float getParticleIndex(vec2 uv, vec2 size) {
     vec2 coord = floor(uv*size);
     return coord.x + size.x * coord.y;
+}
+vec2 getParticleUV(float particleIndex, vec2 res){
+    vec2 particleUV = vec2(mod(particleIndex/res.x,1.0), floor( particleIndex/res.y ) / res.x);
+    return particleUV;
+}
+vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize, vec3 gridRes){
+    return floor((particlePos - gridPos)/cellSize) / vec3(gridRes.xy,1); // TODO: this is wrong, should be 3d
+}
+vec2 gridPosToGridUV(vec3 cellPos, int subIndex, vec3 gridRes){
+    vec2 cellPos2d = cellPos.xy + 0.0*vec2(0, cellPos.z*gridRes.x);
+    return 2.0 * ( cellPos2d.xy-0.5 + 0.5/resolution);
 }
 </script>
 <script id="vertexShader" type="x-shader/x-vertex">
@@ -35,12 +46,12 @@ uniform vec3 cellSize;
 uniform vec3 gridPos;
 attribute float particleIndex;
 void main() {
-    vec2 particleUV = vec2(mod(particleIndex/resolution.x,1.0), floor(particleIndex/(resolution.y) )/ resolution.x);
+    vec2 particleUV = getParticleUV(particleIndex, resolution);//vec2(mod(particleIndex/resolution.x,1.0), floor(particleIndex/resolution.y) / resolution.x);
     vec3 particlePos = texture2D( posTex, particleUV ).xyz;
     // Get particle cell position
-    vec3 cellPos = floor((particlePos - gridPos)/cellSize) / vec3(cellResolution.xy,1); // TODO: this is wrong.
-    vec2 cellPos2d = cellPos.xy + 0.0*vec2(0, cellPos.z*resolution.x);
+    vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize, cellResolution);//floor((particlePos - gridPos)/cellSize) / vec3(cellResolution.xy,1); // TODO: this is wrong.
     gl_PointSize = 2.0;
+    vec2 cellPos2d = cellPos.xy + 0.0*vec2(0, cellPos.z*resolution.x);
     gl_Position = vec4(2.0*(vec3(cellPos2d.xy,0)-0.5+vec3(0.5/resolution,0)),1.0);//vec4( cellPos2d, 0.0, 1.0 );
 }
 </script>
@@ -54,16 +65,43 @@ uniform float stiffness;
 uniform float damping;
 uniform float radius;
 uniform vec3 gravity;
+uniform vec3 cellSize;
+uniform vec3 gridPos;
 uniform sampler2D posTex;
 uniform sampler2D velTex;
+uniform sampler2D gridTex;
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution.xy;
 
     // Get id and position of current
-    vec4 position = texture2D(posTex, uv);
-    vec4 velocity = texture2D(velTex, uv);
+    vec3 position = texture2D(posTex, uv).xyz;
+    vec3 velocity = texture2D(velTex, uv).xyz;
     vec3 force = gravity;
 
+    for(int i=-1; i<2; i++){
+        for(int j=-1; j<2; j++){
+            for(int k=-1; k<2; k++){
+                vec3 cellWorldPos = position + vec3(i,j,k)*cellSize;
+                vec3 cellPos = worldPosToGridPos(cellWorldPos, gridPos, cellSize, cellResolution);
+                for(int l=0; l<4; l++){
+                    vec2 neighborCellTexUV = gridPosToGridUV(cellPos, l, cellResolution);
+                    vec4 neighborIndex = texture2D(gridTex, neighborCellTexUV);
+                    vec2 neighborUV = getParticleUV(neighborIndex.x, resolution);
+                    vec3 neighborPosition = texture2D(posTex, neighborUV).xyz;
+                    vec3 neighborVelocity = texture2D(velTex, neighborUV).xyz;
+                    if(!(i == 2 && j == 2 && k == 2)){ // Not self!
+                        // Apply force from neighbor
+                        vec3 r = position - neighborPosition;
+                        float len = length(r);
+                        if(len > 0.0 && len < radius * 2.0){
+                            vec3 dir = normalize(r);
+                            force -= stiffness * (len - 2.0 * radius) * dir + damping * dot(velocity, dir) * dir;
+                        }
+                    }
+                }
+            }
+        }
+    }
     /*
     for(int i=-HALF_MAX_NEIGHBORS; i<HALF_MAX_NEIGHBORS; i++){ // grab nearby pixels
         float index = currentPixel + float(i);

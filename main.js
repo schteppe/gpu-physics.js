@@ -20,6 +20,16 @@ var mapParticleToCellMesh;
 init();
 animate();
 
+function getShader(id){
+  var code = document.getElementById( id ).textContent;
+  var sharedCode = document.getElementById( 'sharedShaderCode' ).textContent;
+  return sharedCode + code;
+}
+
+function getCellSize(out){
+  return out.set(1/numParticles,1/numParticles,1/numParticles);
+}
+
 function init() {
   container = document.getElementById( 'container' );
 
@@ -33,8 +43,8 @@ function init() {
   window.addEventListener( 'resize', onWindowResize, false );
   texturedMaterial = new THREE.ShaderMaterial({
     uniforms: { texture: { value: null } },
-    vertexShader: document.getElementById( 'vertexShader' ).textContent,
-    fragmentShader: document.getElementById( 'testFrag' ).textContent,
+    vertexShader: getShader( 'vertexShader' ),
+    fragmentShader: getShader( 'testFrag' ),
     defines: { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" }
   });
 
@@ -114,8 +124,8 @@ function init() {
       velTex:  { value: null },
       deltaTime: { value: 1 / 60 }
     },
-    vertexShader: document.getElementById( 'vertexShader' ).textContent,
-    fragmentShader: document.getElementById( 'updatePositionFrag' ).textContent,
+    vertexShader: getShader( 'vertexShader' ),
+    fragmentShader: getShader( 'updatePositionFrag' ),
     defines: { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" }
   });
 
@@ -127,22 +137,31 @@ function init() {
       velTex:  { value: null },
       deltaTime: { value: 1 / 60 }
     },
-    vertexShader: document.getElementById( 'vertexShader' ).textContent,
-    fragmentShader: document.getElementById( 'updateVelocityFrag' ).textContent,
+    vertexShader: getShader( 'vertexShader' ),
+    fragmentShader: getShader( 'updateVelocityFrag' ),
     defines: { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" }
   });
 
   // Update force material
   updateForceMaterial = new THREE.ShaderMaterial({
     uniforms: {
+      cellSize: { value: getCellSize(new THREE.Vector3()) },
+      gridPos: { value: new THREE.Vector3(0,0,0) },
       posTex:  { value: null },
       velTex:  { value: null },
+      gridTex:  { value: null },
       deltaTime: { value: 1 / 60 },
-      gravity: { value: new THREE.Vector3(0,0, 0) }
+      gravity: { value: new THREE.Vector3(0,0,0) },
+      stiffness: { value: 100 },
+      damping: { value: 0.1 },
+      radius: { value: 0.1 },
     },
-    vertexShader: document.getElementById( 'vertexShader' ).textContent,
-    fragmentShader: document.getElementById( 'updateForceFrag' ).textContent,
-    defines: { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" }
+    vertexShader: getShader( 'vertexShader' ),
+    fragmentShader: getShader( 'updateForceFrag' ),
+    defines: {
+      resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
+      cellResolution: 'vec3( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )"
+    }
   });
 
   // Scene for mapping the particle positions to the grid cells
@@ -150,11 +169,11 @@ function init() {
   mapParticleMaterial = new THREE.ShaderMaterial({
     uniforms: {
       posTex: { value: null },
-      cellSize: { value: new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles) },
+      cellSize: { value: getCellSize(new THREE.Vector3()) },
       gridPos: { value: new THREE.Vector3(.3,0,0) },
     },
-    vertexShader: document.getElementById( 'mapParticleToCellVert' ).textContent,
-    fragmentShader: document.getElementById( 'mapParticleToCellFrag' ).textContent,
+    vertexShader: getShader( 'mapParticleToCellVert' ),
+    fragmentShader: getShader( 'mapParticleToCellFrag' ),
     defines: {
       resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
       cellResolution: 'vec3( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )"
@@ -325,10 +344,12 @@ function render() {
   fullScreenQuad.material = updateForceMaterial;
   updateForceMaterial.uniforms.posTex.value = posTextureRead.texture;
   updateForceMaterial.uniforms.velTex.value = velTextureRead.texture;
+  updateForceMaterial.uniforms.gridTex.value = gridTexture.texture;
   updateForceMaterial.uniforms.deltaTime.value = 1/60;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, forceTexture, false );
   updateForceMaterial.uniforms.velTex.value = null;
   updateForceMaterial.uniforms.posTex.value = null;
+  updateForceMaterial.uniforms.gridTex.value = null;
 
   // Update velocity
   fullScreenQuad.material = updateVelocityMaterial;
