@@ -4,7 +4,7 @@ var windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
 var mouseX = 0, mouseY = 0;
 var posTextureRead, posTextureWrite, velTextureRead, velTextureWrite, gridTexture, forceTexture;
 var material, fullScreenQuad, mesh, delta = 0.01;
-var numParticles = 4;
+var numParticles = 8;
 var numDebugQuads = 0;
 var sceneMap;
 var setGridStencilMaterial, setGridStencilMesh;
@@ -200,7 +200,7 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data[p + 0] = i/size;
+      data[p + 0] = 0.25*i/size;
       data[p + 1] = j/size;
       data[p + 2] = 0;
       data[p + 3] = 1; // to make it easier to debug
@@ -217,8 +217,8 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data2[p + 0] = 1;//(Math.random()-0.5)*0.2;
-      data2[p + 1] = 1;//(Math.random()-0.5)*0.2;
+      data2[p + 0] = 0.1;//(Math.random()-0.5)*0.2;
+      data2[p + 1] = 0.1;//(Math.random()-0.5)*0.2;
       data2[p + 2] = 0;//(Math.random()-0.5)*0.2;
       data2[p + 3] = 1; // to make it easier to debug
     }
@@ -264,50 +264,50 @@ function render() {
   // Try drawing a rectangle to the stencil buffer to mask out a square
   var gl = renderer.context;
   var state = renderer.state;
-  /*state.buffers.depth.setMask( false ); // dont draw depth
+
+  // Set up the grid texture for stencil routing.
+  // See http://www.gpgpu.org/static/s2007/slides/15-GPGPU-physics.pdf slide 24
+  renderer.clearTarget( gridTexture, true, true, true );
+  state.buffers.depth.setMask( false ); // dont draw depth
   state.buffers.color.setMask( false ); // dont draw color
   state.buffers.color.setLocked( true );
   state.buffers.depth.setLocked( true );
   state.buffers.stencil.setTest( true );
   state.buffers.stencil.setOp( gl.REPLACE, gl.REPLACE, gl.REPLACE );
-  state.buffers.stencil.setFunc( gl.ALWAYS, 1, 0xffffffff );
   state.buffers.stencil.setClear( 0 );
-  renderer.render( sceneStencil, fullscreenQuadCamera, posTexture0, false );
-  state.buffers.color.setLocked( false );
-  state.buffers.depth.setLocked( false );
-  state.buffers.depth.setMask( true );
-  state.buffers.color.setMask( true );*/
-
-  // Render first scene into texture using the stencil test
-  /*state.buffers.stencil.setFunc( gl.EQUAL, 1, 0xffffffff );
-  state.buffers.stencil.setTest( true );
-  state.buffers.stencil.setMask( 0x00000000 );*/
-  //renderer.render( fullscreenQuadScene, fullscreenQuadCamera, posTexture0, false );
-  //state.buffers.stencil.setTest( false );
-
-  // Render the grid texture in colors as test
-  renderer.clearTarget( gridTexture, true, true, true );
   for(var i=0;i<2;i++){
     for(var j=0;j<2;j++){
       var x = i, y = j, r = 0, g = 0, b = 0;
+      var stencilValue = i+j*2;
       switch(i+j*2){
         case 0: r=1; break;
         case 1: g=1; break;
         case 2: b=1; break;
         case 3: r=g=b=1; break;
       }
-      setGridStencilMaterial.color.setRGB(r, g, b);
+      state.buffers.stencil.setFunc( gl.ALWAYS, stencilValue, 0xffffffff );
+      setGridStencilMaterial.color.setRGB(1,1,1/*r, g, b*/);
       var gridSize = numParticles*2;
       setGridStencilMesh.position.set((x+2)/gridSize,(y+2)/gridSize,0);
       renderer.render( sceneStencil, fullscreenQuadCamera, gridTexture, false );
     }
   }
+  state.buffers.color.setLocked( false );
+  state.buffers.color.setMask( true );
+  state.buffers.depth.setLocked( false );
+  state.buffers.depth.setMask( true );
+  state.buffers.stencil.setTest( false );
 
-  // Map particles to grid
+  // Draw particles to grid, use stencil routing.
+  state.buffers.stencil.setTest( true );
+  state.buffers.stencil.setFunc( gl.EQUAL, 3, 0xffffffff );
+  state.buffers.stencil.setOp( gl.INCR, gl.INCR, gl.INCR );
+  //state.buffers.stencil.setMask( 0 );
   mapParticleToCellMesh.material = mapParticleMaterial;
   mapParticleMaterial.uniforms.posTex.value = posTextureRead.texture;
   renderer.render( sceneMap, fullscreenQuadCamera, gridTexture, false );
   mapParticleMaterial.uniforms.posTex.value = null;
+  state.buffers.stencil.setTest( false );
 
   // Update forces / collision reaction
   fullScreenQuad.material = updateForceMaterial;
