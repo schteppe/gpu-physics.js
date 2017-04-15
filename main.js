@@ -151,11 +151,14 @@ function init() {
     uniforms: {
       posTex: { value: null },
       cellSize: { value: new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles) },
-      gridPos: { value: new THREE.Vector3(0,0,0) },
+      gridPos: { value: new THREE.Vector3(.3,0,0) },
     },
     vertexShader: document.getElementById( 'mapParticleToCellVert' ).textContent,
     fragmentShader: document.getElementById( 'mapParticleToCellFrag' ).textContent,
-    defines: { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" }
+    defines: {
+      resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
+      cellResolution: 'vec3( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )"
+    }
   });
   var mapParticleGeometry = new THREE.BufferGeometry();
   var positions = new Float32Array( 3 * numParticles * numParticles );

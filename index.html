@@ -38,7 +38,7 @@ void main() {
     vec2 particleUV = vec2(mod(particleIndex/resolution.x,1.0), floor(particleIndex/(resolution.y) )/ resolution.x);
     vec3 particlePos = texture2D( posTex, particleUV ).xyz;
     // Get particle cell position
-    vec3 cellPos = floor(particlePos/cellSize) * cellSize - gridPos;
+    vec3 cellPos = floor((particlePos - gridPos)/cellSize) / vec3(cellResolution.xy,1); // TODO: this is wrong.
     vec2 cellPos2d = cellPos.xy + 0.0*vec2(0, cellPos.z*resolution.x);
     gl_PointSize = 2.0;
     gl_Position = vec4(2.0*(vec3(cellPos2d.xy,0)-0.5+vec3(0.5/resolution,0)),1.0);//vec4( cellPos2d, 0.0, 1.0 );
