@@ -10,14 +10,12 @@ var sceneMap;
 var setGridStencilMaterial, setGridStencilMesh;
 var texturedMaterial;
 var mapParticleMaterial;
-var renderParticlesMaterial;
 var updatePositionMaterial;
 var updateVelocityMaterial;
 var updateForceMaterial;
 var debugQuadPositions;
 var debugQuadGrid;
 var mapParticleToCellMesh;
-var sphereMeshes = [];
 
 init();
 animate();
@@ -78,25 +76,35 @@ function init() {
   var backgroundMesh = new THREE.Mesh( backgroundGeometry, backgroundMaterial );
   backgroundMesh.position.z = -3;
   scene.add( backgroundMesh );
+
   // Renders meshes at position given by a texture
   var phongShader = THREE.ShaderLib.phong;
+  var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
+  uniforms.posTex = { value: null };
+  uniforms.particleIndex = { value: 0 };
+  var sphereGeometry = new THREE.SphereGeometry(0.03,16,16);
+  var vert = "uniform sampler2D posTex;uniform float particleIndex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=vec2(mod(particleIndex/resolution.x,1.0), particleIndex/(resolution.y*resolution.x));transformed.xyz+=texture2D(posTex,particleUV).xyz;");
+  var def = { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" };
+  var beforeRender = function(renderer, scene, camera, geometry, material){
+    material.uniforms.particleIndex.value = this.particleIndex;
+    material.uniforms.posTex.value = posTextureRead.texture;
+  };
+  var afterRender = function(renderer, scene, camera, geometry, material){
+    material.uniforms.posTex.value = null;
+  };
   for(var i=0; i<numParticles*numParticles; i++){
-    var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
-    uniforms.posTex = { value: null };
-    renderParticlesMaterial = new THREE.ShaderMaterial({
+    var renderParticleMaterial = new THREE.ShaderMaterial({
       uniforms: uniforms,
-      vertexShader: "uniform sampler2D posTex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=vec2(mod(particleIndex/resolution.x,1.0), particleIndex/(resolution.y*resolution.x));transformed.xyz+=texture2D(posTex,particleUV).xyz;"),
+      vertexShader: vert,
       fragmentShader: phongShader.fragmentShader,
       lights: true,
-      defines: {
-        particleIndex: i.toFixed(1),
-        resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )"
-      }
+      defines: def
     });
-    var sphereGeometry = new THREE.SphereGeometry(0.03,16,16);
-    var sphereMesh = new THREE.Mesh( sphereGeometry, renderParticlesMaterial );
+    var sphereMesh = new THREE.Mesh( sphereGeometry, renderParticleMaterial );
+    sphereMesh.particleIndex = i;
+    sphereMesh.onBeforeRender = beforeRender;
+    sphereMesh.onAfterRender = afterRender;
     scene.add(sphereMesh);
-    sphereMeshes.push(sphereMesh);
   }
 
   // Init materials
@@ -345,16 +353,10 @@ function render() {
   posTextureRead = tmp;
 
   // Render main scene
-  for(var i=0; i<sphereMeshes.length; i++){
-    sphereMeshes[i].material.uniforms.posTex.value = posTextureRead.texture;
-  }
   debugQuadPositions.material.map = posTextureRead.texture;
   debugQuadGrid.material.map = gridTexture.texture;
   mapParticleMaterial.uniforms.posTex.value = posTextureRead.texture;
   renderer.render( scene, camera );
   debugQuadPositions.material.map = null;
   debugQuadGrid.material.map = null;
-  for(var i=0; i<sphereMeshes.length; i++){
-    sphereMeshes[i].material.uniforms.posTex.value = null;
-  }
 }
