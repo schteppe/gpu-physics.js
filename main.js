@@ -30,6 +30,24 @@ function getCellSize(out){
   return out.set(1/numParticles,1/numParticles,1/numParticles);
 }
 
+function getGridPos(out){
+  return out.set(0,0,0);
+}
+
+function getCellResolution(out){
+  return (out || new THREE.Vector3()).set(numParticles, numParticles, numParticles);
+}
+
+function getDefines(){
+  var gridResolution = getCellResolution();
+  return {
+    resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
+    cellResolution: (
+      'vec3( ' + gridResolution.x.toFixed( 1 ) + ', ' + gridResolution.y.toFixed( 1 ) + ', ' + gridResolution.z.toFixed( 1 ) + " )"
+    )
+  };
+}
+
 function init() {
   container = document.getElementById( 'container' );
 
@@ -45,7 +63,7 @@ function init() {
     uniforms: { texture: { value: null } },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'testFrag' ),
-    defines: { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" }
+    defines: getDefines()
   });
 
   // RTT scene
@@ -71,7 +89,6 @@ function init() {
   velTextureWrite = createRenderTarget(numParticles, numParticles);
   forceTexture = createRenderTarget(numParticles, numParticles);
   gridTexture = createRenderTarget(2*numParticles, 2*numParticles);
-
   setInitialState(numParticles, posTextureRead, velTextureRead);
 
   // main 3D scene
@@ -126,7 +143,7 @@ function init() {
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updatePositionFrag' ),
-    defines: { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" }
+    defines: getDefines()
   });
 
   // Update velocity
@@ -139,14 +156,14 @@ function init() {
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateVelocityFrag' ),
-    defines: { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" }
+    defines: getDefines()
   });
 
   // Update force material
   updateForceMaterial = new THREE.ShaderMaterial({
     uniforms: {
       cellSize: { value: getCellSize(new THREE.Vector3()) },
-      gridPos: { value: new THREE.Vector3(0,0,0) },
+      gridPos: { value: getGridPos(new THREE.Vector3()) },
       posTex:  { value: null },
       velTex:  { value: null },
       gridTex:  { value: null },
@@ -158,10 +175,7 @@ function init() {
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateForceFrag' ),
-    defines: {
-      resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
-      cellResolution: 'vec3( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )"
-    }
+    defines: getDefines()
   });
 
   // Scene for mapping the particle positions to the grid cells
@@ -170,14 +184,11 @@ function init() {
     uniforms: {
       posTex: { value: null },
       cellSize: { value: getCellSize(new THREE.Vector3()) },
-      gridPos: { value: new THREE.Vector3(.3,0,0) },
+      gridPos: { value: getGridPos(new THREE.Vector3()) },
     },
     vertexShader: getShader( 'mapParticleToCellVert' ),
     fragmentShader: getShader( 'mapParticleToCellFrag' ),
-    defines: {
-      resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
-      cellResolution: 'vec3( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )"
-    }
+    defines: getDefines()
   });
   var mapParticleGeometry = new THREE.BufferGeometry();
   var positions = new Float32Array( 3 * numParticles * numParticles );

@@ -95,7 +95,7 @@ void main() {
                         float len = length(r);
                         if(len > 0.0 && len < radius * 2.0){
                             vec3 dir = normalize(r);
-                            force -= stiffness * (len - 2.0 * radius) * dir + damping * dot(velocity, dir) * dir;
+                            //force -= stiffness * (len - 2.0 * radius) * dir + damping * dot(velocity, dir) * dir;
                         }
                     }
                 }
