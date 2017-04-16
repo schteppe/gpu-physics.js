@@ -19,6 +19,8 @@ var mapParticleToCellMesh;
 var numParticles = 8;
 var deltaTime = 1 / 60;
 var radius = 0.03;
+var stiffness = 100;
+var damping = 0.1;
 var gridResolution = new THREE.Vector3(numParticles, numParticles, 1);
 var gridPosition = new THREE.Vector3(0,0,0);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
@@ -69,7 +71,7 @@ function init() {
   fullScreenQuad = new THREE.Mesh( plane, texturedMaterial );
   fullscreenQuadScene.add( fullScreenQuad );
 
-  // Init textures
+  // Init data textures
   function createRenderTarget(w,h){
     return new THREE.WebGLRenderTarget(w, h, {
       minFilter: THREE.NearestFilter,
@@ -105,7 +107,7 @@ function init() {
   uniforms.posTex = { value: null };
   uniforms.particleIndex = { value: 0 };
   var sphereGeometry = new THREE.SphereGeometry(radius,16,16);
-  var vert = "uniform sampler2D posTex;uniform float particleIndex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=vec2(mod(particleIndex/resolution.x,1.0), particleIndex/(resolution.y*resolution.x));transformed.xyz+=texture2D(posTex,particleUV).xyz;");
+  var vert = document.getElementById( 'sharedShaderCode' ).textContent + "uniform sampler2D posTex;uniform float particleIndex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=getParticleUV(particleIndex,resolution);transformed.xyz+=texture2D(posTex,particleUV).xyz;");
   var def = { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" };
   var beforeRender = function(renderer, scene, camera, geometry, material){
     material.uniforms.particleIndex.value = this.particleIndex;
@@ -164,8 +166,8 @@ function init() {
       gridTex:  { value: null },
       deltaTime: { value: deltaTime },
       gravity: { value: gravity },
-      stiffness: { value: 100 },
-      damping: { value: 0.1 },
+      stiffness: { value: stiffness },
+      damping: { value: damping },
       radius: { value: radius },
     },
     vertexShader: getShader( 'vertexShader' ),
