@@ -1,3 +1,13 @@
+var numParticles = 4;
+var deltaTime = 1 / 60;
+var radius = 0.03;
+var stiffness = 100;
+var damping = 0.1;
+var gridResolution = new THREE.Vector3(numParticles, numParticles, 1);
+var gridPosition = new THREE.Vector3(0,0,0);
+var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
+var gravity = new THREE.Vector3(0,0,0);
+
 var container, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, sceneTestQuad, scene, renderer, material2;
 var windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
@@ -15,16 +25,6 @@ var updateForceMaterial;
 var debugQuadPositions;
 var debugQuadGrid;
 var mapParticleToCellMesh;
-
-var numParticles = 8;
-var deltaTime = 1 / 60;
-var radius = 0.03;
-var stiffness = 100;
-var damping = 0.1;
-var gridResolution = new THREE.Vector3(numParticles, numParticles, 1);
-var gridPosition = new THREE.Vector3(0,0,0);
-var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
-var gravity = new THREE.Vector3(0,0,0);
 
 init();
 animate();
@@ -194,9 +194,6 @@ function init() {
   for(var i=0; i<numParticles; i++){
     for(var j=0; j<numParticles; j++){
       particleIndices[count] = count;
-      positions[3*count] = i/numParticles;
-      positions[3*count+1] = j/numParticles;
-      positions[3*count+2] = 0;
       count++;
     }
   }
@@ -204,7 +201,6 @@ function init() {
   mapParticleGeometry.addAttribute( 'particleIndex', new THREE.BufferAttribute( particleIndices, 1 ) );
   mapParticleToCellMesh = new THREE.Points( mapParticleGeometry, mapParticleMaterial );
   sceneMap.add( mapParticleToCellMesh );
-
 
   // Scene for rendering the stencil buffer - one GL_POINT for each grid cell that we render 4 times
   sceneStencil = new THREE.Scene();

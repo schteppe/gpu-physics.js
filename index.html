@@ -22,11 +22,12 @@ vec2 getParticleUV(float particleIndex, vec2 res){
 }
 // Get grid position as a vec3: (xIndex, yIndex, zIndex)
 vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize, vec3 gridRes){
-    return floor((particlePos - gridPos)/cellSize) / gridRes;
+    return floor((particlePos - gridPos)/cellSize);
 }
 // Convert grid position to UV coord in the grid texture
 vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
-    vec2 gridPos2d = gridPos.xy + vec2(0, gridPos.z*gridRes.x);
+    vec2 gridPos2d = gridPos.xy / gridRes.xy;
+    gridPos2d.y += (gridPos.z/gridRes.z) * gridRes.y;
     return 2.0 * ( gridPos2d.xy-0.5 + 0.5/resolution);
 }
 </script>
