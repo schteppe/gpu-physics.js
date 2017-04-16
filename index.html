@@ -26,9 +26,9 @@ vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize, vec3 gridR
 }
 // Convert grid position to UV coord in the grid texture
 vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
-    vec2 gridPos2d = gridPos.xy / gridRes.xy;
-    gridPos2d.y += (gridPos.z/gridRes.z) * gridRes.y;
-    return 2.0 * ( gridPos2d.xy-0.5 + 0.5/resolution);
+    vec2 gridPos2d = gridPos.xy / gridRes.xy / vec2(1,gridRes.z);
+    gridPos2d.y += gridPos.z/gridRes.z;
+    return 2.0 * ( gridPos2d.xy - 0.5 + vec2(0.5, 0.5/gridRes.z)/gridRes.xy);
 }
 </script>
 <script id="vertexShader" type="x-shader/x-vertex">

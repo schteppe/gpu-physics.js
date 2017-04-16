@@ -3,7 +3,7 @@ var deltaTime = 1 / 60;
 var radius = 0.03;
 var stiffness = 100;
 var damping = 0.1;
-var gridResolution = new THREE.Vector3(numParticles, numParticles, 1);
+var gridResolution = new THREE.Vector3(numParticles, numParticles, numParticles);
 var gridPosition = new THREE.Vector3(0,0,0);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var gravity = new THREE.Vector3(0,0,0);
@@ -222,7 +222,7 @@ function init() {
 
   // Debug quads
   debugQuadPositions = addDebugQuad();
-  debugQuadGrid = addDebugQuad();
+  debugQuadGrid = addDebugQuad(1,gridResolution.z);
   //debugQuadStencil = addDebugQuad();
 
   // Add controls
@@ -238,7 +238,7 @@ function setInitialState(size, posTex, velTex){
       var p = (i*size + j) * 4;
       data[p + 0] = 0.28*i/size;
       data[p + 1] = j/size + Math.random()*0.1;
-      data[p + 2] = 0;
+      data[p + 2] = 0 + Math.random()*0.1;
       data[p + 3] = 1; // to make it easier to debug
     }
   }
@@ -255,7 +255,7 @@ function setInitialState(size, posTex, velTex){
       var p = (i*size + j) * 4;
       data2[p + 0] = 0.1;//(Math.random()-0.5)*0.2;
       data2[p + 1] = 0;//(Math.random()-0.5)*0.2;
-      data2[p + 2] = 0;//(Math.random()-0.5)*0.2;
+      data2[p + 2] = 0.1;//(Math.random()-0.5)*0.2;
       data2[p + 3] = 1; // to make it easier to debug
     }
   }
@@ -266,8 +266,8 @@ function setInitialState(size, posTex, velTex){
   texturedMaterial.uniforms.texture.value = null;
 }
 
-function addDebugQuad(){
-  var geometry = new THREE.PlaneBufferGeometry( 1, 1 );
+function addDebugQuad(sizeX, sizeY){
+  var geometry = new THREE.PlaneBufferGeometry( sizeX||1, sizeY||1 );
   var mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   var mesh = new THREE.Mesh( geometry, mat );
   mesh.position.set((numDebugQuads)*1.1, -1, 0);
