@@ -5,6 +5,7 @@ var mouseX = 0, mouseY = 0;
 var posTextureRead, posTextureWrite, velTextureRead, velTextureWrite, gridTexture, forceTexture;
 var material, fullScreenQuad, mesh, delta = 0.01;
 var numParticles = 8;
+var gridResolution = new THREE.Vector3(numParticles, numParticles, 1);
 var numDebugQuads = 0;
 var sceneMap;
 var setGridStencilMaterial, setGridStencilMesh;
@@ -34,12 +35,7 @@ function getGridPos(out){
   return out.set(0,0,0);
 }
 
-function getCellResolution(out){
-  return (out || new THREE.Vector3()).set(numParticles, numParticles, numParticles);
-}
-
 function getDefines(){
-  var gridResolution = getCellResolution();
   return {
     resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
     cellResolution: (
@@ -88,7 +84,7 @@ function init() {
   velTextureRead = createRenderTarget(numParticles, numParticles);
   velTextureWrite = createRenderTarget(numParticles, numParticles);
   forceTexture = createRenderTarget(numParticles, numParticles);
-  gridTexture = createRenderTarget(2*numParticles, 2*numParticles);
+  gridTexture = createRenderTarget(2*gridResolution.x, 2*gridResolution.y*gridResolution.z);
   setInitialState(numParticles, posTextureRead, velTextureRead);
 
   // main 3D scene
@@ -178,7 +174,7 @@ function init() {
     defines: getDefines()
   });
 
-  // Scene for mapping the particle positions to the grid cells
+  // Scene for mapping the particle positions to the grid cells - one GL_POINT for each particle
   sceneMap = new THREE.Scene();
   mapParticleMaterial = new THREE.ShaderMaterial({
     uniforms: {
@@ -209,16 +205,17 @@ function init() {
   sceneMap.add( mapParticleToCellMesh );
 
 
-  // Scene for rendering the stencil buffer
+  // Scene for rendering the stencil buffer - one GL_POINT for each grid cell that we render 4 times
   sceneStencil = new THREE.Scene();
   var onePointPerTexelGeometry = new THREE.Geometry();
-  for(var i=0; i<numParticles; i++){
-    for(var j=0; j<numParticles; j++){
+  for(var i=0; i<gridTexture.width/2; i++){
+    for(var j=0; j<gridTexture.height/2; j++){
       onePointPerTexelGeometry.vertices.push(
         new THREE.Vector3(
-          2*i/numParticles-1,
-          2*j/numParticles-1,
-          0 )
+          2*i/(gridTexture.width/2)-1,
+          2*j/(gridTexture.height/2)-1,
+          0
+        )
       );
     }
   }
@@ -329,8 +326,9 @@ function render() {
       }
       state.buffers.stencil.setFunc( gl.ALWAYS, stencilValue, 0xffffffff );
       setGridStencilMaterial.color.setRGB(1,1,1/*r, g, b*/);
-      var gridSize = numParticles*2;
-      setGridStencilMesh.position.set((x+2)/gridSize,(y+2)/gridSize,0);
+      var gridSizeX = gridTexture.width;
+      var gridSizeY = gridTexture.height;
+      setGridStencilMesh.position.set((x+2)/gridSizeX,(y+2)/gridSizeY,0);
       renderer.render( sceneStencil, fullscreenQuadCamera, gridTexture, false );
     }
   }

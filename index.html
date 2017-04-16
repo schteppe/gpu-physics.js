@@ -20,12 +20,14 @@ vec2 getParticleUV(float particleIndex, vec2 res){
     vec2 particleUV = vec2(mod(particleIndex/res.x,1.0), floor( particleIndex/res.y ) / res.x);
     return particleUV;
 }
+// Get grid position as a vec3: (xIndex, yIndex, zIndex)
 vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize, vec3 gridRes){
     return floor((particlePos - gridPos)/cellSize) / vec3(gridRes.xy,1); // TODO: this is wrong, should be 3d
 }
-vec2 gridPosToGridUV(vec3 cellPos, int subIndex, vec3 gridRes){
-    vec2 cellPos2d = cellPos.xy + 0.0*vec2(0, cellPos.z*gridRes.x);
-    return 2.0 * ( cellPos2d.xy-0.5 + 0.5/resolution);
+// Convert grid position to
+vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
+    vec2 gridPos2d = gridPos.xy + vec2(0, gridPos.z*gridRes.x);
+    return 2.0 * ( gridPos2d.xy-0.5 + 0.5/resolution);
 }
 </script>
 <script id="vertexShader" type="x-shader/x-vertex">
@@ -46,13 +48,13 @@ uniform vec3 cellSize;
 uniform vec3 gridPos;
 attribute float particleIndex;
 void main() {
-    vec2 particleUV = getParticleUV(particleIndex, resolution);//vec2(mod(particleIndex/resolution.x,1.0), floor(particleIndex/resolution.y) / resolution.x);
+    vec2 particleUV = getParticleUV(particleIndex, resolution);
     vec3 particlePos = texture2D( posTex, particleUV ).xyz;
     // Get particle cell position
-    vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize, cellResolution);//floor((particlePos - gridPos)/cellSize) / vec3(cellResolution.xy,1); // TODO: this is wrong.
+    vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize, cellResolution);
     gl_PointSize = 2.0;
     vec2 cellPos2d = cellPos.xy + 0.0*vec2(0, cellPos.z*resolution.x);
-    gl_Position = vec4(2.0*(vec3(cellPos2d.xy,0)-0.5+vec3(0.5/resolution,0)),1.0);//vec4( cellPos2d, 0.0, 1.0 );
+    gl_Position = vec4(2.0*(vec3(cellPos2d.xy,0)-0.5+vec3(0.5/resolution,0)),1.0);
 }
 </script>
 <script id="mapParticleToCellFrag" type="x-shader/x-fragment">
