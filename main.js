@@ -1,11 +1,11 @@
 var numParticles = 4;
 var deltaTime = 1 / 60;
-var radius = 0.03;
 var stiffness = 100;
 var damping = 0.1;
 var gridResolution = new THREE.Vector3(numParticles, numParticles, numParticles);
 var gridPosition = new THREE.Vector3(0,0,0);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
+var radius = 0.5/numParticles;
 var gravity = new THREE.Vector3(0,0,0);
 
 var container, controls;
@@ -236,8 +236,8 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data[p + 0] = 0.28*i/size;
-      data[p + 1] = j/size + Math.random()*0.1;
+      data[p + 0] = 2*radius*i;
+      data[p + 1] = 2*radius*j + Math.random()*0.1;
       data[p + 2] = 0 + Math.random()*0.1;
       data[p + 3] = 1; // to make it easier to debug
     }
