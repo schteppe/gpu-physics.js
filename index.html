@@ -22,9 +22,9 @@ vec2 getParticleUV(float particleIndex, vec2 res){
 }
 // Get grid position as a vec3: (xIndex, yIndex, zIndex)
 vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize, vec3 gridRes){
-    return floor((particlePos - gridPos)/cellSize) / vec3(gridRes.xy,1); // TODO: this is wrong, should be 3d
+    return floor((particlePos - gridPos)/cellSize) / gridRes;
 }
-// Convert grid position to
+// Convert grid position to UV coord in the grid texture
 vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
     vec2 gridPos2d = gridPos.xy + vec2(0, gridPos.z*gridRes.x);
     return 2.0 * ( gridPos2d.xy-0.5 + 0.5/resolution);
@@ -51,10 +51,12 @@ void main() {
     vec2 particleUV = getParticleUV(particleIndex, resolution);
     vec3 particlePos = texture2D( posTex, particleUV ).xyz;
     // Get particle cell position
-    vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize, cellResolution);
+    vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize, gridResolution);
+    vec2 gridUV = gridPosToGridUV(cellPos, 0, gridResolution);
     gl_PointSize = 2.0;
-    vec2 cellPos2d = cellPos.xy + 0.0*vec2(0, cellPos.z*resolution.x);
-    gl_Position = vec4(2.0*(vec3(cellPos2d.xy,0)-0.5+vec3(0.5/resolution,0)),1.0);
+    gl_Position = vec4(gridUV, 0, 1);
+    //vec2 cellPos2d = cellPos.xy + 0.0*vec2(0, cellPos.z*resolution.x);
+    //gl_Position = vec4(2.0*(vec3(cellPos2d.xy,0)-0.5+vec3(0.5/resolution,0)),1.0);
 }
 </script>
 <script id="mapParticleToCellFrag" type="x-shader/x-fragment">
@@ -84,43 +86,32 @@ void main() {
         for(int j=-1; j<2; j++){
             for(int k=-1; k<2; k++){
                 vec3 cellWorldPos = position + vec3(i,j,k)*cellSize;
-                vec3 cellPos = worldPosToGridPos(cellWorldPos, gridPos, cellSize, cellResolution);
+                vec3 gridPos = worldPosToGridPos(cellWorldPos, gridPos, cellSize, gridResolution);
                 for(int l=0; l<4; l++){
-                    vec2 neighborCellTexUV = gridPosToGridUV(cellPos, l, cellResolution);
+                    vec2 neighborCellTexUV = gridPosToGridUV(gridPos, l, gridResolution);
                     vec4 neighborIndex = texture2D(gridTex, neighborCellTexUV);
                     vec2 neighborUV = getParticleUV(neighborIndex.x, resolution);
                     vec3 neighborPosition = texture2D(posTex, neighborUV).xyz;
                     vec3 neighborVelocity = texture2D(velTex, neighborUV).xyz;
                     if(!(i == 2 && j == 2 && k == 2)){ // Not self!
-                        // Apply force from neighbor
+                        // Apply contact force from neighbor
                         vec3 r = position - neighborPosition;
                         float len = length(r);
                         if(len > 0.0 && len < radius * 2.0){
                             vec3 dir = normalize(r);
                             //force -= stiffness * (len - 2.0 * radius) * dir + damping * dot(velocity, dir) * dir;
                         }
+
+                        // TODO: Apply shear (tangential) force - this probably needs to be done in other pass
                     }
                 }
             }
         }
     }
-    /*
-    for(int i=-HALF_MAX_NEIGHBORS; i<HALF_MAX_NEIGHBORS; i++){ // grab nearby pixels
-        float index = currentPixel + float(i);
-        if(validParticleIndex(index, invSize, size) == 1){
-            vec2 uv = particleIndexToUV(index, invSize, size);
-            vec4 otherPos = texture2D(positionMap, uv);
-            vec3 r = position.xyz - otherPos.xyz;
-            float len = length(r);
-            if(len > 0.0 && len < radius * 2.0){
-                vec3 dir = normalize(r);
-                force -= stiffness * (len - 2.0 * radius) * dir + damping * dot(velocity.xyz, dir) * dir;
-            }
-        }
-    }
-    */
 
-   gl_FragColor = vec4(force, 0.0);
+    // TODO: Apply force from ground / bounds?
+
+    gl_FragColor = vec4(force, 0.0);
 }
 </script>
 <script id="updateVelocityFrag" type="x-shader/x-fragment">

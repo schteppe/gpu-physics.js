@@ -3,9 +3,7 @@ var fullscreenQuadCamera, camera, fullscreenQuadScene, sceneTestQuad, scene, ren
 var windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
 var mouseX = 0, mouseY = 0;
 var posTextureRead, posTextureWrite, velTextureRead, velTextureWrite, gridTexture, forceTexture;
-var material, fullScreenQuad, mesh, delta = 0.01;
-var numParticles = 8;
-var gridResolution = new THREE.Vector3(numParticles, numParticles, 1);
+var material, fullScreenQuad, mesh;
 var numDebugQuads = 0;
 var sceneMap;
 var setGridStencilMaterial, setGridStencilMesh;
@@ -18,6 +16,14 @@ var debugQuadPositions;
 var debugQuadGrid;
 var mapParticleToCellMesh;
 
+var numParticles = 8;
+var deltaTime = 1 / 60;
+var radius = 0.03;
+var gridResolution = new THREE.Vector3(numParticles, numParticles, 1);
+var gridPosition = new THREE.Vector3(0,0,0);
+var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
+var gravity = new THREE.Vector3(0,0,0);
+
 init();
 animate();
 
@@ -27,18 +33,10 @@ function getShader(id){
   return sharedCode + code;
 }
 
-function getCellSize(out){
-  return out.set(1/numParticles,1/numParticles,1/numParticles);
-}
-
-function getGridPos(out){
-  return out.set(0,0,0);
-}
-
 function getDefines(){
   return {
     resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
-    cellResolution: (
+    gridResolution: (
       'vec3( ' + gridResolution.x.toFixed( 1 ) + ', ' + gridResolution.y.toFixed( 1 ) + ', ' + gridResolution.z.toFixed( 1 ) + " )"
     )
   };
@@ -55,6 +53,7 @@ function init() {
   container.appendChild( renderer.domElement );
   document.addEventListener( 'mousemove', onDocumentMouseMove, false );
   window.addEventListener( 'resize', onWindowResize, false );
+
   texturedMaterial = new THREE.ShaderMaterial({
     uniforms: { texture: { value: null } },
     vertexShader: getShader( 'vertexShader' ),
@@ -105,7 +104,7 @@ function init() {
   var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
   uniforms.posTex = { value: null };
   uniforms.particleIndex = { value: 0 };
-  var sphereGeometry = new THREE.SphereGeometry(0.03,16,16);
+  var sphereGeometry = new THREE.SphereGeometry(radius,16,16);
   var vert = "uniform sampler2D posTex;uniform float particleIndex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=vec2(mod(particleIndex/resolution.x,1.0), particleIndex/(resolution.y*resolution.x));transformed.xyz+=texture2D(posTex,particleUV).xyz;");
   var def = { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" };
   var beforeRender = function(renderer, scene, camera, geometry, material){
@@ -135,7 +134,7 @@ function init() {
     uniforms: {
       posTex:  { value: null },
       velTex:  { value: null },
-      deltaTime: { value: 1 / 60 }
+      deltaTime: { value: deltaTime }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updatePositionFrag' ),
@@ -148,7 +147,7 @@ function init() {
       forceTex:  { value: null },
       posTex:  { value: null },
       velTex:  { value: null },
-      deltaTime: { value: 1 / 60 }
+      deltaTime: { value: deltaTime }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateVelocityFrag' ),
@@ -158,16 +157,16 @@ function init() {
   // Update force material
   updateForceMaterial = new THREE.ShaderMaterial({
     uniforms: {
-      cellSize: { value: getCellSize(new THREE.Vector3()) },
-      gridPos: { value: getGridPos(new THREE.Vector3()) },
+      cellSize: { value: cellSize },
+      gridPos: { value: gridPosition },
       posTex:  { value: null },
       velTex:  { value: null },
       gridTex:  { value: null },
-      deltaTime: { value: 1 / 60 },
-      gravity: { value: new THREE.Vector3(0,0,0) },
+      deltaTime: { value: deltaTime },
+      gravity: { value: gravity },
       stiffness: { value: 100 },
       damping: { value: 0.1 },
-      radius: { value: 0.1 },
+      radius: { value: radius },
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateForceFrag' ),
@@ -179,8 +178,8 @@ function init() {
   mapParticleMaterial = new THREE.ShaderMaterial({
     uniforms: {
       posTex: { value: null },
-      cellSize: { value: getCellSize(new THREE.Vector3()) },
-      gridPos: { value: getGridPos(new THREE.Vector3()) },
+      cellSize: { value: cellSize },
+      gridPos: { value: gridPosition },
     },
     vertexShader: getShader( 'mapParticleToCellVert' ),
     fragmentShader: getShader( 'mapParticleToCellFrag' ),
@@ -354,7 +353,7 @@ function render() {
   updateForceMaterial.uniforms.posTex.value = posTextureRead.texture;
   updateForceMaterial.uniforms.velTex.value = velTextureRead.texture;
   updateForceMaterial.uniforms.gridTex.value = gridTexture.texture;
-  updateForceMaterial.uniforms.deltaTime.value = 1/60;
+  updateForceMaterial.uniforms.deltaTime.value = deltaTime;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, forceTexture, false );
   updateForceMaterial.uniforms.velTex.value = null;
   updateForceMaterial.uniforms.posTex.value = null;
@@ -365,7 +364,7 @@ function render() {
   updateVelocityMaterial.uniforms.posTex.value = posTextureRead.texture;
   updateVelocityMaterial.uniforms.velTex.value = velTextureRead.texture;
   updateVelocityMaterial.uniforms.forceTex.value = forceTexture.texture;
-  updateVelocityMaterial.uniforms.deltaTime.value = 1/60;
+  updateVelocityMaterial.uniforms.deltaTime.value = deltaTime;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, velTextureWrite, false );
   updateVelocityMaterial.uniforms.velTex.value = null;
   updateVelocityMaterial.uniforms.posTex.value = null;
@@ -377,7 +376,7 @@ function render() {
   fullScreenQuad.material = updatePositionMaterial;
   updatePositionMaterial.uniforms.posTex.value = posTextureRead.texture;
   updatePositionMaterial.uniforms.velTex.value = velTextureRead.texture;
-  updatePositionMaterial.uniforms.deltaTime.value = 1/60;
+  updatePositionMaterial.uniforms.deltaTime.value = deltaTime;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, posTextureWrite, false );
   updatePositionMaterial.uniforms.velTex.value = null;
   updatePositionMaterial.uniforms.posTex.value = null;
