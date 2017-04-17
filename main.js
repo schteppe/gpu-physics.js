@@ -63,7 +63,7 @@ function init() {
     defines: getDefines()
   });
 
-  // RTT scene
+  // Fullscreen render pass helpers
   fullscreenQuadScene = new THREE.Scene();
   fullscreenQuadCamera = new THREE.Camera();
   fullscreenQuadCamera.position.z = 1;
@@ -108,7 +108,7 @@ function init() {
   uniforms.particleIndex = { value: 0 };
   var sphereGeometry = new THREE.SphereGeometry(radius,16,16);
   var vert = document.getElementById( 'sharedShaderCode' ).textContent + "uniform sampler2D posTex;uniform float particleIndex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=getParticleUV(particleIndex,resolution);transformed.xyz+=texture2D(posTex,particleUV).xyz;");
-  var def = { resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )" };
+  var def = getDefines();
   var beforeRender = function(renderer, scene, camera, geometry, material){
     material.uniforms.particleIndex.value = this.particleIndex;
     material.uniforms.posTex.value = posTextureRead.texture;
