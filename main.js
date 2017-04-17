@@ -94,7 +94,7 @@ function init() {
   light.position.set(10,10,20);
   scene.add(light);
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 1, 10000 );
-  camera.position.z = 10;
+  camera.position.z = 14;
   var backgroundGeometry = new THREE.PlaneBufferGeometry( 100, 100 );
   backgroundMaterial = new THREE.MeshBasicMaterial( { color: 0x222222 } );
   var backgroundMesh = new THREE.Mesh( backgroundGeometry, backgroundMaterial );
@@ -190,12 +190,8 @@ function init() {
   var mapParticleGeometry = new THREE.BufferGeometry();
   var positions = new Float32Array( 3 * numParticles * numParticles );
   var particleIndices = new Float32Array( numParticles * numParticles );
-  var count = 0;
-  for(var i=0; i<numParticles; i++){
-    for(var j=0; j<numParticles; j++){
-      particleIndices[count] = count;
-      count++;
-    }
+  for(var i=0; i<numParticles*numParticles; i++){
+    particleIndices[i] = i;
   }
   mapParticleGeometry.addAttribute( 'position', new THREE.BufferAttribute( positions, 3 ) );
   mapParticleGeometry.addAttribute( 'particleIndex', new THREE.BufferAttribute( particleIndices, 1 ) );
@@ -221,9 +217,8 @@ function init() {
   sceneStencil.add( setGridStencilMesh );
 
   // Debug quads
-  debugQuadPositions = addDebugQuad();
-  debugQuadGrid = addDebugQuad(1,gridResolution.z);
-  //debugQuadStencil = addDebugQuad();
+  debugQuadPositions = addDebugQuad(1, 1);
+  debugQuadGrid = addDebugQuad(1, gridResolution.z, 1/(numParticles*numParticles));
 
   // Add controls
   controls = new THREE.OrbitControls( camera, renderer.domElement );
@@ -236,9 +231,9 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data[p + 0] = 2*radius*i;
+      data[p + 0] = 2*radius*i + Math.random()*0.1;
       data[p + 1] = 2*radius*j + Math.random()*0.1;
-      data[p + 2] = 0 + Math.random()*0.1;
+      data[p + 2] = 0; //+ Math.random()*0.1;
       data[p + 3] = 1; // to make it easier to debug
     }
   }
@@ -253,9 +248,9 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data2[p + 0] = 0.1;//(Math.random()-0.5)*0.2;
+      data2[p + 0] = 0;//(Math.random()-0.5)*0.2;
       data2[p + 1] = 0;//(Math.random()-0.5)*0.2;
-      data2[p + 2] = 0.1;//(Math.random()-0.5)*0.2;
+      data2[p + 2] = 0;//(Math.random()-0.5)*0.2;
       data2[p + 3] = 1; // to make it easier to debug
     }
   }
@@ -266,9 +261,10 @@ function setInitialState(size, posTex, velTex){
   texturedMaterial.uniforms.texture.value = null;
 }
 
-function addDebugQuad(sizeX, sizeY){
+function addDebugQuad(sizeX, sizeY, colorScale){
+  colorScale = colorScale || 1;
   var geometry = new THREE.PlaneBufferGeometry( sizeX||1, sizeY||1 );
-  var mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  var mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(colorScale,colorScale,colorScale) });
   var mesh = new THREE.Mesh( geometry, mat );
   mesh.position.set((numDebugQuads)*1.1, -1, 0);
   numDebugQuads++;
@@ -315,14 +311,8 @@ function render() {
     for(var j=0;j<2;j++){
       var x = i, y = j, r = 0, g = 0, b = 0;
       var stencilValue = i+j*2;
-      switch(i+j*2){
-        case 0: r=1; break;
-        case 1: g=1; break;
-        case 2: b=1; break;
-        case 3: r=g=b=1; break;
-      }
       state.buffers.stencil.setFunc( gl.ALWAYS, stencilValue, 0xffffffff );
-      setGridStencilMaterial.color.setRGB(1,1,1/*r, g, b*/);
+      setGridStencilMaterial.color.setRGB(1,1,1);
       var gridSizeX = gridTexture.width;
       var gridSizeY = gridTexture.height;
       setGridStencilMesh.position.set((x+2)/gridSizeX,(y+2)/gridSizeY,0);

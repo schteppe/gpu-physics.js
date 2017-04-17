@@ -26,10 +26,14 @@ vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize, vec3 gridR
 }
 // Convert grid position to UV coord in the grid texture
 vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
-    vec2 gridPos2d = gridPos.xy / gridRes.xy / vec2(1,gridRes.z);
-    gridPos2d.y += gridPos.z/gridRes.z;
+    vec2 gridTexRes = gridRes.xy * vec2(1, gridRes.z);
+    vec2 gridUV = gridPos.xy / gridTexRes;
+    gridUV.y += gridPos.z/gridRes.z; // Move up to correct z section
+    // Choose sub pixel
     float fSubIndex = float(subIndex);
-    return 2.0 * ( gridPos2d.xy - 0.5 + vec2(0.5, 0.5/gridRes.z)/gridRes.xy + vec2(mod(fSubIndex,2.0), fSubIndex/2.0) / gridRes.xy / vec2(1,gridRes.z) / 4.0 );
+    gridUV += vec2(mod(fSubIndex,2.0), fSubIndex/2.0) / gridTexRes;
+    gridUV += vec2(0.5)/gridTexRes; // Move to center of pixel
+    return gridUV; // Center to -1..1
 }
 </script>
 <script id="vertexShader" type="x-shader/x-vertex">
@@ -57,16 +61,14 @@ void main() {
     // Get particle cell position
     vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize, gridResolution);
     vec2 gridUV = gridPosToGridUV(cellPos, 0, gridResolution);
-    gl_PointSize = 2.0;
-    gl_Position = vec4(gridUV, 0, 1);
-    //vec2 cellPos2d = cellPos.xy + 0.0*vec2(0, cellPos.z*resolution.x);
-    //gl_Position = vec4(2.0*(vec3(cellPos2d.xy,0)-0.5+vec3(0.5/resolution,0)),1.0);
+    gl_PointSize = 2.0; // Cover 4 pixels in the grid texture
+    gl_Position = vec4(2.0*(gridUV-0.5), 0, 1);
 }
 </script>
 <script id="mapParticleToCellFrag" type="x-shader/x-fragment">
 varying float vParticleIndex;
 void main() {
-    gl_FragColor = vec4( vParticleIndex, 0, 0, 1 );
+    gl_FragColor = vec4( vParticleIndex+1.0, 0, 0, 1 ); // indices are stored incremented by 1
 }
 </script>
 <script id="updateForceFrag" type="x-shader/x-fragment">
@@ -95,11 +97,11 @@ void main() {
                 vec3 gridPos = worldPosToGridPos(cellWorldPos, gridPos, cellSize, gridResolution);
                 for(int l=0; l<4; l++){
                     vec2 neighborCellTexUV = gridPosToGridUV(gridPos, l, gridResolution);
-                    int neighborIndex = int(floor(texture2D(gridTex, neighborCellTexUV).x));
+                    int neighborIndex = int(floor(texture2D(gridTex, neighborCellTexUV).x-1.0)); // indices are stored incremented by 1
                     vec2 neighborUV = getParticleUV(float(neighborIndex), resolution);
                     vec3 neighborPosition = texture2D(posTex, neighborUV).xyz;
                     vec3 neighborVelocity = texture2D(velTex, neighborUV).xyz;
-                    if(neighborIndex != particleIndex){ // Not self!
+                    if(neighborIndex >=0 && neighborIndex != particleIndex){ // Not self!
                         // Apply contact force from neighbor
                         vec3 r = position - neighborPosition;
                         float len = length(r);
