@@ -1,11 +1,11 @@
 var numParticles = 8;
 var deltaTime = 1 / 60;
-var stiffness = 500;
-var damping = 3;
-var gridResolution = new THREE.Vector3(numParticles, numParticles, numParticles);
+var stiffness = 1000;
+var damping = 20;
+var gridResolution = new THREE.Vector3(2*numParticles, 2*numParticles, 2*numParticles);
 var gridPosition = new THREE.Vector3(0,0,0);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
-var radius = 0.5/numParticles;
+var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,-1,0);
 
 var container, controls;
