@@ -1,12 +1,12 @@
-var numParticles = 4;
+var numParticles = 8;
 var deltaTime = 1 / 60;
-var stiffness = 100;
-var damping = 0.1;
+var stiffness = 500;
+var damping = 3;
 var gridResolution = new THREE.Vector3(numParticles, numParticles, numParticles);
 var gridPosition = new THREE.Vector3(0,0,0);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = 0.5/numParticles;
-var gravity = new THREE.Vector3(0,0,0);
+var gravity = new THREE.Vector3(0,-1,0);
 
 var container, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, sceneTestQuad, scene, renderer, material2;
@@ -231,9 +231,9 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data[p + 0] = 2*radius*i + Math.random()*0.1;
-      data[p + 1] = 2*radius*j + Math.random()*0.1;
-      data[p + 2] = 0; //+ Math.random()*0.1;
+      data[p + 0] = /*2*radius*i + */Math.random();
+      data[p + 1] = /*2*radius*j + */Math.random();
+      data[p + 2] = 0 + Math.random();
       data[p + 3] = 1; // to make it easier to debug
     }
   }

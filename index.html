@@ -90,6 +90,7 @@ void main() {
     vec3 velocity = texture2D(velTex, uv).xyz;
     vec3 force = gravity;
 
+    // Neighbor collisions
     for(int i=-1; i<2; i++){
         for(int j=-1; j<2; j++){
             for(int k=-1; k<2; k++){
@@ -117,7 +118,39 @@ void main() {
         }
     }
 
-    // TODO: Apply force from ground / bounds?
+    // Apply force from ground / bounds?
+    vec3 boxMax = vec3(0.9);
+    vec3 boxMin = vec3(0.1);
+    if(position.x - radius < boxMin.x){
+        float x = position.x - radius;
+        float x0 = boxMin.x;
+        force.x -= stiffness * (x - x0) + damping * velocity.x;
+    }
+    if(position.y - radius < boxMin.y){
+        float x = position.y - radius;
+        float x0 = boxMin.y;
+        force.y -= stiffness * (x - x0) + damping * velocity.y;
+    }
+    if(position.z - radius < boxMin.z){
+        float x = position.z - radius;
+        float x0 = boxMin.z;
+        force.z -= stiffness * (x - x0) + damping * velocity.z;
+    }
+    if(position.x + radius > boxMax.x){
+        float x = position.x + radius;
+        float x0 = boxMax.x;
+        force.x -= stiffness * (x - x0) + damping * velocity.x;
+    }
+    if(position.y + radius > boxMax.y){
+        float x = position.y + radius;
+        float x0 = boxMax.y;
+        force.y -= stiffness * (x - x0) + damping * velocity.y;
+    }
+    if(position.z + radius > boxMax.z){
+        float x = position.z + radius;
+        float x0 = boxMax.z;
+        force.z -= stiffness * (x - x0) + damping * velocity.z;
+    }
 
     gl_FragColor = vec4(force, 0.0);
 }
