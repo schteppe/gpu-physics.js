@@ -77,7 +77,7 @@ function init() {
       minFilter: THREE.NearestFilter,
       magFilter: THREE.NearestFilter,
       format: THREE.RGBAFormat,
-      type: THREE.FloatType
+			type: ( /(iPad|iPhone|iPod)/g.test( navigator.userAgent ) ) ? THREE.HalfFloatType : THREE.FloatType,
     });
   }
   posTextureRead = createRenderTarget(numParticles, numParticles);
