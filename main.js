@@ -1,11 +1,11 @@
-var numParticles = 16;
+var numParticles = 64;
 var deltaTime = 1 / 60;
-var stiffness = 500;
-var damping = 30;
+var stiffness = 1500;
+var damping = 10;
 var gridResolution = new THREE.Vector3(1*numParticles, 1*numParticles, 1*numParticles);
 var gridPosition = new THREE.Vector3(0,0,0);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
-var radius = cellSize.x * 0.7;
+var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,-1,0);
 
 var container, controls;
@@ -93,7 +93,7 @@ function init() {
   var light = new THREE.DirectionalLight();
   light.position.set(10,10,20);
   scene.add(light);
-  camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 1, 10000 );
+  camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, .1, 10000 );
   camera.position.set(2,0,5);
   var backgroundGeometry = new THREE.PlaneBufferGeometry( 100, 100 );
   backgroundMaterial = new THREE.MeshBasicMaterial( { color: 0x222222 } );
@@ -131,7 +131,8 @@ function init() {
     scene.add(sphereMesh);
   }
 
-  /*for(var i=0; i<gridResolution.x; i++){
+/*
+  for(var i=0; i<gridResolution.x; i++){
     for(var j=0; j<gridResolution.y; j++){
       for(var k=0; k<gridResolution.z; k++){
         var boxGeom = new THREE.BoxGeometry(1,1,1);
@@ -144,8 +145,8 @@ function init() {
         scene.add(boxMesh);
       }
     }
-  }*/
-
+  }
+*/
   // Init materials
   updatePositionMaterial = new THREE.ShaderMaterial({
     uniforms: {
@@ -246,9 +247,9 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data[p + 0] = Math.random();//10*radius + (i%2) * radius * 3;
-      data[p + 1] = Math.random();//2*radius + j*radius*2.4;
-      data[p + 2] = Math.random();//10*radius + (i%2) * radius * 3;
+      data[p + 0] = 0.2+Math.random()*0.6;//radius + (i%2) * radius * 3;//Math.random();//10*radius + (i%2) * radius * 3;
+      data[p + 1] = 0.2+Math.random()*0.2;//radius + j*radius*2.4;//Math.random();//2*radius + j*radius*2.4;
+      data[p + 2] = 0.2+Math.random()*0.6;//radius + (i%2) * radius * 3;//Math.random();//10*radius + (i%2) * radius * 3;
       data[p + 3] = 1; // to make it easier to debug
     }
   }
@@ -263,9 +264,9 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data2[p + 0] = 0;//(Math.random()-0.5)*0.2;
-      data2[p + 1] = 0;//(Math.random()-0.5)*0.2;
-      data2[p + 2] = 0;//(Math.random()-0.5)*0.2;
+      data2[p + 0] = (Math.random()-0.5)*0.2;
+      data2[p + 1] = (Math.random()-0.5)*0.2;
+      data2[p + 2] = (Math.random()-0.5)*0.2;
       data2[p + 3] = 1; // to make it easier to debug
     }
   }
@@ -394,3 +395,60 @@ function render() {
   debugQuadPositions.material.map = null;
   debugQuadGrid.material.map = null;
 }
+
+
+
+
+
+
+// Unit testing the shaders...
+function gridPosToGridUV(gridPos, subIndex, gridRes){
+     // Keep within limits
+     gridPos.set(
+      clamp(gridPos.x, 0, gridRes.x-1),
+      clamp(gridPos.y, 0, gridRes.y-1),
+      clamp(gridPos.z, 0, gridRes.z-1)
+    );
+
+    //vec3 gridTexRes = 2.0 * gridRes.xy * vec2(1, gridRes.z);
+    var gridTexRes = new THREE.Vector2(
+      2 * gridRes.x * 1,
+      2 * gridRes.y * gridRes.z
+    );
+    //vec2 gridUV = 2.0 * gridPos.xy / gridTexRes;
+    var gridUV = new THREE.Vector2(
+      2*gridPos.x / gridTexRes.x,
+      2*gridPos.y / gridTexRes.y
+    );
+    //gridUV.y += gridPos.z / gridRes.z; // Move up to correct z section
+    gridUV.y += gridPos.z / gridRes.z;
+    // Choose sub pixel
+    //float fSubIndex = float(subIndex);
+    var fSubIndex = subIndex;
+    //gridUV += 2.0*vec2(mod(fSubIndex,2.0), fSubIndex/2.0) / gridTexRes;
+    gridUV.add(new THREE.Vector2(
+      mod(fSubIndex,2.0) / gridTexRes.x,
+      fSubIndex/2.0 / gridTexRes.y
+    ));
+    //gridUV += vec2(1)/gridTexRes; // Move to center of pixel
+    //gridUV.add(new THREE.Vector2(1/gridTexRes.x,1/gridTexRes.y)); // Move to center of pixel
+    return gridUV;
+}
+function clamp(x,min,max){
+  return Math.max(Math.min(x,max), min);
+}
+function mod(x,n){
+  return  ((x%n)+n)%n;
+}
+
+// position texture is 2x2 pixels
+// grid texture is 4x8 pixels
+var gridPos = new THREE.Vector3(0,0,0);
+var gridRes = new THREE.Vector3(2,2,2);
+var result = gridPosToGridUV(gridPos, 0, gridRes);
+console.log(result.equals(new THREE.Vector2(0.25, 0.125)));
+
+gridPos.set(0,0,0);
+gridRes.set(2,2,2);
+result.copy( gridPosToGridUV(gridPos, 1, gridRes) );
+console.log(result/*.equals(new THREE.Vector2(0.5, 0.125))*/);
