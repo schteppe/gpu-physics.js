@@ -21,7 +21,7 @@ vec2 getParticleUV(float particleIndex, vec2 res){
     return particleUV;
 }
 // Get grid position as a vec3: (xIndex, yIndex, zIndex)
-vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize, vec3 gridRes){
+vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize){
     return floor((particlePos - gridPos)/cellSize);
 }
 // Convert grid position to UV coord in the grid texture
@@ -36,8 +36,8 @@ vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
     //gridUV += vec2(1)/gridTexRes; // Move to center of pixel
     return gridUV;
 }
-vec2 gridPosToGridUV2(vec3 gridPos, int subIndex, vec3 gridRes, int gridPotZ){
-    float fGridPotZ = float(gridPotZ);
+vec2 gridPosToGridUV2(vec3 gridPos, int subIndex, vec3 gridRes){
+    float fGridPotZ = float(gridRes.z);
 
     gridPos = clamp(gridPos, vec3(0), gridRes-vec3(1)); // Keep within limits
 
@@ -52,12 +52,7 @@ vec2 gridPosToGridUV2(vec3 gridPos, int subIndex, vec3 gridRes, int gridPotZ){
     // Choose sub pixel
     float fSubIndex = float(subIndex);
     gridUV += vec2( mod(fSubIndex,2.0), floor(fSubIndex/2.0) ) / gridTexRes;
-    /*
-    var fSubIndex = subIndex;
-    gridUV.add(new THREE.Vector2(
-      mod(fSubIndex,2.0) / gridTexRes.x,
-      floor(fSubIndex/2.0) / gridTexRes.y
-    ));*/
+
     return gridUV;
 }
 
@@ -85,9 +80,9 @@ void main() {
     vec2 particleUV = getParticleUV(particleIndex, resolution);
     vec3 particlePos = texture2D( posTex, particleUV ).xyz;
     // Get particle cell position
-    vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize, gridResolution);
-    vec2 gridUV = gridPosToGridUV(cellPos, 0, gridResolution);
-    gridUV += vec2(0.5) / (gridResolution.xy * vec2(1,gridResolution.z));// center to cell
+    vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize);
+    vec2 gridUV = gridPosToGridUV2(cellPos, 0, gridResolution);
+    gridUV += vec2(0.5) / (gridResolution.xy * vec2(gridResolution.z));// center to cell
     gl_PointSize = 2.0; // Cover 4 pixels in the grid texture
     gl_Position = vec4(2.0*(gridUV-0.5), 0, 1);
 }
@@ -115,7 +110,7 @@ void main() {
     // Get id and position of current
     vec3 position = texture2D(posTex, uv).xyz;
     vec3 velocity = texture2D(velTex, uv).xyz;
-    vec3 particleGridPos = worldPosToGridPos(position, gridPos, cellSize, gridResolution);
+    vec3 particleGridPos = worldPosToGridPos(position, gridPos, cellSize);
 
     vec3 force = gravity;
     ivec3 iGridRes = ivec3(gridResolution);
@@ -127,8 +122,8 @@ void main() {
                 vec3 neighborCellGridPos = particleGridPos + vec3(i,j,k);
                 ivec3 iNeighborCellGridPos = ivec3(particleGridPos) + ivec3(i,j,k);
                 for(int l=0; l<4; l++){
-                    vec2 neighborCellTexUV = gridPosToGridUV(neighborCellGridPos, l, gridResolution);
-                    neighborCellTexUV += vec2(0.5) / (4.0 * gridResolution.xy * vec2(1,gridResolution.z)); // center to pixel
+                    vec2 neighborCellTexUV = gridPosToGridUV2(neighborCellGridPos, l, gridResolution);
+                    neighborCellTexUV += vec2(0.5) / (4.0 * gridResolution.xy * vec2(gridResolution.z)); // center to pixel
                     int neighborIndex = int(floor(texture2D(gridTex, neighborCellTexUV).x-1.0 + 0.5)); // indices are stored incremented by 1
                     vec2 neighborUV = getParticleUV(float(neighborIndex), resolution);
                     vec3 neighborPosition = texture2D(posTex, neighborUV).xyz;
@@ -150,8 +145,8 @@ void main() {
     }
 
     // Apply force from ground / bounds?
-    vec3 boxMax = vec3(0.8);
-    vec3 boxMin = vec3(0.2);
+    vec3 boxMax = vec3(1.0);
+    vec3 boxMin = vec3(0.0);
     if(position.x - radius < boxMin.x){
         float x = position.x - radius;
         float x0 = boxMin.x;

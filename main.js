@@ -1,11 +1,11 @@
-var numParticles = 8;
+var numParticles = 4;
 var deltaTime = 1 / 60;
 var stiffness = 1500;
 var damping = 10;
 var gridResolution = new THREE.Vector3(1*numParticles, 1*numParticles, 1*numParticles);
 var gridPosition = new THREE.Vector3(0,0,0);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
-var radius = cellSize.x * 0.5;
+var radius = cellSize.x * 0.4;
 var gravity = new THREE.Vector3(0,-1,0);
 
 var container, controls;
@@ -86,12 +86,13 @@ function init() {
   velTextureWrite = createRenderTarget(numParticles, numParticles);
   forceTexture = createRenderTarget(numParticles, numParticles);
 
-  // Compute upper closest power of 2 for the grid texture
+  // Compute upper closest power of 2 for the grid texture size in z
   var potSize = 1;
   while(potSize*potSize < gridResolution.z){
     potSize *= 2;
   }
-  gridTexture = createRenderTarget(2*gridResolution.x, 2*gridResolution.y*gridResolution.z);
+  gridResolution.z = potSize;
+  gridTexture = createRenderTarget(2*gridResolution.x*potSize, 2*gridResolution.y*potSize);
 
   // Initial state
   setInitialState(numParticles, posTextureRead, velTextureRead);
@@ -139,7 +140,6 @@ function init() {
     scene.add(sphereMesh);
   }
 
-/*
   for(var i=0; i<gridResolution.x; i++){
     for(var j=0; j<gridResolution.y; j++){
       for(var k=0; k<gridResolution.z; k++){
@@ -154,7 +154,6 @@ function init() {
       }
     }
   }
-*/
   // Init materials
   updatePositionMaterial = new THREE.ShaderMaterial({
     uniforms: {
@@ -242,7 +241,7 @@ function init() {
 
   // Debug quads
   debugQuadPositions = addDebugQuad(1, 1);
-  debugQuadGrid = addDebugQuad(1, gridResolution.z, 1/(numParticles*numParticles));
+  debugQuadGrid = addDebugQuad(gridResolution.z, gridResolution.z, 1/(numParticles*numParticles));
 
   // Add controls
   controls = new THREE.OrbitControls( camera, renderer.domElement );
@@ -255,9 +254,9 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data[p + 0] = 0.2+Math.random()*0.6;//radius + (i%2) * radius * 3;//Math.random();//10*radius + (i%2) * radius * 3;
-      data[p + 1] = 0.2+Math.random()*0.2;//radius + j*radius*2.4;//Math.random();//2*radius + j*radius*2.4;
-      data[p + 2] = 0.2+Math.random()*0.6;//radius + (i%2) * radius * 3;//Math.random();//10*radius + (i%2) * radius * 3;
+      data[p + 0] = (i%2) * radius * 3;//0.2+Math.random()*0.6;//radius + (i%2) * radius * 3;//Math.random();//10*radius + (i%2) * radius * 3;
+      data[p + 1] = radius + j*radius*2.4;//0.2+Math.random()*0.2;//radius + j*radius*2.4;//Math.random();//2*radius + j*radius*2.4;
+      data[p + 2] = radius + (i%2) * radius * 3;//0.2+Math.random()*0.6;//radius + (i%2) * radius * 3;//Math.random();//10*radius + (i%2) * radius * 3;
       data[p + 3] = 1; // to make it easier to debug
     }
   }
@@ -272,9 +271,9 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data2[p + 0] = (Math.random()-0.5)*0.2;
-      data2[p + 1] = (Math.random()-0.5)*0.2;
-      data2[p + 2] = (Math.random()-0.5)*0.2;
+      data2[p + 0] = 0;//(Math.random()-0.5)*0.2;
+      data2[p + 1] = 0;//(Math.random()-0.5)*0.2;
+      data2[p + 2] = 0;//(Math.random()-0.5)*0.2;
       data2[p + 3] = 1; // to make it easier to debug
     }
   }
