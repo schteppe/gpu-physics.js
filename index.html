@@ -36,6 +36,31 @@ vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
     //gridUV += vec2(1)/gridTexRes; // Move to center of pixel
     return gridUV;
 }
+vec2 gridPosToGridUV2(vec3 gridPos, int subIndex, vec3 gridRes, int gridPotZ){
+    float fGridPotZ = float(gridPotZ);
+
+    gridPos = clamp(gridPos, vec3(0), gridRes-vec3(1)); // Keep within limits
+
+    vec2 gridTexRes = gridRes.xy * vec2(fGridPotZ * 2.0);
+    vec2 gridUV = 2.0 * gridPos.xy / vec2(gridTexRes);
+
+    // move to correct z square
+    vec2 zPos = vec2( mod(gridPos.z, fGridPotZ), floor(gridPos.z / fGridPotZ) );
+    zPos /= vec2(fGridPotZ);
+    gridUV += zPos;
+
+    // Choose sub pixel
+    float fSubIndex = float(subIndex);
+    gridUV += vec2( mod(fSubIndex,2.0), floor(fSubIndex/2.0) ) / gridTexRes;
+    /*
+    var fSubIndex = subIndex;
+    gridUV.add(new THREE.Vector2(
+      mod(fSubIndex,2.0) / gridTexRes.x,
+      floor(fSubIndex/2.0) / gridTexRes.y
+    ));*/
+    return gridUV;
+}
+
 </script>
 <script id="vertexShader" type="x-shader/x-vertex">
 void main() {

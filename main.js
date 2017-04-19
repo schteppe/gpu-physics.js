@@ -1,4 +1,4 @@
-var numParticles = 64;
+var numParticles = 8;
 var deltaTime = 1 / 60;
 var stiffness = 1500;
 var damping = 10;
@@ -85,7 +85,15 @@ function init() {
   velTextureRead = createRenderTarget(numParticles, numParticles);
   velTextureWrite = createRenderTarget(numParticles, numParticles);
   forceTexture = createRenderTarget(numParticles, numParticles);
+
+  // Compute upper closest power of 2 for the grid texture
+  var potSize = 1;
+  while(potSize*potSize < gridResolution.z){
+    potSize *= 2;
+  }
   gridTexture = createRenderTarget(2*gridResolution.x, 2*gridResolution.y*gridResolution.z);
+
+  // Initial state
   setInitialState(numParticles, posTextureRead, velTextureRead);
 
   // main 3D scene
@@ -401,7 +409,7 @@ function render() {
 
 
 
-// Unit testing the shaders...
+// "Unit testing" the shaders...
 function gridPosToGridUV(gridPos, subIndex, gridRes){
      // Keep within limits
      gridPos.set(
@@ -434,8 +442,51 @@ function gridPosToGridUV(gridPos, subIndex, gridRes){
     //gridUV.add(new THREE.Vector2(1/gridTexRes.x,1/gridTexRes.y)); // Move to center of pixel
     return gridUV;
 }
+// TEST 2, using square broadphase texture
+function gridPosToGridUVSquare(gridPos, subIndex, gridRes){
+     // Keep within grid
+     gridPos.set(
+      clamp(gridPos.x, 0, gridRes.x-1),
+      clamp(gridPos.y, 0, gridRes.y-1),
+      clamp(gridPos.z, 0, gridRes.z-1)
+    );
+
+    // Compute upper closest power of 2 for the grid texture
+    // Should be precomputed?
+    var potSize = 1;
+    while(potSize*potSize < gridRes.z){
+      potSize *= 2;
+    }
+
+    var gridTexRes = new THREE.Vector2(
+      2 * gridRes.x * potSize,
+      2 * gridRes.y * potSize
+    );
+    var gridUV = new THREE.Vector2(
+      2*gridPos.x / gridTexRes.x,
+      2*gridPos.y / gridTexRes.y
+    );
+    // move to correct z square
+    var zPos = new THREE.Vector2(
+      mod(gridPos.z, potSize),
+      floor(gridPos.z / potSize)
+    );
+    zPos.divide(new THREE.Vector2(potSize,potSize));
+    gridUV.add(zPos);
+
+    // Choose sub pixel
+    var fSubIndex = subIndex;
+    gridUV.add(new THREE.Vector2(
+      mod(fSubIndex,2.0) / gridTexRes.x,
+      floor(fSubIndex/2.0) / gridTexRes.y
+    ));
+    return gridUV;
+}
 function clamp(x,min,max){
   return Math.max(Math.min(x,max), min);
+}
+function floor(x){
+  return Math.floor(x);
 }
 function mod(x,n){
   return  ((x%n)+n)%n;
@@ -446,9 +497,38 @@ function mod(x,n){
 var gridPos = new THREE.Vector3(0,0,0);
 var gridRes = new THREE.Vector3(2,2,2);
 var result = gridPosToGridUV(gridPos, 0, gridRes);
-console.log(result.equals(new THREE.Vector2(0.25, 0.125)));
+//console.log(result.equals(new THREE.Vector2(0.25, 0.125)));
 
 gridPos.set(0,0,0);
 gridRes.set(2,2,2);
 result.copy( gridPosToGridUV(gridPos, 1, gridRes) );
-console.log(result/*.equals(new THREE.Vector2(0.5, 0.125))*/);
+//console.log(result/*.equals(new THREE.Vector2(0.5, 0.125))*/);
+
+
+// TEST 2, using square broadphase texture
+gridPos.set(0,0,0);
+gridRes.set(8,8,8);
+// This will create 4x4 cells (closest upper power of 2) for different z positions, only using the 8 first.
+// Each z-cell is 16x16, a total size of 64x64 in the broadphase texture
+result = gridPosToGridUVSquare(gridPos, 0, gridRes);
+console.log(result.equals(new THREE.Vector2(0,0)));
+
+gridPos.set(0,0,1);
+result = gridPosToGridUVSquare(gridPos, 0, gridRes);
+console.log(result.equals(new THREE.Vector2(1/4,0)));
+
+gridPos.set(1,0,1);
+result = gridPosToGridUVSquare(gridPos, 0, gridRes);
+console.log(result.equals(new THREE.Vector2(1/4 + (1/8) * 1/4,0)));
+
+gridPos.set(0,0,4);
+result = gridPosToGridUVSquare(gridPos, 0, gridRes);
+console.log(result.equals(new THREE.Vector2(0,1/4)));
+
+gridPos.set(0,0,7);
+result = gridPosToGridUVSquare(gridPos, 0, gridRes);
+console.log(result.equals(new THREE.Vector2(3/4,1/4)));
+
+gridPos.set(0,0,7);
+result = gridPosToGridUVSquare(gridPos, 3, gridRes);
+console.log(result.equals(new THREE.Vector2(3/4 + 1/64,1/4 + 1/64)));
