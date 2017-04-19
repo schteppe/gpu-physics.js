@@ -1,11 +1,11 @@
-var numParticles = 8;
+var numParticles = 16;
 var deltaTime = 1 / 60;
-var stiffness = 1000;
-var damping = 20;
-var gridResolution = new THREE.Vector3(2*numParticles, 2*numParticles, 2*numParticles);
+var stiffness = 500;
+var damping = 30;
+var gridResolution = new THREE.Vector3(1*numParticles, 1*numParticles, 1*numParticles);
 var gridPosition = new THREE.Vector3(0,0,0);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
-var radius = cellSize.x * 0.5;
+var radius = cellSize.x * 0.7;
 var gravity = new THREE.Vector3(0,-1,0);
 
 var container, controls;
@@ -94,7 +94,7 @@ function init() {
   light.position.set(10,10,20);
   scene.add(light);
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 1, 10000 );
-  camera.position.z = 14;
+  camera.position.set(2,0,5);
   var backgroundGeometry = new THREE.PlaneBufferGeometry( 100, 100 );
   backgroundMaterial = new THREE.MeshBasicMaterial( { color: 0x222222 } );
   var backgroundMesh = new THREE.Mesh( backgroundGeometry, backgroundMaterial );
@@ -130,6 +130,21 @@ function init() {
     sphereMesh.onAfterRender = afterRender;
     scene.add(sphereMesh);
   }
+
+  /*for(var i=0; i<gridResolution.x; i++){
+    for(var j=0; j<gridResolution.y; j++){
+      for(var k=0; k<gridResolution.z; k++){
+        var boxGeom = new THREE.BoxGeometry(1,1,1);
+        var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
+        var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
+        boxMesh.position.copy(gridPosition);
+        boxMesh.position.add(cellSize.clone().multiply(new THREE.Vector3(i,j,k)));
+        boxMesh.position.add(cellSize.clone().multiplyScalar(0.5));
+        boxMesh.scale.copy(cellSize);
+        scene.add(boxMesh);
+      }
+    }
+  }*/
 
   // Init materials
   updatePositionMaterial = new THREE.ShaderMaterial({
@@ -231,9 +246,9 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data[p + 0] = /*2*radius*i + */Math.random();
-      data[p + 1] = /*2*radius*j + */Math.random();
-      data[p + 2] = 0 + Math.random();
+      data[p + 0] = Math.random();//10*radius + (i%2) * radius * 3;
+      data[p + 1] = Math.random();//2*radius + j*radius*2.4;
+      data[p + 2] = Math.random();//10*radius + (i%2) * radius * 3;
       data[p + 3] = 1; // to make it easier to debug
     }
   }
@@ -329,7 +344,6 @@ function render() {
   state.buffers.stencil.setTest( true );
   state.buffers.stencil.setFunc( gl.EQUAL, 3, 0xffffffff );
   state.buffers.stencil.setOp( gl.INCR, gl.INCR, gl.INCR );
-  //state.buffers.stencil.setMask( 0 );
   mapParticleToCellMesh.material = mapParticleMaterial;
   mapParticleMaterial.uniforms.posTex.value = posTextureRead.texture;
   renderer.render( sceneMap, fullscreenQuadCamera, gridTexture, false );
@@ -368,7 +382,7 @@ function render() {
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, posTextureWrite, false );
   updatePositionMaterial.uniforms.velTex.value = null;
   updatePositionMaterial.uniforms.posTex.value = null;
-  var tmp = posTextureWrite; // swap
+  tmp = posTextureWrite; // swap
   posTextureWrite = posTextureRead;
   posTextureRead = tmp;
 
