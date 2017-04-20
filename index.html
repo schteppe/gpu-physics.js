@@ -37,12 +37,12 @@ vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
     return gridUV;
 }
 vec2 gridPosToGridUV2(vec3 gridPos, int subIndex, vec3 gridRes){
-    float fGridPotZ = float(gridRes.z);
+    float fGridPotZ = float(gridPotZ);
 
     gridPos = clamp(gridPos, vec3(0), gridRes-vec3(1)); // Keep within limits
 
     vec2 gridTexRes = gridRes.xy * vec2(fGridPotZ * 2.0);
-    vec2 gridUV = 4.0 * gridPos.xy / vec2(gridTexRes);
+    vec2 gridUV = 2.0 * gridPos.xy / vec2(gridTexRes);
 
     // move to correct z square
     vec2 zPos = vec2( mod(gridPos.z, fGridPotZ), floor(gridPos.z / fGridPotZ) );
@@ -82,8 +82,8 @@ void main() {
     // Get particle cell position
     vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize);
     vec2 gridUV = gridPosToGridUV2(cellPos, 0, gridResolution);
-    vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridResolution.z);
-    gridUV += vec2(0.5) / gridTexRes;// center to cell
+    vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridPotZ);
+    gridUV += vec2(1) / gridTexRes;// center to cell
     gl_PointSize = 2.0; // Cover 4 pixels in the grid texture
     gl_Position = vec4(2.0*(gridUV-0.5), 0, 1);
 }
@@ -115,7 +115,7 @@ void main() {
 
     vec3 force = gravity;
     ivec3 iGridRes = ivec3(gridResolution);
-    vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridResolution.z);
+    vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridPotZ);
 
     // Neighbor collisions
     for(int i=-1; i<2; i++){
@@ -147,8 +147,8 @@ void main() {
     }
 
     // Apply force from ground / bounds?
-    vec3 boxMax = vec3(1.0);
-    vec3 boxMin = vec3(0.0);
+    vec3 boxMax = vec3(0.9);
+    vec3 boxMin = vec3(0.1);
     if(position.x - radius < boxMin.x){
         float x = position.x - radius;
         float x0 = boxMin.x;
@@ -179,6 +179,7 @@ void main() {
         float x0 = boxMax.z;
         force.z -= stiffness * (x - x0) + damping * velocity.z;
     }
+
     gl_FragColor = vec4(force, 0.0);
 }
 </script>

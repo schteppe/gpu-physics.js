@@ -1,13 +1,15 @@
-var numParticles = 2;
+var numParticles = 8;
 var deltaTime = 1 / 60;
-var stiffness = 1500;
+var stiffness = 1000;
 var damping = 10;
 var gridResolution = new THREE.Vector3(1*numParticles, 1*numParticles, 1*numParticles);
 var gridPosition = new THREE.Vector3(0,0,0);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
-var gravity = new THREE.Vector3(0,0,0);
+var gravity = new THREE.Vector3(0,-1,0);
+var showDebugGrid = false;
 
+var gridPotZ;
 var container, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, sceneTestQuad, scene, renderer, material2;
 var windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
@@ -40,12 +42,20 @@ function getDefines(){
     resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
     gridResolution: (
       'vec3( ' + gridResolution.x.toFixed( 1 ) + ', ' + gridResolution.y.toFixed( 1 ) + ', ' + gridResolution.z.toFixed( 1 ) + " )"
-    )
+    ),
+    gridPotZ: 'int(' + gridPotZ + ')'
   };
 }
 
 function init() {
   container = document.getElementById( 'container' );
+
+  // Compute upper closest power of 2 for the grid texture size in z
+  var potSize = 1;
+  while(potSize*potSize < gridResolution.z){
+    potSize *= 2;
+  }
+  gridPotZ = potSize;
 
   // Set up renderer
   renderer = new THREE.WebGLRenderer();
@@ -85,14 +95,9 @@ function init() {
   velTextureRead = createRenderTarget(numParticles, numParticles);
   velTextureWrite = createRenderTarget(numParticles, numParticles);
   forceTexture = createRenderTarget(numParticles, numParticles);
-
-  // Compute upper closest power of 2 for the grid texture size in z
-  var potSize = 1;
-  while(potSize*potSize < gridResolution.z){
-    potSize *= 2;
-  }
-  gridResolution.z = potSize*potSize;
   gridTexture = createRenderTarget(2*gridResolution.x*potSize, 2*gridResolution.y*potSize);
+
+  console.log('Grid texture is ' + (2*gridResolution.x*potSize) + 'x' + (2*gridResolution.y*potSize));
 
   // Initial state
   setInitialState(numParticles, posTextureRead, velTextureRead);
@@ -140,20 +145,24 @@ function init() {
     scene.add(sphereMesh);
   }
 
-  for(var i=0; i<gridResolution.x; i++){
-    for(var j=0; j<gridResolution.y; j++){
-      for(var k=0; k<gridResolution.z; k++){
-        var boxGeom = new THREE.BoxGeometry(1,1,1);
-        var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
-        var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
-        boxMesh.position.copy(gridPosition);
-        boxMesh.position.add(cellSize.clone().multiply(new THREE.Vector3(i,j,k)));
-        boxMesh.position.add(cellSize.clone().multiplyScalar(0.5));
-        boxMesh.scale.copy(cellSize);
-        scene.add(boxMesh);
+  // debug grid
+  if(showDebugGrid){
+    for(var i=0; i<gridResolution.x; i++){
+      for(var j=0; j<gridResolution.y; j++){
+        for(var k=0; k<gridResolution.z; k++){
+          var boxGeom = new THREE.BoxGeometry(1,1,1);
+          var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
+          var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
+          boxMesh.position.copy(gridPosition);
+          boxMesh.position.add(cellSize.clone().multiply(new THREE.Vector3(i,j,k)));
+          boxMesh.position.add(cellSize.clone().multiplyScalar(0.5));
+          boxMesh.scale.copy(cellSize);
+          scene.add(boxMesh);
+        }
       }
     }
   }
+
   // Init materials
   updatePositionMaterial = new THREE.ShaderMaterial({
     uniforms: {
@@ -287,7 +296,7 @@ function setInitialState(size, posTex, velTex){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
       data2[p + 0] = 0;//(Math.random()-0.5)*0.2;
-      data2[p + 1] = 0;//(Math.random()-0.5)*0.2;
+      data2[p + 1] = .1;//(Math.random()-0.5)*0.2;
       data2[p + 2] = 0;//(Math.random()-0.5)*0.2;
       data2[p + 3] = 1; // to make it easier to debug
     }
