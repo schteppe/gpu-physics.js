@@ -27,6 +27,7 @@ var updateForceMaterial;
 var debugQuadPositions;
 var debugQuadGrid;
 var mapParticleToCellMesh;
+var spheresMesh;
 
 init();
 animate();
@@ -82,11 +83,11 @@ function init() {
   fullscreenQuadScene.add( fullScreenQuad );
 
   // Init data textures
-  function createRenderTarget(w,h){
+  function createRenderTarget(w,h,format){
     return new THREE.WebGLRenderTarget(w, h, {
       minFilter: THREE.NearestFilter,
       magFilter: THREE.NearestFilter,
-      format: THREE.RGBAFormat,
+      format: format === undefined ? THREE.RGBAFormat : format,
 			type: ( /(iPad|iPhone|iPod)/g.test( navigator.userAgent ) ) ? THREE.HalfFloatType : THREE.FloatType,
     });
   }
@@ -95,8 +96,9 @@ function init() {
   velTextureRead = createRenderTarget(numParticles, numParticles);
   velTextureWrite = createRenderTarget(numParticles, numParticles);
   forceTexture = createRenderTarget(numParticles, numParticles);
-  gridTexture = createRenderTarget(2*gridResolution.x*potSize, 2*gridResolution.y*potSize);
+  gridTexture = createRenderTarget(2*gridResolution.x*potSize, 2*gridResolution.y*potSize, THREE.RGBFormat);
 
+  console.log((numParticles*numParticles) + ' particles');
   console.log('Grid texture is ' + (2*gridResolution.x*potSize) + 'x' + (2*gridResolution.y*potSize));
 
   // Initial state
@@ -108,42 +110,44 @@ function init() {
   light.position.set(10,10,20);
   scene.add(light);
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, .1, 10000 );
-  camera.position.set(2,0,15);
+  camera.position.set(2,1,2);
   var backgroundGeometry = new THREE.PlaneBufferGeometry( 100, 100 );
   backgroundMaterial = new THREE.MeshBasicMaterial( { color: 0x222222 } );
   var backgroundMesh = new THREE.Mesh( backgroundGeometry, backgroundMaterial );
   backgroundMesh.position.z = -3;
   scene.add( backgroundMesh );
 
-  // Renders meshes at position given by a texture
+  // Create a batched geometry for debug spheres
+  var sphereGeometry = new THREE.SphereBufferGeometry(radius, 6, 8);
+  var triangles = 1;
+  var instances = numParticles*numParticles;
+  var geometry = new THREE.InstancedBufferGeometry();
+  geometry.maxInstancedCount = instances;
+  geometry.addAttribute( 'position', sphereGeometry.attributes.position.clone() );
+  geometry.addAttribute( 'normal', sphereGeometry.attributes.normal.clone() );
+  geometry.addAttribute( 'uv', sphereGeometry.attributes.uv.clone() );
+  geometry.setIndex( sphereGeometry.index.clone() );
+  var particleIndices = new THREE.InstancedBufferAttribute( new Float32Array( instances * 1 ), 1, 1 );
+  for ( var i = 0, ul = particleIndices.count; i < ul; i++ ) {
+    particleIndices.setX( i, i );
+  }
+  geometry.addAttribute( 'particleIndex', particleIndices );
+  geometry.boundingSphere = null;
+  // material
   var phongShader = THREE.ShaderLib.phong;
   var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
-  uniforms.posTex = { value: null };
-  uniforms.particleIndex = { value: 0 };
-  var sphereGeometry = new THREE.SphereGeometry(radius,16,16);
-  var vert = document.getElementById( 'sharedShaderCode' ).textContent + "uniform sampler2D posTex;uniform float particleIndex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=getParticleUV(particleIndex,resolution);transformed.xyz+=texture2D(posTex,particleUV).xyz;");
-  var def = getDefines();
-  var beforeRender = function(renderer, scene, camera, geometry, material){
-    material.uniforms.particleIndex.value = this.particleIndex;
-    material.uniforms.posTex.value = posTextureRead.texture;
-  };
-  var afterRender = function(renderer, scene, camera, geometry, material){
-    material.uniforms.posTex.value = null;
-  };
-  for(var i=0; i<numParticles*numParticles; i++){
-    var renderParticleMaterial = new THREE.ShaderMaterial({
-      uniforms: uniforms,
-      vertexShader: vert,
-      fragmentShader: phongShader.fragmentShader,
-      lights: true,
-      defines: def
-    });
-    var sphereMesh = new THREE.Mesh( sphereGeometry, renderParticleMaterial );
-    sphereMesh.particleIndex = i;
-    sphereMesh.onBeforeRender = beforeRender;
-    sphereMesh.onAfterRender = afterRender;
-    scene.add(sphereMesh);
-  }
+  uniforms.posTex = { value: posTextureRead.texture };
+  var vert = document.getElementById( 'sharedShaderCode' ).textContent + "uniform sampler2D posTex;attribute float particleIndex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=getParticleUV(particleIndex,resolution);transformed.xyz+=texture2D(posTex,particleUV).xyz;");
+  var material = new THREE.ShaderMaterial({
+    uniforms: uniforms,
+    vertexShader: vert,
+    fragmentShader: phongShader.fragmentShader,
+    lights: true,
+    defines: getDefines()
+  });
+  spheresMesh = new THREE.Mesh( geometry, material );
+  spheresMesh.frustumCulled = false;
+  scene.add( spheresMesh );
 
   // debug grid
   if(showDebugGrid){
@@ -249,8 +253,8 @@ function init() {
   sceneStencil.add( setGridStencilMesh );
 
   // Debug quads
-  debugQuadPositions = addDebugQuad(1, 1);
-  debugQuadGrid = addDebugQuad(gridResolution.z, gridResolution.z, 1/(numParticles*numParticles));
+  //debugQuadPositions = addDebugQuad(1, 1);
+  //debugQuadGrid = addDebugQuad(gridResolution.z, gridResolution.z, 1/(numParticles*numParticles));
 
   // Add controls
   controls = new THREE.OrbitControls( camera, renderer.domElement );
@@ -419,16 +423,15 @@ function render() {
   posTextureRead = tmp;
 
   // Render main scene
-  debugQuadPositions.material.map = posTextureRead.texture;
-  debugQuadGrid.material.map = gridTexture.texture;
+  if(debugQuadPositions) debugQuadPositions.material.map = posTextureRead.texture;
+  if(debugQuadGrid) debugQuadGrid.material.map = gridTexture.texture;
   mapParticleMaterial.uniforms.posTex.value = posTextureRead.texture;
+  spheresMesh.material.uniforms.posTex.value = posTextureRead.texture;
   renderer.render( scene, camera );
-  debugQuadPositions.material.map = null;
-  debugQuadGrid.material.map = null;
+  spheresMesh.material.uniforms.posTex.value = null;
+  if(debugQuadPositions) debugQuadPositions.material.map = null;
+  if(debugQuadGrid) debugQuadGrid.material.map = null;
 }
-
-
-
 
 
 
