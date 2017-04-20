@@ -42,7 +42,7 @@ vec2 gridPosToGridUV2(vec3 gridPos, int subIndex, vec3 gridRes){
     gridPos = clamp(gridPos, vec3(0), gridRes-vec3(1)); // Keep within limits
 
     vec2 gridTexRes = gridRes.xy * vec2(fGridPotZ * 2.0);
-    vec2 gridUV = 2.0 * gridPos.xy / vec2(gridTexRes);
+    vec2 gridUV = 4.0 * gridPos.xy / vec2(gridTexRes);
 
     // move to correct z square
     vec2 zPos = vec2( mod(gridPos.z, fGridPotZ), floor(gridPos.z / fGridPotZ) );
@@ -82,7 +82,8 @@ void main() {
     // Get particle cell position
     vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize);
     vec2 gridUV = gridPosToGridUV2(cellPos, 0, gridResolution);
-    gridUV += vec2(0.5) / (gridResolution.xy * vec2(gridResolution.z));// center to cell
+    vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridResolution.z);
+    gridUV += vec2(0.5) / gridTexRes;// center to cell
     gl_PointSize = 2.0; // Cover 4 pixels in the grid texture
     gl_Position = vec4(2.0*(gridUV-0.5), 0, 1);
 }
@@ -114,6 +115,7 @@ void main() {
 
     vec3 force = gravity;
     ivec3 iGridRes = ivec3(gridResolution);
+    vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridResolution.z);
 
     // Neighbor collisions
     for(int i=-1; i<2; i++){
@@ -123,7 +125,7 @@ void main() {
                 ivec3 iNeighborCellGridPos = ivec3(particleGridPos) + ivec3(i,j,k);
                 for(int l=0; l<4; l++){
                     vec2 neighborCellTexUV = gridPosToGridUV2(neighborCellGridPos, l, gridResolution);
-                    neighborCellTexUV += vec2(0.5) / (4.0 * gridResolution.xy * vec2(gridResolution.z)); // center to pixel
+                    neighborCellTexUV += vec2(0.5) / (2.0 * gridTexRes); // center to "cell pixel"
                     int neighborIndex = int(floor(texture2D(gridTex, neighborCellTexUV).x-1.0 + 0.5)); // indices are stored incremented by 1
                     vec2 neighborUV = getParticleUV(float(neighborIndex), resolution);
                     vec3 neighborPosition = texture2D(posTex, neighborUV).xyz;
