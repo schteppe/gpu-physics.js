@@ -1,4 +1,4 @@
-var numParticles = 8;
+var numParticles = 64;
 var deltaTime = 1 / 60;
 var stiffness = 1000;
 var damping = 10;
