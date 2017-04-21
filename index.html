@@ -75,7 +75,7 @@ void main() {
 <script id="testFrag" type="x-shader/x-fragment">
 uniform sampler2D texture;
 void main() {
-    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    vec2 uv = gl_FragCoord.xy / resolution;
     gl_FragColor = texture2D( texture, uv );
 }
 </script>
@@ -120,7 +120,7 @@ uniform sampler2D velTex;
 uniform sampler2D gridTex;
 
 void main() {
-    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    vec2 uv = gl_FragCoord.xy / resolution;
     int particleIndex = getParticleIndex(uv, resolution);
 
     // Get id and position of current
@@ -202,16 +202,16 @@ void main() {
 }
 </script>
 <script id="updateVelocityFrag" type="x-shader/x-fragment">
+// Should be possible to use for both angular and linear velocity
 uniform sampler2D velTex;
 uniform sampler2D forceTex;
 uniform vec4 params2;
 #define deltaTime params2.x
 
 void main() {
-    vec2 uv = gl_FragCoord.xy / resolution.xy;
+    vec2 uv = gl_FragCoord.xy / resolution;
     vec4 velocity = texture2D(velTex, uv);
     vec4 force = texture2D(forceTex, uv);
-    //float invMass = velocity.w;
     gl_FragColor = vec4(velocity.xyz + force.xyz * deltaTime, 1.0);
 }
 </script>
@@ -222,10 +222,23 @@ uniform vec4 params2;
 #define deltaTime params2.x
 
 void main() {
-   vec2 uv = gl_FragCoord.xy / resolution.xy;
-   vec3 velocity = texture2D(velTex, uv).xyz;
+   vec2 uv = gl_FragCoord.xy / resolution;
    vec3 position = texture2D(posTex, uv).xyz;
+   vec3 velocity = texture2D(velTex, uv).xyz;
    gl_FragColor = vec4(position + velocity * deltaTime, 1.0);
+}
+</script>
+<script id="updateQuaternionFrag" type="x-shader/x-fragment">
+uniform sampler2D quatTex;
+uniform sampler2D angularVelTex;
+uniform vec4 params2;
+#define deltaTime params2.x
+
+void main() {
+   vec2 uv = gl_FragCoord.xy / resolution;
+   vec3 quat = texture2D(quatTex, uv).xyz;
+   vec3 angularVel = texture2D(angularVelTex, uv).xyz;
+   gl_FragColor = quat_integrate(quat, angularVel, deltaTime);
 }
 </script>
 

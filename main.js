@@ -206,6 +206,18 @@ function init() {
     defines: getDefines()
   });
 
+  // Update quaternions
+  updateQuaternionMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      quatTex:  { value: null },
+      angularVelTex:  { value: null },
+      params2: { value: simulationParams2 }
+    },
+    vertexShader: getShader( 'vertexShader' ),
+    fragmentShader: getShader( 'updateQuaternionFrag' ),
+    defines: getDefines()
+  });
+
   // Update force material
   updateForceMaterial = new THREE.ShaderMaterial({
     uniforms: {
