@@ -30,6 +30,7 @@ var debugQuadGrid;
 var mapParticleToCellMesh;
 var spheresMesh;
 var sharedShaderCode;
+var dataTex = {};
 
 init();
 animate();
@@ -267,79 +268,38 @@ function init() {
 }
 
 function setInitialState(size, posTex, rotTex, velTex){
-  
-  // Position
-  var data = new Float32Array(size*size*4);
-  for(var i=0; i<size; i++){
-    for(var j=0; j<size; j++){
-
-      var p = (i*size + j) * 4;
-      var x,y,z,w;
-
-      switch(1){
-        case 0:
-          x = y = z = radius;
-          w = 1;
-          break;
-        case 1:
-          x = Math.random();
-          y = Math.random();
-          z = Math.random();
-          w = 1;
-          break;
-      }
-
-      data[p + 0] = x;
-      data[p + 1] = y;
-      data[p + 2] = z;
-      data[p + 3] = w;
-    }
-  }
-  dataTex = new THREE.DataTexture( data, size, size, THREE.RGBAFormat, THREE.FloatType );
-  dataTex.needsUpdate = true;
-  texturedMaterial.uniforms.texture.value = dataTex;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, posTex );
-  texturedMaterial.uniforms.texture.value = null;
-
-  // Set velocity
-  var data2 = new Float32Array(size*size*4);
-  for(var i=0; i<size; i++){
-    for(var j=0; j<size; j++){
-      var p = (i*size + j) * 4;
-      data2[p + 0] = 0;
-      data2[p + 1] = 0;
-      data2[p + 2] = 0;
-      data2[p + 3] = 1;
-    }
-  }
-  var dataTex2 = new THREE.DataTexture( data2, size, size, THREE.RGBAFormat, THREE.FloatType );
-  dataTex2.needsUpdate = true;
-  texturedMaterial.uniforms.texture.value = dataTex2;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, velTex );
-  texturedMaterial.uniforms.texture.value = null;
+  fillRenderTarget(posTex, function(out, x, y){
+    out.set( 0.3 + 0.3*Math.random(), 0.2*Math.random() + 0.3, 0.3 + 0.3*Math.random(), 1 );
+  });
+  fillRenderTarget(velTex, function(out, x, y){
+    out.set( 0, 0, 0, 1 );
+  });
 }
 
 // TODO
-var dataTex;
-function fillTexture(renderTarget, getPixelFunc){
-  var data = new Float32Array(size*size*4);
+function fillRenderTarget(renderTarget, getPixelFunc){
+  var w = renderTarget.width;
+  var h = renderTarget.height;
+
+  var data = new Float32Array(w*h*4);
   pixel = new THREE.Vector4();
-  for(var i=0; i<size; i++){
-    for(var j=0; j<size; j++){
+  for(var i=0; i<w; i++){
+    for(var j=0; j<h; j++){
       pixel.set(0,0,0,1);
       getPixelFunc(pixel, i, j);
-      var p = (i*size + j) * 4;
+      var p = (i*w + j) * 4;
       data[p + 0] = pixel.x;
       data[p + 1] = pixel.y;
       data[p + 2] = pixel.z;
       data[p + 3] = pixel.w;
     }
   }
-  if(!dataTex){
-    dataTex = new THREE.DataTexture( data, size, size, THREE.RGBAFormat, THREE.FloatType );
+  var key = w + 'x' + h;
+  if(!dataTex[key]){
+    dataTex[key] = new THREE.DataTexture( data, w, h, THREE.RGBAFormat, THREE.FloatType );
   }
-  dataTex.needsUpdate = true;
-  texturedMaterial.uniforms.texture.value = dataTex;
+  dataTex[key].needsUpdate = true;
+  texturedMaterial.uniforms.texture.value = dataTex[key];
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, renderTarget );
   texturedMaterial.uniforms.texture.value = null;
 }
