@@ -2,6 +2,7 @@ var numParticles = 64;
 var deltaTime = 1 / 100;
 var stiffness = 1000;
 var damping = 10;
+var drag = 0.3;
 var gridResolution = new THREE.Vector3(1*numParticles, 1*numParticles, 1*numParticles);
 var gridPosition = new THREE.Vector3(0,0,0);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
@@ -14,7 +15,7 @@ var container, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, sceneTestQuad, scene, renderer, material2;
 var windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
 var mouseX = 0, mouseY = 0;
-var posTextureRead, posTextureWrite, velTextureRead, velTextureWrite, gridTexture, forceTexture;
+var posTextureRead, posTextureWrite, rotTextureRead, rotTextureWrite, velTextureRead, velTextureWrite, gridTexture, forceTexture;
 var material, fullScreenQuad, mesh;
 var numDebugQuads = 0;
 var sceneMap;
@@ -28,28 +29,28 @@ var debugQuadPositions;
 var debugQuadGrid;
 var mapParticleToCellMesh;
 var spheresMesh;
+var sharedShaderCode;
 
 init();
 animate();
 
+
 function getShader(id){
   var code = document.getElementById( id ).textContent;
-  var sharedCode = document.getElementById( 'sharedShaderCode' ).textContent;
-  return sharedCode + code;
+  return sharedShaderCode + code;
 }
 
 function getDefines(){
   return {
     resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
-    gridResolution: (
-      'vec3( ' + gridResolution.x.toFixed( 1 ) + ', ' + gridResolution.y.toFixed( 1 ) + ', ' + gridResolution.z.toFixed( 1 ) + " )"
-    ),
+    gridResolution: 'vec3( ' + gridResolution.x.toFixed( 1 ) + ', ' + gridResolution.y.toFixed( 1 ) + ', ' + gridResolution.z.toFixed( 1 ) + " )",
     gridPotZ: 'int(' + gridPotZ + ')'
   };
 }
 
 function init() {
   container = document.getElementById( 'container' );
+  sharedShaderCode = document.getElementById( 'sharedShaderCode' ).textContent;
 
   // Compute upper closest power of 2 for the grid texture size in z
   var potSize = 1;
@@ -93,6 +94,8 @@ function init() {
   }
   posTextureRead = createRenderTarget(numParticles, numParticles);
   posTextureWrite = createRenderTarget(numParticles, numParticles);
+  rotTextureRead = createRenderTarget(numParticles, numParticles);
+  rotTextureWrite = createRenderTarget(numParticles, numParticles);
   velTextureRead = createRenderTarget(numParticles, numParticles);
   velTextureWrite = createRenderTarget(numParticles, numParticles);
   forceTexture = createRenderTarget(numParticles, numParticles);
@@ -102,7 +105,7 @@ function init() {
   console.log('Grid texture is ' + (2*gridResolution.x*potSize) + 'x' + (2*gridResolution.y*potSize));
 
   // Initial state
-  setInitialState(numParticles, posTextureRead, velTextureRead);
+  setInitialState(numParticles, posTextureRead, rotTextureRead, velTextureRead);
 
   // main 3D scene
   scene = new THREE.Scene();
@@ -133,11 +136,12 @@ function init() {
   }
   geometry.addAttribute( 'particleIndex', particleIndices );
   geometry.boundingSphere = null;
+
   // material
   var phongShader = THREE.ShaderLib.phong;
   var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
   uniforms.posTex = { value: posTextureRead.texture };
-  var vert = document.getElementById( 'sharedShaderCode' ).textContent + "uniform sampler2D posTex;attribute float particleIndex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=getParticleUV(particleIndex,resolution);transformed.xyz+=texture2D(posTex,particleUV).xyz;");
+  var vert = sharedShaderCode + "uniform sampler2D posTex;attribute float particleIndex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=getParticleUV(particleIndex,resolution);transformed.xyz+=texture2D(posTex,particleUV).xyz;");
   var material = new THREE.ShaderMaterial({
     uniforms: uniforms,
     vertexShader: vert,
@@ -204,6 +208,7 @@ function init() {
       gravity: { value: gravity },
       stiffness: { value: stiffness },
       damping: { value: damping },
+      drag: { value: drag },
       radius: { value: radius },
     },
     vertexShader: getShader( 'vertexShader' ),
@@ -261,31 +266,33 @@ function init() {
   controls.enableZoom = true;
 }
 
-function setInitialState(size, posTex, velTex){
+function setInitialState(size, posTex, rotTex, velTex){
+  
   // Position
   var data = new Float32Array(size*size*4);
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
+
       var p = (i*size + j) * 4;
-      var x,y,z;
+      var x,y,z,w;
 
       switch(1){
         case 0:
-          x = radius;//(i%2) * radius * 3;//0.2+Math.random()*0.6;//radius + (i%2) * radius * 3;//Math.random();//10*radius + (i%2) * radius * 3;
-          y = radius;//radius + j*radius*2.4;//0.2+Math.random()*0.2;//radius + j*radius*2.4;//Math.random();//2*radius + j*radius*2.4;
-          z = radius;//radius + (i%2) * radius * 3;//0.2+Math.random()*0.6;//radius + (i%2) * radius * 3;//Math.random();//10*radius + (i%2) * radius * 3;
+          x = y = z = radius;
+          w = 1;
           break;
         case 1:
           x = Math.random();
           y = Math.random();
           z = Math.random();
+          w = 1;
           break;
       }
 
       data[p + 0] = x;
       data[p + 1] = y;
       data[p + 2] = z;
-      data[p + 3] = 1; // to make it easier to debug
+      data[p + 3] = w;
     }
   }
   dataTex = new THREE.DataTexture( data, size, size, THREE.RGBAFormat, THREE.FloatType );
@@ -299,16 +306,41 @@ function setInitialState(size, posTex, velTex){
   for(var i=0; i<size; i++){
     for(var j=0; j<size; j++){
       var p = (i*size + j) * 4;
-      data2[p + 0] = 0;//(Math.random()-0.5)*0.2;
-      data2[p + 1] = .1;//(Math.random()-0.5)*0.2;
-      data2[p + 2] = 0;//(Math.random()-0.5)*0.2;
-      data2[p + 3] = 1; // to make it easier to debug
+      data2[p + 0] = 0;
+      data2[p + 1] = 0;
+      data2[p + 2] = 0;
+      data2[p + 3] = 1;
     }
   }
   var dataTex2 = new THREE.DataTexture( data2, size, size, THREE.RGBAFormat, THREE.FloatType );
   dataTex2.needsUpdate = true;
   texturedMaterial.uniforms.texture.value = dataTex2;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, velTex );
+  texturedMaterial.uniforms.texture.value = null;
+}
+
+// TODO
+var dataTex;
+function fillTexture(renderTarget, getPixelFunc){
+  var data = new Float32Array(size*size*4);
+  pixel = new THREE.Vector4();
+  for(var i=0; i<size; i++){
+    for(var j=0; j<size; j++){
+      pixel.set(0,0,0,1);
+      getPixelFunc(pixel, i, j);
+      var p = (i*size + j) * 4;
+      data[p + 0] = pixel.x;
+      data[p + 1] = pixel.y;
+      data[p + 2] = pixel.z;
+      data[p + 3] = pixel.w;
+    }
+  }
+  if(!dataTex){
+    dataTex = new THREE.DataTexture( data, size, size, THREE.RGBAFormat, THREE.FloatType );
+  }
+  dataTex.needsUpdate = true;
+  texturedMaterial.uniforms.texture.value = dataTex;
+  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, renderTarget );
   texturedMaterial.uniforms.texture.value = null;
 }
 
@@ -379,7 +411,7 @@ function render() {
   // Draw particles to grid, use stencil routing.
   state.buffers.stencil.setTest( true );
   state.buffers.stencil.setFunc( gl.EQUAL, 3, 0xffffffff );
-  state.buffers.stencil.setOp( gl.INCR, gl.INCR, gl.INCR );
+  state.buffers.stencil.setOp( gl.INCR, gl.INCR, gl.INCR ); // Increment stencil value for every rendered fragment
   mapParticleToCellMesh.material = mapParticleMaterial;
   mapParticleMaterial.uniforms.posTex.value = posTextureRead.texture;
   renderer.render( sceneMap, fullscreenQuadCamera, gridTexture, false );
@@ -392,6 +424,10 @@ function render() {
   updateForceMaterial.uniforms.velTex.value = velTextureRead.texture;
   updateForceMaterial.uniforms.gridTex.value = gridTexture.texture;
   updateForceMaterial.uniforms.deltaTime.value = deltaTime;
+  updateForceMaterial.uniforms.stiffness.value = stiffness;
+  updateForceMaterial.uniforms.damping.value = damping;
+  updateForceMaterial.uniforms.drag.value = drag;
+  updateForceMaterial.uniforms.radius.value = radius;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, forceTexture, false );
   updateForceMaterial.uniforms.velTex.value = null;
   updateForceMaterial.uniforms.posTex.value = null;
@@ -432,129 +468,3 @@ function render() {
   if(debugQuadPositions) debugQuadPositions.material.map = null;
   if(debugQuadGrid) debugQuadGrid.material.map = null;
 }
-
-
-
-// "Unit testing" the shaders...
-function gridPosToGridUV(gridPos, subIndex, gridRes){
-     // Keep within limits
-     gridPos.set(
-      clamp(gridPos.x, 0, gridRes.x-1),
-      clamp(gridPos.y, 0, gridRes.y-1),
-      clamp(gridPos.z, 0, gridRes.z-1)
-    );
-
-    //vec3 gridTexRes = 2.0 * gridRes.xy * vec2(1, gridRes.z);
-    var gridTexRes = new THREE.Vector2(
-      2 * gridRes.x * 1,
-      2 * gridRes.y * gridRes.z
-    );
-    //vec2 gridUV = 2.0 * gridPos.xy / gridTexRes;
-    var gridUV = new THREE.Vector2(
-      2*gridPos.x / gridTexRes.x,
-      2*gridPos.y / gridTexRes.y
-    );
-    //gridUV.y += gridPos.z / gridRes.z; // Move up to correct z section
-    gridUV.y += gridPos.z / gridRes.z;
-    // Choose sub pixel
-    //float fSubIndex = float(subIndex);
-    var fSubIndex = subIndex;
-    //gridUV += 2.0*vec2(mod(fSubIndex,2.0), fSubIndex/2.0) / gridTexRes;
-    gridUV.add(new THREE.Vector2(
-      mod(fSubIndex,2.0) / gridTexRes.x,
-      fSubIndex/2.0 / gridTexRes.y
-    ));
-    //gridUV += vec2(1)/gridTexRes; // Move to center of pixel
-    //gridUV.add(new THREE.Vector2(1/gridTexRes.x,1/gridTexRes.y)); // Move to center of pixel
-    return gridUV;
-}
-// TEST 2, using square broadphase texture
-function gridPosToGridUVSquare(gridPos, subIndex, gridRes){
-     // Keep within grid
-     gridPos.set(
-      clamp(gridPos.x, 0, gridRes.x-1),
-      clamp(gridPos.y, 0, gridRes.y-1),
-      clamp(gridPos.z, 0, gridRes.z-1)
-    );
-
-    // Compute upper closest power of 2 for the grid texture
-    // Should be precomputed?
-    var potSize = 1;
-    while(potSize*potSize < gridRes.z){
-      potSize *= 2;
-    }
-
-    var gridTexRes = new THREE.Vector2(
-      2 * gridRes.x * potSize,
-      2 * gridRes.y * potSize
-    );
-    var gridUV = new THREE.Vector2(
-      2*gridPos.x / gridTexRes.x,
-      2*gridPos.y / gridTexRes.y
-    );
-    // move to correct z square
-    var zPos = new THREE.Vector2(
-      mod(gridPos.z, potSize),
-      floor(gridPos.z / potSize)
-    );
-    zPos.divide(new THREE.Vector2(potSize,potSize));
-    gridUV.add(zPos);
-
-    // Choose sub pixel
-    var fSubIndex = subIndex;
-    gridUV.add(new THREE.Vector2(
-      mod(fSubIndex,2.0) / gridTexRes.x,
-      floor(fSubIndex/2.0) / gridTexRes.y
-    ));
-    return gridUV;
-}
-function clamp(x,min,max){
-  return Math.max(Math.min(x,max), min);
-}
-function floor(x){
-  return Math.floor(x);
-}
-function mod(x,n){
-  return  ((x%n)+n)%n;
-}
-
-// position texture is 2x2 pixels
-// grid texture is 4x8 pixels
-var gridPos = new THREE.Vector3(0,0,0);
-var gridRes = new THREE.Vector3(2,2,2);
-var result = gridPosToGridUV(gridPos, 0, gridRes);
-//console.log(result.equals(new THREE.Vector2(0.25, 0.125)));
-
-gridPos.set(0,0,0);
-gridRes.set(2,2,2);
-result.copy( gridPosToGridUV(gridPos, 1, gridRes) );
-//console.log(result/*.equals(new THREE.Vector2(0.5, 0.125))*/);
-
-
-// TEST 2, using square broadphase texture
-gridPos.set(0,0,0);
-gridRes.set(8,8,8);
-// This will create 4x4 cells (closest upper power of 2) for different z positions, only using the 8 first.
-// Each z-cell is 16x16, a total size of 64x64 in the broadphase texture
-result = gridPosToGridUVSquare(gridPos, 0, gridRes);
-console.log(result.equals(new THREE.Vector2(0,0)));
-
-gridPos.set(0,0,1);
-result = gridPosToGridUVSquare(gridPos, 0, gridRes);
-console.log(result.equals(new THREE.Vector2(1/4,0)));
-
-gridPos.set(1,0,1);
-result = gridPosToGridUVSquare(gridPos, 0, gridRes);
-console.log(result.equals(new THREE.Vector2(1/4 + (1/8) * 1/4,0)));
-
-gridPos.set(0,0,4);
-result = gridPosToGridUVSquare(gridPos, 0, gridRes);
-console.log(result.equals(new THREE.Vector2(0,1/4)));
-
-gridPos.set(0,0,7);
-result = gridPosToGridUVSquare(gridPos, 0, gridRes);
-console.log(result.equals(new THREE.Vector2(3/4,1/4)));
-
-gridPos.set(0,0,7);
-result = gridPosToGridUVSquare(gridPos, 3, gridRes);
-console.log(result.equals(new THREE.Vector2(3/4 + 1/64,1/4 + 1/64)));

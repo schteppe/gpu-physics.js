@@ -98,12 +98,16 @@ void main() {
 uniform float stiffness;
 uniform float damping;
 uniform float radius;
+uniform float drag;
+
 uniform vec3 gravity;
 uniform vec3 cellSize;
 uniform vec3 gridPos;
+
 uniform sampler2D posTex;
 uniform sampler2D velTex;
 uniform sampler2D gridTex;
+
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution.xy;
     int particleIndex = getParticleIndex(uv, resolution);
@@ -184,7 +188,7 @@ void main() {
         force.y += 50.0;
     }
 
-    force -= 0.3 * velocity;
+    force -= drag * velocity;
 
     gl_FragColor = vec4(force, 0.0);
 }
