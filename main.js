@@ -340,7 +340,7 @@ function render() {
 
   // Set up the grid texture for stencil routing.
   // See http://www.gpgpu.org/static/s2007/slides/15-GPGPU-physics.pdf slide 24
-  renderer.setClearColor( 0x000000, 1.0 )
+  renderer.setClearColor( 0x000000, 1.0 );
   renderer.clearTarget( gridTexture, true, true, true );
   state.buffers.depth.setMask( false ); // dont draw depth
   state.buffers.color.setMask( false ); // dont draw color
