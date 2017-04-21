@@ -97,7 +97,12 @@ function init() {
   console.log('Grid texture is ' + (2*gridResolution.x*potSize) + 'x' + (2*gridResolution.y*potSize));
 
   // Initial state
-  setInitialState(numParticles, posTextureRead, rotTextureRead, velTextureRead);
+  fillRenderTarget(posTextureRead, function(out, x, y){
+    out.set( 0.3 + 0.3*Math.random(), 0.1*Math.random() + 0.3, 0.3 + 0.3*Math.random(), 1 );
+  });
+  fillRenderTarget(velTextureRead, function(out, x, y){
+    out.set( 0, 0, 0, 1 );
+  });
 
   // main 3D scene
   scene = new THREE.Scene();
@@ -126,11 +131,19 @@ function init() {
   geometry.addAttribute( 'particleIndex', particleIndices );
   geometry.boundingSphere = null;
 
-  // material
+  // Spheres material - extend the phong shader in three.js
   var phongShader = THREE.ShaderLib.phong;
   var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
   uniforms.posTex = { value: posTextureRead.texture };
-  var vert = sharedShaderCode + "uniform sampler2D posTex;attribute float particleIndex;\n"+phongShader.vertexShader.replace("#include <begin_vertex>","#include <begin_vertex>\nvec2 particleUV=getParticleUV(particleIndex,resolution);transformed.xyz+=texture2D(posTex,particleUV).xyz;");
+  var vert = [
+    sharedShaderCode,
+    "uniform sampler2D posTex;",
+    "attribute float particleIndex;",
+    phongShader.vertexShader.replace(
+      "<begin_vertex>",
+      "<begin_vertex>\nvec2 particleUV=getParticleUV(particleIndex,resolution);transformed.xyz+=texture2D(posTex,particleUV).xyz;"
+    )
+  ].join('\n');
   var material = new THREE.ShaderMaterial({
     uniforms: uniforms,
     vertexShader: vert,
@@ -252,45 +265,34 @@ function createRenderTarget(w,h,format){
   });
 }
 
-function setInitialState(size, posTex, rotTex, velTex){
-  fillRenderTarget(posTex, function(out, x, y){
-    out.set( 0.3 + 0.3*Math.random(), 0.1*Math.random() + 0.3, 0.3 + 0.3*Math.random(), 1 );
-  });
-  fillRenderTarget(velTex, function(out, x, y){
-    out.set( 0, 0, 0, 1 );
-  });
-}
-
 function addDebugGrid(){
-    var boxGeom = new THREE.BoxGeometry(
-      gridResolution.x*cellSize.x,
-      gridResolution.y*cellSize.y,
-      gridResolution.z*cellSize.z
-    );
-    var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
-    var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
-    boxMesh.position.copy(gridPosition);
-    boxMesh.position.x += gridResolution.x*cellSize.x/2;
-    boxMesh.position.y += gridResolution.y*cellSize.y/2;
-    boxMesh.position.z += gridResolution.z*cellSize.z/2;
-    scene.add(boxMesh);
-    /*for(var i=0; i<gridResolution.x; i++){
-      for(var j=0; j<gridResolution.y; j++){
-        for(var k=0; k<gridResolution.z; k++){
-          var boxGeom = new THREE.BoxGeometry(1,1,1);
-          var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
-          var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
-          boxMesh.position.copy(gridPosition);
-          boxMesh.position.add(cellSize.clone().multiply(new THREE.Vector3(i,j,k)));
-          boxMesh.position.add(cellSize.clone().multiplyScalar(0.5));
-          boxMesh.scale.copy(cellSize);
-          scene.add(boxMesh);
-        }
+  var w = gridResolution.x*cellSize.x;
+  var h = gridResolution.y*cellSize.y;
+  var d = gridResolution.z*cellSize.z;
+  var boxGeom = new THREE.BoxGeometry( w, h, d );
+  var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
+  var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
+  boxMesh.position.copy(gridPosition);
+  boxMesh.position.x += w/2;
+  boxMesh.position.y += h/2;
+  boxMesh.position.z += d/2;
+  scene.add(boxMesh);
+  /*for(var i=0; i<gridResolution.x; i++){
+    for(var j=0; j<gridResolution.y; j++){
+      for(var k=0; k<gridResolution.z; k++){
+        var boxGeom = new THREE.BoxGeometry(1,1,1);
+        var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
+        var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
+        boxMesh.position.copy(gridPosition);
+        boxMesh.position.add(cellSize.clone().multiply(new THREE.Vector3(i,j,k)));
+        boxMesh.position.add(cellSize.clone().multiplyScalar(0.5));
+        boxMesh.scale.copy(cellSize);
+        scene.add(boxMesh);
       }
-    }*/
+    }
+  }*/
 }
 
-// TODO
 function fillRenderTarget(renderTarget, getPixelFunc){
   var w = renderTarget.width;
   var h = renderTarget.height;
