@@ -1,14 +1,14 @@
-var numParticles = 64;
+var numParticles = 128;
 var deltaTime = 1 / 100;
 var stiffness = 2000;
 var damping = 20;
 var drag = 0.3;
-var gridResolution = new THREE.Vector3(1*numParticles, 1*numParticles, 1*numParticles);
-var gridPosition = new THREE.Vector3(0,0,0);
+var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
+var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,-1,0);
-var showDebugGrid = false;
+var showDebugGrid = true;
 
 var gridPotZ;
 var container, controls;
@@ -144,20 +144,7 @@ function init() {
 
   // debug grid
   if(showDebugGrid){
-    for(var i=0; i<gridResolution.x; i++){
-      for(var j=0; j<gridResolution.y; j++){
-        for(var k=0; k<gridResolution.z; k++){
-          var boxGeom = new THREE.BoxGeometry(1,1,1);
-          var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
-          var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
-          boxMesh.position.copy(gridPosition);
-          boxMesh.position.add(cellSize.clone().multiply(new THREE.Vector3(i,j,k)));
-          boxMesh.position.add(cellSize.clone().multiplyScalar(0.5));
-          boxMesh.scale.copy(cellSize);
-          scene.add(boxMesh);
-        }
-      }
-    }
+    addDebugGrid();
   }
 
   // Init materials
@@ -267,11 +254,40 @@ function createRenderTarget(w,h,format){
 
 function setInitialState(size, posTex, rotTex, velTex){
   fillRenderTarget(posTex, function(out, x, y){
-    out.set( 0.3 + 0.3*Math.random(), 0.2*Math.random() + 0.3, 0.3 + 0.3*Math.random(), 1 );
+    out.set( 0.3 + 0.3*Math.random(), 0.1*Math.random() + 0.3, 0.3 + 0.3*Math.random(), 1 );
   });
   fillRenderTarget(velTex, function(out, x, y){
     out.set( 0, 0, 0, 1 );
   });
+}
+
+function addDebugGrid(){
+    var boxGeom = new THREE.BoxGeometry(
+      gridResolution.x*cellSize.x,
+      gridResolution.y*cellSize.y,
+      gridResolution.z*cellSize.z
+    );
+    var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
+    var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
+    boxMesh.position.copy(gridPosition);
+    boxMesh.position.x += gridResolution.x*cellSize.x/2;
+    boxMesh.position.y += gridResolution.y*cellSize.y/2;
+    boxMesh.position.z += gridResolution.z*cellSize.z/2;
+    scene.add(boxMesh);
+    /*for(var i=0; i<gridResolution.x; i++){
+      for(var j=0; j<gridResolution.y; j++){
+        for(var k=0; k<gridResolution.z; k++){
+          var boxGeom = new THREE.BoxGeometry(1,1,1);
+          var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
+          var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
+          boxMesh.position.copy(gridPosition);
+          boxMesh.position.add(cellSize.clone().multiply(new THREE.Vector3(i,j,k)));
+          boxMesh.position.add(cellSize.clone().multiplyScalar(0.5));
+          boxMesh.scale.copy(cellSize);
+          scene.add(boxMesh);
+        }
+      }
+    }*/
 }
 
 // TODO

@@ -173,21 +173,23 @@ void main() {
         float x0 = boxMax.x;
         force.x -= stiffness * (x - x0) + damping * velocity.x;
     }
-    /*if(position.y + radius > boxMax.y){
+    if(position.y + radius > boxMax.y){
         float x = position.y + radius;
         float x0 = boxMax.y;
         force.y -= stiffness * (x - x0) + damping * velocity.y;
-    }*/
+    }
     if(position.z + radius > boxMax.z){
         float x = position.z + radius;
         float x0 = boxMax.z;
         force.z -= stiffness * (x - x0) + damping * velocity.z;
     }
 
-    if(length(position - vec3(0.5,0.35,0.5)) < 0.07){
+    // "fountain" test
+    /*if(length(position - vec3(0.5,0.35,0.5)) < 0.07){
         force.y += 14.0;
-    }
+    }*/
 
+    // "Air friction" / drag force
     force -= drag * velocity;
 
     gl_FragColor = vec4(force, 0.0);
