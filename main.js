@@ -1,4 +1,5 @@
 var numParticles = 64;
+var numBodies = 64;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
@@ -22,7 +23,7 @@ var gridPotZ;
 var container, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
 var windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
-var posTextureRead, posTextureWrite, velTextureRead, velTextureWrite, gridTexture, forceTexture;
+var particlePosTextureRead, particlePosTextureWrite, particleVelTextureRead, particleVelTextureWrite, gridTexture, particleForceTexture;
 var material, fullScreenQuad, mesh;
 var numDebugQuads = 0;
 var sceneMap;
@@ -89,22 +90,38 @@ function init() {
   fullScreenQuad = new THREE.Mesh( plane, texturedMaterial );
   fullscreenQuadScene.add( fullScreenQuad );
 
-  // Init data textures
-  posTextureRead = createRenderTarget(numParticles, numParticles);
-  posTextureWrite = createRenderTarget(numParticles, numParticles);
-  velTextureRead = createRenderTarget(numParticles, numParticles);
-  velTextureWrite = createRenderTarget(numParticles, numParticles);
-  forceTexture = createRenderTarget(numParticles, numParticles);
+  // Body textures
+  bodyPosTextureRead = createRenderTarget(numBodies, numBodies);
+  bodyPosTextureWrite = createRenderTarget(numBodies, numBodies);
+  bodyQuatTextureRead = createRenderTarget(numBodies, numBodies);
+  bodyQuatTextureWrite = createRenderTarget(numBodies, numBodies);
+  bodyVelTextureRead = createRenderTarget(numBodies, numBodies);
+  bodyVelTextureWrite = createRenderTarget(numBodies, numBodies);
+  bodyAngularVelTextureRead = createRenderTarget(numBodies, numBodies);
+  bodyAngularVelTextureWrite = createRenderTarget(numBodies, numBodies);
+  bodyForceTextureRead = createRenderTarget(numBodies, numBodies);
+  bodyForceTextureWrite = createRenderTarget(numBodies, numBodies);
+  bodyTorqueTextureRead = createRenderTarget(numBodies, numBodies);
+  bodyTorqueTextureWrite = createRenderTarget(numBodies, numBodies);
+
+  // Particle textures
+  particlePosTextureRead = createRenderTarget(numParticles, numParticles);
+  particlePosTextureWrite = createRenderTarget(numParticles, numParticles);
+  particleVelTextureRead = createRenderTarget(numParticles, numParticles);
+  particleVelTextureWrite = createRenderTarget(numParticles, numParticles);
+  particleForceTexture = createRenderTarget(numParticles, numParticles);
+
+  // Broadphase
   gridTexture = createRenderTarget(2*gridResolution.x*potSize, 2*gridResolution.y*potSize);
 
   console.log((numParticles*numParticles) + ' particles');
   console.log('Grid texture is ' + (2*gridResolution.x*potSize) + 'x' + (2*gridResolution.y*potSize));
 
   // Initial state
-  fillRenderTarget(posTextureRead, function(out, x, y){
+  fillRenderTarget(particlePosTextureRead, function(out, x, y){
     out.set( 0.3 + 0.3*Math.random(), 0.1*Math.random() + 0.3, 0.3 + 0.3*Math.random(), 1 );
   });
-  fillRenderTarget(velTextureRead, function(out, x, y){
+  fillRenderTarget(particleVelTextureRead, function(out, x, y){
     out.set( 0, 0, 0, 1 );
   });
 
@@ -138,7 +155,7 @@ function init() {
   // Spheres material - extend the phong shader in three.js
   var phongShader = THREE.ShaderLib.phong;
   var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
-  uniforms.posTex = { value: posTextureRead.texture };
+  uniforms.posTex = { value: particlePosTextureRead.texture };
   var vert = [
     sharedShaderCode,
     "uniform sampler2D posTex;",
@@ -179,7 +196,7 @@ function init() {
   // Update velocity
   updateVelocityMaterial = new THREE.ShaderMaterial({
     uniforms: {
-      forceTex:  { value: forceTexture.texture },
+      forceTex:  { value: particleForceTexture.texture },
       posTex:  { value: null },
       velTex:  { value: null },
       params2: { value: simulationParams2 }
@@ -372,46 +389,46 @@ function render() {
   state.buffers.stencil.setFunc( gl.EQUAL, 3, 0xffffffff );
   state.buffers.stencil.setOp( gl.INCR, gl.INCR, gl.INCR ); // Increment stencil value for every rendered fragment
   mapParticleToCellMesh.material = mapParticleMaterial;
-  mapParticleMaterial.uniforms.posTex.value = posTextureRead.texture;
+  mapParticleMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
   renderer.render( sceneMap, fullscreenQuadCamera, gridTexture, false );
   mapParticleMaterial.uniforms.posTex.value = null;
   state.buffers.stencil.setTest( false );
 
   // Update forces / collision reaction
   fullScreenQuad.material = updateForceMaterial;
-  updateForceMaterial.uniforms.posTex.value = posTextureRead.texture;
-  updateForceMaterial.uniforms.velTex.value = velTextureRead.texture;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, forceTexture, false );
+  updateForceMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
+  updateForceMaterial.uniforms.velTex.value = particleVelTextureRead.texture;
+  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleForceTexture, false );
   updateForceMaterial.uniforms.velTex.value = null;
   updateForceMaterial.uniforms.posTex.value = null;
 
   // Update velocity
   fullScreenQuad.material = updateVelocityMaterial;
-  updateVelocityMaterial.uniforms.posTex.value = posTextureRead.texture;
-  updateVelocityMaterial.uniforms.velTex.value = velTextureRead.texture;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, velTextureWrite, false );
+  updateVelocityMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
+  updateVelocityMaterial.uniforms.velTex.value = particleVelTextureRead.texture;
+  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleVelTextureWrite, false );
   updateVelocityMaterial.uniforms.velTex.value = null;
   updateVelocityMaterial.uniforms.posTex.value = null;
-  var tmp = velTextureWrite;
-  velTextureWrite = velTextureRead;
-  velTextureRead = tmp;
+  var tmp = particleVelTextureWrite;
+  particleVelTextureWrite = particleVelTextureRead;
+  particleVelTextureRead = tmp;
 
   // Update positions
   fullScreenQuad.material = updatePositionMaterial;
-  updatePositionMaterial.uniforms.posTex.value = posTextureRead.texture;
-  updatePositionMaterial.uniforms.velTex.value = velTextureRead.texture;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, posTextureWrite, false );
+  updatePositionMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
+  updatePositionMaterial.uniforms.velTex.value = particleVelTextureRead.texture;
+  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particlePosTextureWrite, false );
   updatePositionMaterial.uniforms.velTex.value = null;
   updatePositionMaterial.uniforms.posTex.value = null;
-  tmp = posTextureWrite; // swap
-  posTextureWrite = posTextureRead;
-  posTextureRead = tmp;
+  tmp = particlePosTextureWrite; // swap
+  particlePosTextureWrite = particlePosTextureRead;
+  particlePosTextureRead = tmp;
 
   // Render main scene
-  if(debugQuadPositions) debugQuadPositions.material.map = posTextureRead.texture;
+  if(debugQuadPositions) debugQuadPositions.material.map = particlePosTextureRead.texture;
   if(debugQuadGrid) debugQuadGrid.material.map = gridTexture.texture;
-  mapParticleMaterial.uniforms.posTex.value = posTextureRead.texture;
-  spheresMesh.material.uniforms.posTex.value = posTextureRead.texture;
+  mapParticleMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
+  spheresMesh.material.uniforms.posTex.value = particlePosTextureRead.texture;
   renderer.setRenderTarget(null);
   renderer.setClearColor(0x222222, 1.0);
   renderer.clear();
