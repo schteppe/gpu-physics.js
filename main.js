@@ -1,21 +1,28 @@
-var numParticles = 128;
-var deltaTime = 1 / 100;
-var stiffness = 2000;
-var damping = 20;
-var drag = 0.3;
+var numParticles = 64;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,-1,0);
 var showDebugGrid = true;
+var simulationParams1 = new THREE.Vector4(
+  2000, // stiffness
+  20, // damping
+  radius, // radius
+  0.3 // drag
+);
+var simulationParams2 = new THREE.Vector4(
+  1/100, // time step
+  0, // unused
+  0, // unused
+  0 // unused
+);
 
 var gridPotZ;
 var container, controls;
-var fullscreenQuadCamera, camera, fullscreenQuadScene, sceneTestQuad, scene, renderer, material2;
+var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
 var windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
-var mouseX = 0, mouseY = 0;
-var posTextureRead, posTextureWrite, rotTextureRead, rotTextureWrite, velTextureRead, velTextureWrite, gridTexture, forceTexture;
+var posTextureRead, posTextureWrite, velTextureRead, velTextureWrite, gridTexture, forceTexture;
 var material, fullScreenQuad, mesh;
 var numDebugQuads = 0;
 var sceneMap;
@@ -65,7 +72,6 @@ function init() {
   renderer.setSize( window.innerWidth, window.innerHeight );
   renderer.autoClear = false;
   container.appendChild( renderer.domElement );
-  document.addEventListener( 'mousemove', onDocumentMouseMove, false );
   window.addEventListener( 'resize', onWindowResize, false );
 
   texturedMaterial = new THREE.ShaderMaterial({
@@ -86,8 +92,6 @@ function init() {
   // Init data textures
   posTextureRead = createRenderTarget(numParticles, numParticles);
   posTextureWrite = createRenderTarget(numParticles, numParticles);
-  rotTextureRead = createRenderTarget(numParticles, numParticles);
-  rotTextureWrite = createRenderTarget(numParticles, numParticles);
   velTextureRead = createRenderTarget(numParticles, numParticles);
   velTextureWrite = createRenderTarget(numParticles, numParticles);
   forceTexture = createRenderTarget(numParticles, numParticles);
@@ -114,7 +118,7 @@ function init() {
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
   camera.position.set(2,1,2);
 
-  // Create a batched geometry for debug spheres
+  // Create an instanced mesh for spheres
   var sphereGeometry = new THREE.SphereBufferGeometry(radius, 6, 8);
   var triangles = 1;
   var instances = numParticles*numParticles;
@@ -165,7 +169,7 @@ function init() {
     uniforms: {
       posTex:  { value: null },
       velTex:  { value: null },
-      deltaTime: { value: deltaTime }
+      params2: { value: simulationParams2 }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updatePositionFrag' ),
@@ -175,10 +179,10 @@ function init() {
   // Update velocity
   updateVelocityMaterial = new THREE.ShaderMaterial({
     uniforms: {
-      forceTex:  { value: null },
+      forceTex:  { value: forceTexture.texture },
       posTex:  { value: null },
       velTex:  { value: null },
-      deltaTime: { value: deltaTime }
+      params2: { value: simulationParams2 }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateVelocityFrag' ),
@@ -192,13 +196,10 @@ function init() {
       gridPos: { value: gridPosition },
       posTex:  { value: null },
       velTex:  { value: null },
-      gridTex:  { value: null },
-      deltaTime: { value: deltaTime },
+      gridTex:  { value: gridTexture.texture },
       gravity: { value: gravity },
-      stiffness: { value: stiffness },
-      damping: { value: damping },
-      drag: { value: drag },
-      radius: { value: radius },
+      params1: { value: simulationParams1 },
+      params2: { value: simulationParams2 },
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateForceFrag' ),
@@ -277,20 +278,6 @@ function addDebugGrid(){
   boxMesh.position.y += h/2;
   boxMesh.position.z += d/2;
   scene.add(boxMesh);
-  /*for(var i=0; i<gridResolution.x; i++){
-    for(var j=0; j<gridResolution.y; j++){
-      for(var k=0; k<gridResolution.z; k++){
-        var boxGeom = new THREE.BoxGeometry(1,1,1);
-        var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
-        var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
-        boxMesh.position.copy(gridPosition);
-        boxMesh.position.add(cellSize.clone().multiply(new THREE.Vector3(i,j,k)));
-        boxMesh.position.add(cellSize.clone().multiplyScalar(0.5));
-        boxMesh.scale.copy(cellSize);
-        scene.add(boxMesh);
-      }
-    }
-  }*/
 }
 
 function fillRenderTarget(renderTarget, getPixelFunc){
@@ -331,11 +318,6 @@ function addDebugQuad(sizeX, sizeY, colorScale){
   return mesh;
 }
 
-function onDocumentMouseMove( event ) {
-  mouseX = ( event.clientX - windowHalfX );
-  mouseY = ( event.clientY - windowHalfY );
-}
-
 function onWindowResize() {
   windowHalfX = window.innerWidth / 2;
   windowHalfY = window.innerHeight / 2;
@@ -367,14 +349,14 @@ function render() {
   state.buffers.stencil.setTest( true );
   state.buffers.stencil.setOp( gl.REPLACE, gl.REPLACE, gl.REPLACE );
   state.buffers.stencil.setClear( 0 );
+  setGridStencilMaterial.color.setRGB(1,1,1);
+  var gridSizeX = gridTexture.width;
+  var gridSizeY = gridTexture.height;
   for(var i=0;i<2;i++){
     for(var j=0;j<2;j++){
       var x = i, y = j, r = 0, g = 0, b = 0;
       var stencilValue = i+j*2;
       state.buffers.stencil.setFunc( gl.ALWAYS, stencilValue, 0xffffffff );
-      setGridStencilMaterial.color.setRGB(1,1,1);
-      var gridSizeX = gridTexture.width;
-      var gridSizeY = gridTexture.height;
       setGridStencilMesh.position.set((x+2)/gridSizeX,(y+2)/gridSizeY,0);
       renderer.render( sceneStencil, fullscreenQuadCamera, gridTexture, false );
     }
@@ -399,23 +381,14 @@ function render() {
   fullScreenQuad.material = updateForceMaterial;
   updateForceMaterial.uniforms.posTex.value = posTextureRead.texture;
   updateForceMaterial.uniforms.velTex.value = velTextureRead.texture;
-  updateForceMaterial.uniforms.gridTex.value = gridTexture.texture;
-  updateForceMaterial.uniforms.deltaTime.value = deltaTime;
-  updateForceMaterial.uniforms.stiffness.value = stiffness;
-  updateForceMaterial.uniforms.damping.value = damping;
-  updateForceMaterial.uniforms.drag.value = drag;
-  updateForceMaterial.uniforms.radius.value = radius;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, forceTexture, false );
   updateForceMaterial.uniforms.velTex.value = null;
   updateForceMaterial.uniforms.posTex.value = null;
-  updateForceMaterial.uniforms.gridTex.value = null;
 
   // Update velocity
   fullScreenQuad.material = updateVelocityMaterial;
   updateVelocityMaterial.uniforms.posTex.value = posTextureRead.texture;
   updateVelocityMaterial.uniforms.velTex.value = velTextureRead.texture;
-  updateVelocityMaterial.uniforms.forceTex.value = forceTexture.texture;
-  updateVelocityMaterial.uniforms.deltaTime.value = deltaTime;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, velTextureWrite, false );
   updateVelocityMaterial.uniforms.velTex.value = null;
   updateVelocityMaterial.uniforms.posTex.value = null;
@@ -427,7 +400,6 @@ function render() {
   fullScreenQuad.material = updatePositionMaterial;
   updatePositionMaterial.uniforms.posTex.value = posTextureRead.texture;
   updatePositionMaterial.uniforms.velTex.value = velTextureRead.texture;
-  updatePositionMaterial.uniforms.deltaTime.value = deltaTime;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, posTextureWrite, false );
   updatePositionMaterial.uniforms.velTex.value = null;
   updatePositionMaterial.uniforms.posTex.value = null;
