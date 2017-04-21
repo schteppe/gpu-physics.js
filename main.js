@@ -1,5 +1,5 @@
 var numParticles = 64;
-var deltaTime = 1 / 60;
+var deltaTime = 1 / 100;
 var stiffness = 1000;
 var damping = 10;
 var gridResolution = new THREE.Vector3(1*numParticles, 1*numParticles, 1*numParticles);
