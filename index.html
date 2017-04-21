@@ -33,7 +33,6 @@ vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
     // Choose sub pixel
     float fSubIndex = float(subIndex);
     gridUV += vec2(mod(fSubIndex,2.0), fSubIndex/2.0) / gridTexRes;
-    //gridUV += vec2(1)/gridTexRes; // Move to center of pixel
     return gridUV;
 }
 vec2 gridPosToGridUV2(vec3 gridPos, int subIndex, vec3 gridRes){
@@ -54,6 +53,17 @@ vec2 gridPosToGridUV2(vec3 gridPos, int subIndex, vec3 gridRes){
     gridUV += vec2( mod(fSubIndex,2.0), floor(fSubIndex/2.0) ) / gridTexRes;
 
     return gridUV;
+}
+// Integrate a quaternion using an angular velocity and deltatime
+vec4 quat_integrate(vec4 q, vec3 w, float dt){
+    float half_dt = dt * 0.5;
+
+    q.x += half_dt * (w.x * q.w + w.y * q.z - w.z * q.y);
+    q.y += half_dt * (w.y * q.w + w.z * q.x - w.x * q.z);
+    q.z += half_dt * (w.z * q.w + w.x * q.y - w.y * q.x);
+    q.w += half_dt * (- w.x * q.x - w.y * q.y - w.z * q.z);
+
+    return normalize(q);
 }
 
 </script>
