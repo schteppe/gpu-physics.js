@@ -1,4 +1,4 @@
-var numParticles = 64;
+var numParticles = 128;
 var numBodies = 64;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
@@ -39,6 +39,7 @@ var mapParticleToCellMesh;
 var spheresMesh;
 var sharedShaderCode;
 var dataTex = {};
+var debugGridMesh;
 
 init();
 animate();
@@ -134,6 +135,7 @@ function init() {
   scene.add( ambientLight );
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
   camera.position.set(2,1,2);
+  initDebugGrid();
 
   // Create an instanced mesh for spheres
   var sphereGeometry = new THREE.SphereBufferGeometry(radius, 6, 8);
@@ -175,11 +177,6 @@ function init() {
   spheresMesh = new THREE.Mesh( geometry, material );
   spheresMesh.frustumCulled = false;
   scene.add( spheresMesh );
-
-  // debug grid
-  if(showDebugGrid){
-    addDebugGrid();
-  }
 
   // Init materials
   updatePositionMaterial = new THREE.ShaderMaterial({
@@ -295,18 +292,29 @@ function createRenderTarget(w,h,format){
   });
 }
 
-function addDebugGrid(){
+function initDebugGrid(){
+  if(!showDebugGrid) return;
   var w = gridResolution.x*cellSize.x;
   var h = gridResolution.y*cellSize.y;
   var d = gridResolution.z*cellSize.z;
   var boxGeom = new THREE.BoxGeometry( w, h, d );
   var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
-  var boxMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
-  boxMesh.position.copy(gridPosition);
-  boxMesh.position.x += w/2;
-  boxMesh.position.y += h/2;
-  boxMesh.position.z += d/2;
-  scene.add(boxMesh);
+  debugGridMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
+  debugGridMesh.position.copy(gridPosition);
+  debugGridMesh.position.x += w/2;
+  debugGridMesh.position.y += h/2;
+  debugGridMesh.position.z += d/2;
+  scene.add(debugGridMesh);
+}
+function updateDebugGrid(){
+  if(!showDebugGrid) return;
+  var w = gridResolution.x*cellSize.x;
+  var h = gridResolution.y*cellSize.y;
+  var d = gridResolution.z*cellSize.z;
+  debugGridMesh.position.copy(gridPosition);
+  debugGridMesh.position.x += w/2;
+  debugGridMesh.position.y += h/2;
+  debugGridMesh.position.z += d/2;
 }
 
 function fillRenderTarget(renderTarget, getPixelFunc){
@@ -437,6 +445,7 @@ function render() {
   particlePosTextureRead = tmp;
 
   // Render main scene
+  updateDebugGrid();
   if(debugQuadPositions) debugQuadPositions.material.map = particlePosTextureRead.texture;
   if(debugQuadGrid) debugQuadGrid.material.map = gridTexture.texture;
   mapParticleMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
