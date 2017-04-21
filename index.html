@@ -184,8 +184,8 @@ void main() {
         force.z -= stiffness * (x - x0) + damping * velocity.z;
     }
 
-    if(length(position - vec3(0.5,0.3,0.5)) < 0.07){
-        force.y += 50.0;
+    if(length(position - vec3(0.5,0.35,0.5)) < 0.07){
+        force.y += 14.0;
     }
 
     force -= drag * velocity;

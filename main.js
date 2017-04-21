@@ -1,7 +1,7 @@
 var numParticles = 64;
 var deltaTime = 1 / 100;
-var stiffness = 1000;
-var damping = 10;
+var stiffness = 2000;
+var damping = 20;
 var drag = 0.3;
 var gridResolution = new THREE.Vector3(1*numParticles, 1*numParticles, 1*numParticles);
 var gridPosition = new THREE.Vector3(0,0,0);
@@ -100,7 +100,7 @@ function init() {
   velTextureRead = createRenderTarget(numParticles, numParticles);
   velTextureWrite = createRenderTarget(numParticles, numParticles);
   forceTexture = createRenderTarget(numParticles, numParticles);
-  gridTexture = createRenderTarget(2*gridResolution.x*potSize, 2*gridResolution.y*potSize, THREE.RGBFormat);
+  gridTexture = createRenderTarget(2*gridResolution.x*potSize, 2*gridResolution.y*potSize);
 
   console.log((numParticles*numParticles) + ' particles');
   console.log('Grid texture is ' + (2*gridResolution.x*potSize) + 'x' + (2*gridResolution.y*potSize));
