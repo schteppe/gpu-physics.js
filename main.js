@@ -35,7 +35,6 @@ var dataTex = {};
 init();
 animate();
 
-
 function getShader(id){
   var code = document.getElementById( id ).textContent;
   return sharedShaderCode + code;
@@ -85,14 +84,6 @@ function init() {
   fullscreenQuadScene.add( fullScreenQuad );
 
   // Init data textures
-  function createRenderTarget(w,h,format){
-    return new THREE.WebGLRenderTarget(w, h, {
-      minFilter: THREE.NearestFilter,
-      magFilter: THREE.NearestFilter,
-      format: format === undefined ? THREE.RGBAFormat : format,
-			type: ( /(iPad|iPhone|iPod)/g.test( navigator.userAgent ) ) ? THREE.HalfFloatType : THREE.FloatType,
-    });
-  }
   posTextureRead = createRenderTarget(numParticles, numParticles);
   posTextureWrite = createRenderTarget(numParticles, numParticles);
   rotTextureRead = createRenderTarget(numParticles, numParticles);
@@ -113,13 +104,10 @@ function init() {
   var light = new THREE.DirectionalLight();
   light.position.set(10,10,20);
   scene.add(light);
-  camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, .1, 10000 );
+  var ambientLight = new THREE.AmbientLight( 0x111111 );
+  scene.add( ambientLight );
+  camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
   camera.position.set(2,1,2);
-  var backgroundGeometry = new THREE.PlaneBufferGeometry( 100, 100 );
-  backgroundMaterial = new THREE.MeshBasicMaterial( { color: 0x222222 } );
-  var backgroundMesh = new THREE.Mesh( backgroundGeometry, backgroundMaterial );
-  backgroundMesh.position.z = -3;
-  scene.add( backgroundMesh );
 
   // Create a batched geometry for debug spheres
   var sphereGeometry = new THREE.SphereBufferGeometry(radius, 6, 8);
@@ -265,6 +253,16 @@ function init() {
   // Add controls
   controls = new THREE.OrbitControls( camera, renderer.domElement );
   controls.enableZoom = true;
+  controls.target.set(0.5, 0.4, 0.5);
+}
+
+function createRenderTarget(w,h,format){
+  return new THREE.WebGLRenderTarget(w, h, {
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+    format: format === undefined ? THREE.RGBAFormat : format,
+    type: ( /(iPad|iPhone|iPod)/g.test( navigator.userAgent ) ) ? THREE.HalfFloatType : THREE.FloatType,
+  });
 }
 
 function setInitialState(size, posTex, rotTex, velTex){
@@ -342,6 +340,7 @@ function render() {
 
   // Set up the grid texture for stencil routing.
   // See http://www.gpgpu.org/static/s2007/slides/15-GPGPU-physics.pdf slide 24
+  renderer.setClearColor( 0x000000, 1.0 )
   renderer.clearTarget( gridTexture, true, true, true );
   state.buffers.depth.setMask( false ); // dont draw depth
   state.buffers.color.setMask( false ); // dont draw color
@@ -423,7 +422,10 @@ function render() {
   if(debugQuadGrid) debugQuadGrid.material.map = gridTexture.texture;
   mapParticleMaterial.uniforms.posTex.value = posTextureRead.texture;
   spheresMesh.material.uniforms.posTex.value = posTextureRead.texture;
-  renderer.render( scene, camera );
+  renderer.setRenderTarget(null);
+  renderer.setClearColor(0x222222, 1.0);
+  renderer.clear();
+  renderer.render( scene, camera, null, false );
   spheresMesh.material.uniforms.posTex.value = null;
   if(debugQuadPositions) debugQuadPositions.material.map = null;
   if(debugQuadGrid) debugQuadGrid.material.map = null;
