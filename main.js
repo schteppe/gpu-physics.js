@@ -22,7 +22,6 @@ var simulationParams2 = new THREE.Vector4(
 var gridPotZ;
 var container, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
-var windowHalfX = window.innerWidth / 2, windowHalfY = window.innerHeight / 2;
 var particlePosTextureRead, particlePosTextureWrite, particleVelTextureRead, particleVelTextureWrite, gridTexture, particleForceTexture;
 var material, fullScreenQuad, mesh;
 var numDebugQuads = 0;
@@ -356,8 +355,6 @@ function addDebugQuad(sizeX, sizeY, colorScale){
 }
 
 function onWindowResize() {
-  windowHalfX = window.innerWidth / 2;
-  windowHalfY = window.innerHeight / 2;
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize( window.innerWidth, window.innerHeight );
@@ -370,6 +367,25 @@ function animate() {
 
 function render() {
   controls.update();
+
+  simulate();
+
+  // Render main scene
+  updateDebugGrid();
+  if(debugQuadPositions) debugQuadPositions.material.map = particlePosTextureRead.texture;
+  if(debugQuadGrid) debugQuadGrid.material.map = gridTexture.texture;
+  mapParticleMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
+  spheresMesh.material.uniforms.posTex.value = particlePosTextureRead.texture;
+  renderer.setRenderTarget(null);
+  renderer.setClearColor(0x222222, 1.0);
+  renderer.clear();
+  renderer.render( scene, camera, null, false );
+  spheresMesh.material.uniforms.posTex.value = null;
+  if(debugQuadPositions) debugQuadPositions.material.map = null;
+  if(debugQuadGrid) debugQuadGrid.material.map = null;
+}
+
+function simulate(){
 
   // Try drawing a rectangle to the stencil buffer to mask out a square
   var gl = renderer.context;
@@ -443,18 +459,4 @@ function render() {
   tmp = particlePosTextureWrite; // swap
   particlePosTextureWrite = particlePosTextureRead;
   particlePosTextureRead = tmp;
-
-  // Render main scene
-  updateDebugGrid();
-  if(debugQuadPositions) debugQuadPositions.material.map = particlePosTextureRead.texture;
-  if(debugQuadGrid) debugQuadGrid.material.map = gridTexture.texture;
-  mapParticleMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
-  spheresMesh.material.uniforms.posTex.value = particlePosTextureRead.texture;
-  renderer.setRenderTarget(null);
-  renderer.setClearColor(0x222222, 1.0);
-  renderer.clear();
-  renderer.render( scene, camera, null, false );
-  spheresMesh.material.uniforms.posTex.value = null;
-  if(debugQuadPositions) debugQuadPositions.material.map = null;
-  if(debugQuadGrid) debugQuadGrid.material.map = null;
 }
