@@ -40,6 +40,7 @@ var sharedShaderCode;
 var dataTex = {};
 var debugGridMesh;
 var updateQuaternionMaterial;
+var localParticlePositionToWorldMaterial;
 
 init();
 animate();
@@ -53,7 +54,8 @@ function getDefines(){
   return {
     resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
     gridResolution: 'vec3( ' + gridResolution.x.toFixed( 1 ) + ', ' + gridResolution.y.toFixed( 1 ) + ', ' + gridResolution.z.toFixed( 1 ) + " )",
-    gridPotZ: 'int(' + gridPotZ + ')'
+    gridPotZ: 'int(' + gridPotZ + ')',
+    bodyTextureResolution: 'vec2( ' + numBodies.toFixed( 1 ) + ', ' + numBodies.toFixed( 1 ) + " )",
   };
 }
 
@@ -258,18 +260,6 @@ function init() {
     defines: getDefines()
   });
 
-  // localParticlePositionToRelative
-  localParticlePositionToRelativeMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      localParticlePosTex:  { value: null },
-      bodyPosTex:  { value: null },
-      bodyQuatTex:  { value: null },
-    },
-    vertexShader: getShader( 'vertexShader' ),
-    fragmentShader: getShader( 'localParticlePositionToRelativeFrag' ),
-    defines: getDefines()
-  });
-
   // localParticlePositionToWorld
   localParticlePositionToWorldMaterial = new THREE.ShaderMaterial({
     uniforms: {
@@ -450,15 +440,29 @@ function render() {
 
 function simulate(){
 
-  // Local particle positions to world-space, relative to body
-  fullScreenQuad.material = localParticlePositionToRelativeMaterial;
-  localParticlePositionToRelativeMaterial.uniforms.localParticlePosTex.value = localParticlePosTextureRead.texture;
-  localParticlePositionToRelativeMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
-  localParticlePositionToRelativeMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
+  /*
+  // Better structure?
+  particleRelativePositionPass(relativeParticlePosTextureWrite, bodyPosTextureRead, bodyQuatTextureRead);
+  particleWorldPositionPass(particleWorldTex, particleRelativePositionTex, bodyPosTextureRead);
+  particleVelocityPass(particleVelocityTex, bodyVelTex, bodyAngularVelTex);
+  particleForcePass(particleForceTex, particleWorldTex, particleVelocityTex);
+  bodyForcePass(bodyForceTex, particleForceTex, particleRelativePositionTex);
+  bodyTorquePass(bodyForceTex, particleForceTex, particleRelativePositionTex);
+  bodyUpdateVelocityPass(bodyVelocityTexWrite, bodyVelocityTexRead, bodyForceTex);
+  bodyUpdateAngularVelocityPass(bodyAngularVelocityTexWrite, bodyAngularVelocityTexRead, bodyTorqueTex);
+  bodyUpdatePositionPass(bodyPositionTexWrite, bodyPositionTexRead, bodyVelocityTex);
+  bodyUpdateQuaternionPass(bodyQuaternionTexWrite, bodyQuaternionTexRead, bodyAngularVelocityTex);
+  */
+
+  // Local particle positions to world
+  fullScreenQuad.material = localParticlePositionToWorldMaterial;
+  localParticlePositionToWorldMaterial.uniforms.localParticlePosTex.value = localParticlePosTextureRead.texture;
+  localParticlePositionToWorldMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
+  localParticlePositionToWorldMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, relativeParticlePosTextureWrite, false );
-  localParticlePositionToRelativeMaterial.uniforms.localParticlePosTex.value = null;
-  localParticlePositionToRelativeMaterial.uniforms.bodyPosTex.value = null;
-  localParticlePositionToRelativeMaterial.uniforms.bodyQuatTex.value = null;
+  localParticlePositionToWorldMaterial.uniforms.localParticlePosTex.value = null;
+  localParticlePositionToWorldMaterial.uniforms.bodyPosTex.value = null;
+  localParticlePositionToWorldMaterial.uniforms.bodyQuatTex.value = null;
 
   // Try drawing a rectangle to the stencil buffer to mask out a square
   var gl = renderer.context;
@@ -544,5 +548,120 @@ function simulate(){
   tmp = bodyQuatTextureWrite;
   bodyQuatTextureWrite = bodyQuatTextureRead;
   bodyQuatTextureRead = tmp;
+
+}
+
+// Test class for "ping pong" textures
+function PingPongTexture(readTex, writeTex){
+  this.read = readTex;
+  this.write = writeTex;
+}
+PingPongTexture.prototype = {
+  swap: function(){
+    var temp = this.read;
+    this.read = this.write;
+    this.write = temp;
+  }
+};
+
+
+// --- Test: one class/function for each pass ---
+function World(){
+  var renderer = new THREE.WebGLRenderer();
+  renderer.setPixelRatio( 1 ); // For some reason, device pixel ratio messes up the rendertargets on mobile
+  renderer.setSize( window.innerWidth, window.innerHeight ); // Not needed?
+  renderer.autoClear = false;
+  this.renderer = renderer;
+}
+function Pass(world){
+
+}
+Pass.prototype = {
+  sharedShaderCode:'',
+  getDefines: function(){
+
+  },
+  renderFullScreen: function(material, writeTexture, forceClear){
+    this.fullScreenQuad.material = material;
+    this.world.renderer.render( fullscreenQuadScene, fullscreenQuadCamera, writeTexture, forceClear );
+  }
+};
+
+// Local particle positions to world-space, relative to body
+function ParticleRelativePositionPass(world){
+  Pass.call(this, world);
+  var material = new THREE.ShaderMaterial({
+    uniforms: {
+      localParticlePosTex: { value: null },
+      bodyPosTex: { value: null },
+      bodyQuatTex: { value: null },
+    },
+    vertexShader: getShader( 'localParticlePositionToRelativeFrag' ),
+    fragmentShader: [
+      this.sharedShaderCode,
+      'uniform sampler2D localParticlePosTex;',
+      'uniform sampler2D bodyPosTex;',
+      'uniform sampler2D bodyQuatTex;',
+      'void main() {',
+      '    vec2 uv = gl_FragCoord.xy / resolution;',
+      '    float particleIndex = uvToIndex(uv, resolution);',
+      '    vec4 particlePosAndBodyId = texture2D( localParticlePosTex, uv );',
+      '    vec3 particlePos = particlePosAndBodyId.xyz;',
+      '    float bodyIndex = particlePosAndBodyId.w;',
+      '    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );',
+      '    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel',
+      '    vec3 bodyQuat = texture2D( bodyQuatTex, bodyUV );',
+      '    vec2 particleUV = indexToUV( particleIndex, resolution );',
+      '    vec3 relativeParticlePos = vec3_applyQuat(particlePos, bodyQuat);',
+      '    gl_FragColor = vec4(relativeParticlePos, bodyIndex);',
+      '}'
+    ].join('\n'),
+    defines: this.getDefines()
+  });
+  var uniforms = material.uniforms;
+  this.render = function(relativeParticlePosTextureWrite, localParticlePosTextureRead, bodyPosTextureRead, bodyQuatTextureRead){
+    uniforms.localParticlePosTex.value = localParticlePosTextureRead.texture;
+    uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
+    uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
+    this.renderFullScreen( material, relativeParticlePosTextureWrite, false );
+    uniforms.localParticlePosTex.value = null;
+    uniforms.bodyPosTex.value = null;
+    uniforms.bodyQuatTex.value = null;
+  };
+}
+
+function particleWorldPositionPass(particleWorldTex, particleRelativePositionTex, bodyPosTex){
+
+}
+
+function particleVelocityPass(particleVelocityTex, bodyVelTex, bodyAngularVelTex){
+
+}
+
+function particleForcePass(particleForceTex, particleWorldTex, particleVelocityTex){
+
+}
+
+function bodyForcePass(bodyForceTex, particleForceTex, particleRelativePositionTex){
+
+}
+
+function bodyTorquePass(bodyForceTex, particleForceTex, particleRelativePositionTex){
+
+}
+
+function bodyUpdateVelocityPass(bodyVelocityTexWrite, bodyVelocityTexRead, bodyForceTex){
+
+}
+
+function bodyUpdateAngularVelocityPass(bodyAngularVelocityTexWrite, bodyAngularVelocityTexRead, bodyTorqueTex){
+
+}
+
+function bodyUpdatePositionPass(bodyPositionTexWrite, bodyPositionTexRead, bodyVelocityTex){
+
+}
+
+function bodyUpdateQuaternionPass(bodyQuaternionTexWrite, bodyQuaternionTexRead, bodyAngularVelocityTex){
 
 }

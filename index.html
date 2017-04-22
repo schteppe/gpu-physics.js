@@ -231,7 +231,7 @@ uniform vec4 params2;
 
 void main() {
    vec2 uv = gl_FragCoord.xy / resolution;
-   vec3 quat = texture2D(quatTex, uv).xyz;
+   vec4 quat = texture2D(quatTex, uv);
    vec3 angularVel = texture2D(angularVelTex, uv).xyz;
    gl_FragColor = quat_integrate(quat, angularVel, deltaTime);
 }
@@ -286,7 +286,7 @@ uniform sampler2D bodyPosTex;
 uniform sampler2D bodyQuatTex;
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution;
-    float particleIndex = uvToIndex(uv, resolution);
+    float particleIndex = float(uvToIndex(uv, resolution));
     vec4 particlePosAndBodyId = texture2D( localParticlePosTex, uv );
     vec3 particlePos = particlePosAndBodyId.xyz;
     float bodyIndex = particlePosAndBodyId.w;
@@ -305,16 +305,18 @@ void main() {
 <script id="localParticlePositionToWorldFrag" type="x-shader/x-fragment">
 uniform sampler2D relativeParticlePosTex;
 uniform sampler2D bodyPosTex;
+uniform sampler2D bodyQuatTex;
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution;
-    float particleIndex = uvToIndex(uv, resolution);
+    float particleIndex = float(uvToIndex(uv, resolution));
     vec4 particlePosAndBodyId = texture2D( relativeParticlePosTex, uv );
     vec3 particlePos = particlePosAndBodyId.xyz;
 
     float bodyIndex = particlePosAndBodyId.w;
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution; // center to pixel
-    vec4 bodyPos = texture2D( bodyPosTex, bodyUV );
+    vec3 bodyPos = texture2D( bodyPosTex, bodyUV ).xyz;
+    vec4 bodyQuat = texture2D( bodyQuatTex, bodyUV );
 
     vec3 worldParticlePos = vec3_applyQuat(particlePos, bodyQuat) + bodyPos;
     gl_FragColor = vec4(worldParticlePos, bodyIndex);
