@@ -247,8 +247,24 @@ varying vec3 vBodyForce;
 void main() {
     vec2 particleUV = indexToUV( particleIndex, resolution );
     vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;
-    vec3 relativeParticlePos = texture2D( relativeParticlePosTex, particleUV ).xyz;
     vBodyForce = particleForce;
+    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
+    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
+    gl_PointSize = 1.0;
+    gl_Position = vec4(2.0 * (bodyUV - 0.5), 0, 1);
+}
+</script>
+<script id="addParticleTorqueToBodyVert" type="x-shader/x-vertex">
+uniform sampler2D relativeParticlePosTex;
+uniform sampler2D particleForceTex;
+attribute float particleIndex;
+attribute float bodyIndex; // Should this be in a texture?
+varying vec3 vBodyForce;
+void main() {
+    vec2 particleUV = indexToUV( particleIndex, resolution );
+    vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;
+    vec3 relativeParticlePos = texture2D( relativeParticlePosTex, particleUV ).xyz;
+    vBodyForce = cross(relativeParticlePos, particleForce);
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
     gl_PointSize = 1.0;
@@ -268,7 +284,6 @@ void main() {
 uniform sampler2D localParticlePosTex;
 uniform sampler2D bodyPosTex;
 uniform sampler2D bodyQuatTex;
-varying vec3 vBodyForce;
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution;
     float particleIndex = uvToIndex(uv, resolution);
@@ -282,13 +297,27 @@ void main() {
 
     vec3 relativeParticlePos = vec3_applyQuat(particlePos, bodyQuat);
 
-    gl_FragColor = vec4(relativeParticlePos, 1);
+    gl_FragColor = vec4(relativeParticlePos, bodyIndex);
 }
 </script>
-<script id="addParticleForceToBodyFrag" type="x-shader/x-fragment">
-varying vec3 vBodyForce;
+
+<!-- transform body-local particle positions to world -->
+<script id="localParticlePositionToWorldFrag" type="x-shader/x-fragment">
+uniform sampler2D relativeParticlePosTex;
+uniform sampler2D bodyPosTex;
 void main() {
-   gl_FragColor = vec4(vBodyForce, 0.0);
+    vec2 uv = gl_FragCoord.xy / resolution;
+    float particleIndex = uvToIndex(uv, resolution);
+    vec4 particlePosAndBodyId = texture2D( relativeParticlePosTex, uv );
+    vec3 particlePos = particlePosAndBodyId.xyz;
+
+    float bodyIndex = particlePosAndBodyId.w;
+    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
+    bodyUV += vec2(0.5) / bodyTextureResolution; // center to pixel
+    vec4 bodyPos = texture2D( bodyPosTex, bodyUV );
+
+    vec3 worldParticlePos = vec3_applyQuat(particlePos, bodyQuat) + bodyPos;
+    gl_FragColor = vec4(worldParticlePos, bodyIndex);
 }
 </script>
 

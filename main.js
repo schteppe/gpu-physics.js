@@ -1,6 +1,6 @@
-var numParticles = 32;
+var numParticles = 64;
 var numBodies = 64;
-var gridResolution = new THREE.Vector3(numParticles/2, numParticles/4, numParticles/2);
+var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
@@ -39,6 +39,7 @@ var spheresMesh;
 var sharedShaderCode;
 var dataTex = {};
 var debugGridMesh;
+var updateQuaternionMaterial;
 
 init();
 animate();
@@ -105,6 +106,10 @@ function init() {
   bodyTorqueTextureWrite = createRenderTarget(numBodies, numBodies);
 
   // Particle textures
+  localParticlePosTextureRead = createRenderTarget(numParticles, numParticles);
+  localParticlePosTextureWrite = createRenderTarget(numParticles, numParticles);
+  relativeParticlePosTextureRead = createRenderTarget(numParticles, numParticles);
+  relativeParticlePosTextureWrite = createRenderTarget(numParticles, numParticles);
   particlePosTextureRead = createRenderTarget(numParticles, numParticles);
   particlePosTextureWrite = createRenderTarget(numParticles, numParticles);
   particleVelTextureRead = createRenderTarget(numParticles, numParticles);
@@ -177,7 +182,7 @@ function init() {
   spheresMesh.frustumCulled = false;
   scene.add( spheresMesh );
 
-  // Init materials
+  // Position update
   updatePositionMaterial = new THREE.ShaderMaterial({
     uniforms: {
       posTex:  { value: null },
@@ -189,7 +194,7 @@ function init() {
     defines: getDefines()
   });
 
-  // Update velocity
+  // Update velocity - should work for both linear and angular
   updateVelocityMaterial = new THREE.ShaderMaterial({
     uniforms: {
       forceTex:  { value: particleForceTexture.texture },
@@ -228,6 +233,64 @@ function init() {
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateForceFrag' ),
+    defines: getDefines()
+  });
+
+  // Add force to body material
+  addForceToBodyMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      relativeParticlePosTex:  { value: null },
+      particleForceTex:  { value: null },
+    },
+    vertexShader: getShader( 'addParticleForceToBodyVert' ),
+    fragmentShader: getShader( 'addParticleForceToBodyFrag' ),
+    defines: getDefines()
+  });
+
+  // Add torque to body material
+  addTorqueToBodyMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      relativeParticlePosTex:  { value: null },
+      particleForceTex:  { value: null },
+    },
+    vertexShader: getShader( 'addParticleTorqueToBodyVert' ),
+    fragmentShader: getShader( 'addParticleForceToBodyFrag' ), // reuse
+    defines: getDefines()
+  });
+
+  // localParticlePositionToRelative
+  localParticlePositionToRelativeMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      localParticlePosTex:  { value: null },
+      bodyPosTex:  { value: null },
+      bodyQuatTex:  { value: null },
+    },
+    vertexShader: getShader( 'vertexShader' ),
+    fragmentShader: getShader( 'localParticlePositionToRelativeFrag' ),
+    defines: getDefines()
+  });
+
+  // localParticlePositionToWorld
+  localParticlePositionToWorldMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      localParticlePosTex:  { value: null },
+      bodyPosTex:  { value: null },
+      bodyQuatTex:  { value: null },
+    },
+    vertexShader: getShader( 'vertexShader' ),
+    fragmentShader: getShader( 'localParticlePositionToWorldFrag' ),
+    defines: getDefines()
+  });
+
+  // bodyVelocityToParticleVelocity
+  bodyVelocityToParticleVelocityMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      relativeParticlePosTex:  { value: null },
+      bodyVelTex:  { value: null },
+      bodyAngularVelTex:  { value: null },
+    },
+    vertexShader: getShader( 'vertexShader' ),
+    fragmentShader: getShader( 'bodyVelocityToParticleVelocityFrag' ),
     defines: getDefines()
   });
 
@@ -387,6 +450,16 @@ function render() {
 
 function simulate(){
 
+  // Local particle positions to world-space, relative to body
+  fullScreenQuad.material = localParticlePositionToRelativeMaterial;
+  localParticlePositionToRelativeMaterial.uniforms.localParticlePosTex.value = localParticlePosTextureRead.texture;
+  localParticlePositionToRelativeMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
+  localParticlePositionToRelativeMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
+  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, relativeParticlePosTextureWrite, false );
+  localParticlePositionToRelativeMaterial.uniforms.localParticlePosTex.value = null;
+  localParticlePositionToRelativeMaterial.uniforms.bodyPosTex.value = null;
+  localParticlePositionToRelativeMaterial.uniforms.bodyQuatTex.value = null;
+
   // Try drawing a rectangle to the stencil buffer to mask out a square
   var gl = renderer.context;
   var state = renderer.state;
@@ -459,4 +532,17 @@ function simulate(){
   tmp = particlePosTextureWrite; // swap
   particlePosTextureWrite = particlePosTextureRead;
   particlePosTextureRead = tmp;
+
+  // Update body quaternions
+  // todo: test
+  fullScreenQuad.material = updateQuaternionMaterial;
+  updateQuaternionMaterial.uniforms.quatTex.value = bodyQuatTextureRead.texture;
+  updateQuaternionMaterial.uniforms.angularVelTex.value = bodyAngularVelTextureRead.texture;
+  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, bodyQuatTextureWrite, false );
+  updateQuaternionMaterial.uniforms.quatTex.value = null;
+  updateQuaternionMaterial.uniforms.angularVelTex.value = null;
+  tmp = bodyQuatTextureWrite;
+  bodyQuatTextureWrite = bodyQuatTextureRead;
+  bodyQuatTextureRead = tmp;
+
 }
