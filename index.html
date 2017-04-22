@@ -58,12 +58,26 @@ vec2 gridPosToGridUV2(vec3 gridPos, int subIndex, vec3 gridRes){
 vec4 quat_integrate(vec4 q, vec3 w, float dt){
     float half_dt = dt * 0.5;
 
-    q.x += half_dt * (w.x * q.w + w.y * q.z - w.z * q.y);
+    q.x += half_dt * (w.x * q.w + w.y * q.z - w.z * q.y); // TODO: vectorize
     q.y += half_dt * (w.y * q.w + w.z * q.x - w.x * q.z);
     q.z += half_dt * (w.z * q.w + w.x * q.y - w.y * q.x);
     q.w += half_dt * (- w.x * q.x - w.y * q.y - w.z * q.z);
 
     return normalize(q);
+}
+
+// Rotate a vector by a quaternion
+vec3 vec3_applyQuat(vec3 v, vec4 q){
+    float ix =  q.w * v.x + q.y * v.z - q.z * v.y; // TODO: vectorize
+    float iy =  q.w * v.y + q.z * v.x - q.x * v.z;
+    float iz =  q.w * v.z + q.x * v.y - q.y * v.x;
+    float iw = -q.x * v.x - q.y * v.y - q.z * v.z;
+
+    return vec3(
+        ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y,
+        iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z,
+        iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x
+    );
 }
 
 </script>
@@ -247,6 +261,31 @@ void main() {
 uniform sampler2D particlePosTex;
 uniform sampler2D particleForceTex;
 attribute float particleIndex;
+attribute float bodyIndex; // Should this be in a texture?
+varying vec3 vBodyForce;
+void main() {
+    vec2 particleUV = indexToUV( particleIndex, resolution );
+    vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;
+    vBodyForce = particleForce; // TODO: Use particle offset
+    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
+    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
+    gl_PointSize = 1.0;
+    gl_Position = vec4(2.0 * (bodyUV - 0.5), 0, 1);
+}
+</script>
+<script id="addParticleForceToBodyFrag" type="x-shader/x-fragment">
+varying vec3 vBodyForce;
+void main() {
+   gl_FragColor = vec4(vBodyForce, 0.0);
+}
+</script>
+
+
+<!--  -->
+<script id="localParticlePositionToRelativeFrag" type="x-shader/x-fragment">
+uniform sampler2D localParticlePosTex;
+uniform sampler2D bodyPosTex;
+uniform sampler2D bodyQuatTex;
 attribute float bodyIndex; // Should this be in a texture?
 varying vec3 vBodyForce;
 void main() {
