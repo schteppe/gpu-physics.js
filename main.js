@@ -1,6 +1,6 @@
-var numParticles = 128;
+var numParticles = 32;
 var numBodies = 64;
-var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
+var gridResolution = new THREE.Vector3(numParticles/2, numParticles/4, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
@@ -8,7 +8,7 @@ var gravity = new THREE.Vector3(0,-1,0);
 var showDebugGrid = true;
 var simulationParams1 = new THREE.Vector4(
   2000, // stiffness
-  20, // damping
+  15, // damping
   radius, // radius
   0.3 // drag
 );

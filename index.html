@@ -166,9 +166,12 @@ void main() {
                         if(len > 0.0 && len < radius * 2.0){
                             vec3 dir = normalize(r);
                             force -= stiffness * (len - 2.0 * radius) * dir + damping * dot(velocity, dir) * dir;
-                        }
 
-                        // TODO: Apply shear (tangential) force - this probably needs to be done in other pass
+                            // Compute shear (tangential) force - this won't make sense until bodies are implemented
+                            vec3 relVel = velocity - neighborVelocity;
+                            vec3 relTangentVel = relVel - dot(relVel, dir) * dir;
+                            //force -= damping * relTangentVel;
+                        }
                     }
                 }
             }
@@ -258,7 +261,7 @@ void main() {
 
 <!-- rendered additively with GL_POINTS to a body force texture -->
 <script id="addParticleForceToBodyVert" type="x-shader/x-vertex">
-uniform sampler2D particlePosTex;
+uniform sampler2D relativeParticlePosTex;
 uniform sampler2D particleForceTex;
 attribute float particleIndex;
 attribute float bodyIndex; // Should this be in a texture?
@@ -266,7 +269,8 @@ varying vec3 vBodyForce;
 void main() {
     vec2 particleUV = indexToUV( particleIndex, resolution );
     vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;
-    vBodyForce = particleForce; // TODO: Use particle offset
+    vec3 relativeParticlePos = texture2D( relativeParticlePosTex, particleUV ).xyz;
+    vBodyForce = particleForce;
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
     gl_PointSize = 1.0;
@@ -281,21 +285,26 @@ void main() {
 </script>
 
 
-<!--  -->
+<!-- transform body-local particle positions to world, relative to the body -->
 <script id="localParticlePositionToRelativeFrag" type="x-shader/x-fragment">
 uniform sampler2D localParticlePosTex;
 uniform sampler2D bodyPosTex;
 uniform sampler2D bodyQuatTex;
-attribute float bodyIndex; // Should this be in a texture?
 varying vec3 vBodyForce;
 void main() {
-    vec2 particleUV = indexToUV( particleIndex, resolution );
-    vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;
-    vBodyForce = particleForce; // TODO: Use particle offset
+    vec2 uv = gl_FragCoord.xy / resolution;
+    float particleIndex = uvToIndex(uv, resolution);
+    vec4 particlePosAndBodyId = texture2D( localParticlePosTex, uv );
+    vec3 particlePos = particlePosAndBodyId.xyz;
+    float bodyIndex = particlePosAndBodyId.w;
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
-    gl_PointSize = 1.0;
-    gl_Position = vec4(2.0 * (bodyUV - 0.5), 0, 1);
+    vec3 bodyQuat = texture2D( bodyQuatTex, bodyUV );
+    vec2 particleUV = indexToUV( particleIndex, resolution );
+
+    vec3 relativeParticlePos = vec3_applyQuat(particlePos, bodyQuat);
+
+    gl_FragColor = vec4(relativeParticlePos, 1);
 }
 </script>
 <script id="addParticleForceToBodyFrag" type="x-shader/x-fragment">
@@ -304,6 +313,30 @@ void main() {
    gl_FragColor = vec4(vBodyForce, 0.0);
 }
 </script>
+
+
+<!-- transform body velocity to particle velocity -->
+<script id="bodyVelocityToParticleVelocityFrag" type="x-shader/x-fragment">
+uniform sampler2D relativeParticlePosTex;
+uniform sampler2D bodyVelTex;
+uniform sampler2D bodyAngularVelTex;
+void main() {
+    vec2 particleUV = gl_FragCoord.xy / resolution;
+    vec4 particlePosAndBodyId = texture2D( relativeParticlePosTex, particleUV );
+    vec3 relativeParticlePosTex = particlePosAndBodyId.xyz;
+    float bodyIndex = particlePosAndBodyId.w;
+    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
+    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
+
+    vec4 bodyVelocity = texture2D( bodyVelTex, bodyUV );
+    vec4 bodyAngularVelocity = texture2D( bodyAngularVelTex, bodyUV );
+    vec3 particleVelocity = bodyVelocity + cross(relativeParticlePosition, bodyAngularVelocity);
+
+    gl_FragColor = vec4(particleVelocity, 1);
+}
+</script>
+
+
 
 <script src="three.orbitcontrols.js"></script>
 <script src="main.js"></script>
