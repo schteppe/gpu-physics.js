@@ -178,39 +178,15 @@ void main() {
         }
     }
 
-    // Apply force from ground / bounds?
-    vec3 boxMax = vec3(0.7);
+    // Apply force from ground / bounds
     vec3 boxMin = vec3(0.3);
-    if(position.x - radius < boxMin.x){
-        float x = position.x - radius;
-        float x0 = boxMin.x;
-        force.x -= stiffness * (x - x0) + damping * velocity.x;
-    }
-    if(position.y - radius < boxMin.y){
-        float x = position.y - radius;
-        float x0 = boxMin.y;
-        force.y -= stiffness * (x - x0) + damping * velocity.y;
-    }
-    if(position.z - radius < boxMin.z){
-        float x = position.z - radius;
-        float x0 = boxMin.z;
-        force.z -= stiffness * (x - x0) + damping * velocity.z;
-    }
-    if(position.x + radius > boxMax.x){
-        float x = position.x + radius;
-        float x0 = boxMax.x;
-        force.x -= stiffness * (x - x0) + damping * velocity.x;
-    }
-    if(position.y + radius > boxMax.y){
-        float x = position.y + radius;
-        float x0 = boxMax.y;
-        force.y -= stiffness * (x - x0) + damping * velocity.y;
-    }
-    if(position.z + radius > boxMax.z){
-        float x = position.z + radius;
-        float x0 = boxMax.z;
-        force.z -= stiffness * (x - x0) + damping * velocity.z;
-    }
+    vec3 boxMax = vec3(0.7);
+    vec3 x = position - radius;
+    vec3 f = - stiffness * (x - boxMin) - damping * velocity;
+    force += step(x, boxMin) * f;
+    x = position + radius;
+    f = - stiffness * (x - boxMax) - damping * velocity;
+    force += step(boxMax, x) * f;
 
     // "Air friction" / drag force
     force -= drag * velocity;
