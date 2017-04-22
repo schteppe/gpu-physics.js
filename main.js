@@ -6,15 +6,15 @@ var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,-1,0);
 var showDebugGrid = true;
-var simulationParams1 = new THREE.Vector4(
+var params1 = new THREE.Vector4(
   2000, // stiffness
   15, // damping
   radius, // radius
   0.3 // drag
 );
-var simulationParams2 = new THREE.Vector4(
+var params2 = new THREE.Vector4(
   1/100, // time step
-  0, // unused
+  15, // friction force factor
   0, // unused
   0 // unused
 );
@@ -182,7 +182,7 @@ function init() {
     uniforms: {
       posTex:  { value: null },
       velTex:  { value: null },
-      params2: { value: simulationParams2 }
+      params2: { value: params2 }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updatePositionFrag' ),
@@ -195,7 +195,7 @@ function init() {
       forceTex:  { value: particleForceTexture.texture },
       posTex:  { value: null },
       velTex:  { value: null },
-      params2: { value: simulationParams2 }
+      params2: { value: params2 }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateVelocityFrag' ),
@@ -207,7 +207,7 @@ function init() {
     uniforms: {
       quatTex:  { value: null },
       angularVelTex:  { value: null },
-      params2: { value: simulationParams2 }
+      params2: { value: params2 }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateQuaternionFrag' ),
@@ -223,8 +223,8 @@ function init() {
       velTex:  { value: null },
       gridTex:  { value: gridTexture.texture },
       gravity: { value: gravity },
-      params1: { value: simulationParams1 },
-      params2: { value: simulationParams2 },
+      params1: { value: params1 },
+      params2: { value: params2 },
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateForceFrag' ),

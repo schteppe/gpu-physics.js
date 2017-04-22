@@ -124,6 +124,8 @@ uniform vec4 params1;
 #define damping params1.y
 #define radius params1.z
 #define drag params1.w
+uniform vec4 params2;
+#define friction params2.y
 
 uniform vec3 gravity;
 uniform vec3 cellSize;
@@ -170,7 +172,7 @@ void main() {
                             // Compute shear (tangential) force - this won't make sense until bodies are implemented
                             vec3 relVel = velocity - neighborVelocity;
                             vec3 relTangentVel = relVel - dot(relVel, dir) * dir;
-                            //force -= damping * relTangentVel;
+                            //force -= friction * relTangentVel;
                         }
                     }
                 }
