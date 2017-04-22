@@ -164,7 +164,7 @@ function init() {
     "attribute float particleIndex;",
     phongShader.vertexShader.replace(
       "<begin_vertex>",
-      "<begin_vertex>\nvec2 particleUV=getParticleUV(particleIndex,resolution);transformed.xyz+=texture2D(posTex,particleUV).xyz;"
+      "<begin_vertex>\nvec2 particleUV=indexToUV(particleIndex,resolution);transformed.xyz+=texture2D(posTex,particleUV).xyz;"
     )
   ].join('\n');
   var material = new THREE.ShaderMaterial({

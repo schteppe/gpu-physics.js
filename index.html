@@ -12,12 +12,12 @@
 <script src="three.min.js"></script>
 
 <script id="sharedShaderCode" type="x-shader/x-fragment">
-int getParticleIndex(vec2 uv, vec2 size) {
+int uvToIndex(vec2 uv, vec2 size) {
     ivec2 coord = ivec2(floor(uv*size+0.5));
     return coord.x + int(size.x) * coord.y;
 }
-vec2 getParticleUV(float particleIndex, vec2 res){
-    vec2 particleUV = vec2(mod(particleIndex/res.x,1.0), floor( particleIndex/res.y ) / res.x);
+vec2 indexToUV(float index, vec2 res){
+    vec2 particleUV = vec2(mod(index/res.x,1.0), floor( index/res.y ) / res.x);
     return particleUV;
 }
 // Get grid position as a vec3: (xIndex, yIndex, zIndex)
@@ -87,7 +87,7 @@ attribute float particleIndex;
 varying float vParticleIndex;
 void main() {
     vParticleIndex = particleIndex;
-    vec2 particleUV = getParticleUV(particleIndex, resolution);
+    vec2 particleUV = indexToUV(particleIndex, resolution);
     vec3 particlePos = texture2D( posTex, particleUV ).xyz;
     // Get particle cell position
     vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize);
@@ -121,7 +121,7 @@ uniform sampler2D gridTex;
 
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution;
-    int particleIndex = getParticleIndex(uv, resolution);
+    int particleIndex = uvToIndex(uv, resolution);
 
     // Get id and position of current
     vec3 position = texture2D(posTex, uv).xyz;
@@ -142,7 +142,7 @@ void main() {
                     vec2 neighborCellTexUV = gridPosToGridUV2(neighborCellGridPos, l, gridResolution);
                     neighborCellTexUV += vec2(0.5) / (2.0 * gridTexRes); // center to "cell pixel"
                     int neighborIndex = int(floor(texture2D(gridTex, neighborCellTexUV).x-1.0 + 0.5)); // indices are stored incremented by 1
-                    vec2 neighborUV = getParticleUV(float(neighborIndex), resolution);
+                    vec2 neighborUV = indexToUV(float(neighborIndex), resolution);
                     vec3 neighborPosition = texture2D(posTex, neighborUV).xyz;
                     vec3 neighborVelocity = texture2D(velTex, neighborUV).xyz;
                     if(neighborIndex >=0 && neighborIndex != particleIndex && iNeighborCellGridPos.x>=0 && iNeighborCellGridPos.y>=0 && iNeighborCellGridPos.z>=0 && iNeighborCellGridPos.x<iGridRes.x && iNeighborCellGridPos.y<iGridRes.y && iNeighborCellGridPos.z<iGridRes.z){ // Not self!
@@ -239,6 +239,30 @@ void main() {
    vec3 quat = texture2D(quatTex, uv).xyz;
    vec3 angularVel = texture2D(angularVelTex, uv).xyz;
    gl_FragColor = quat_integrate(quat, angularVel, deltaTime);
+}
+</script>
+
+<!-- rendered additively with GL_POINTS to a body force texture -->
+<script id="addParticleForceToBodyVert" type="x-shader/x-vertex">
+uniform sampler2D particlePosTex;
+uniform sampler2D particleForceTex;
+attribute float particleIndex;
+attribute float bodyIndex; // Should this be in a texture?
+varying vec3 vBodyForce;
+void main() {
+    vec2 particleUV = indexToUV( particleIndex, resolution );
+    vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;
+    vBodyForce = particleForce; // TODO: Use particle offset
+    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
+    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
+    gl_PointSize = 1.0;
+    gl_Position = vec4(2.0 * (bodyUV - 0.5), 0, 1);
+}
+</script>
+<script id="addParticleForceToBodyFrag" type="x-shader/x-fragment">
+varying vec3 vBodyForce;
+void main() {
+   gl_FragColor = vec4(vBodyForce, 0.0);
 }
 </script>
 
