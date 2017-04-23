@@ -1,16 +1,16 @@
-var numParticles = 64;
+var numParticles = 128;
 var numBodies = 128;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,-1,0);
-var showDebugGrid = true;
+var showDebugGrid = false;
 var params1 = new THREE.Vector4(
   2000, // stiffness
   15, // damping
   radius, // radius
-  0.3 // drag
+  0.5 // drag
 );
 var params2 = new THREE.Vector4(
   1/100, // time step
@@ -18,6 +18,7 @@ var params2 = new THREE.Vector4(
   0, // unused
   0 // unused
 );
+var params3 = new THREE.Vector4(0.5,0.5,0.5,0.05);
 
 var gridPotZ;
 var container, controls;
@@ -41,6 +42,7 @@ var dataTex = {};
 var debugGridMesh;
 var updateQuaternionMaterial;
 var localParticlePositionToWorldMaterial;
+var gizmo;
 
 init();
 animate();
@@ -232,6 +234,7 @@ function init() {
       gravity: { value: gravity },
       params1: { value: params1 },
       params2: { value: params2 },
+      params3: { value: params3 },
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateForceFrag' ),
@@ -333,6 +336,18 @@ function init() {
   controls = new THREE.OrbitControls( camera, renderer.domElement );
   controls.enableZoom = true;
   controls.target.set(0.5, 0.4, 0.5);
+
+  var mesh=new THREE.Mesh(new THREE.SphereBufferGeometry(params3.w,16,16), new THREE.MeshPhongMaterial({ color: 0xffffff }));
+  gizmo = new THREE.TransformControls( camera, renderer.domElement );
+  gizmo.addEventListener( 'change', function(){
+    params3.x = mesh.position.x;
+    params3.y = mesh.position.y;
+    params3.z = mesh.position.z;
+  });
+  mesh.position.set(0.5,0.5,0.5);
+  scene.add(mesh);
+  gizmo.attach(mesh);
+  scene.add(gizmo);
 }
 
 function createRenderTarget(w,h,format){
