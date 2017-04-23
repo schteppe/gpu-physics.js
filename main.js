@@ -1,5 +1,5 @@
 var numParticles = 64;
-var numBodies = 64;
+var numBodies = 128;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
@@ -471,7 +471,8 @@ function simulate(){
   // Set up the grid texture for stencil routing.
   // See http://www.gpgpu.org/static/s2007/slides/15-GPGPU-physics.pdf slide 24
   renderer.setClearColor( 0x000000, 1.0 );
-  renderer.clearTarget( gridTexture, true, true, true );
+  renderer.clearTarget( gridTexture, true, false, true );
+  state.buffers.depth.setTest( false );
   state.buffers.depth.setMask( false ); // dont draw depth
   state.buffers.color.setMask( false ); // dont draw color
   state.buffers.color.setLocked( true );
@@ -484,8 +485,11 @@ function simulate(){
   var gridSizeY = gridTexture.height;
   for(var i=0;i<2;i++){
     for(var j=0;j<2;j++){
-      var x = i, y = j, r = 0, g = 0, b = 0;
-      var stencilValue = i+j*2;
+      var x = i, y = j;
+      var stencilValue = i + j * 2;
+      if(stencilValue === 0){
+        continue; // No need to set 0 stencil value, it's already cleared
+      }
       state.buffers.stencil.setFunc( gl.ALWAYS, stencilValue, 0xffffffff );
       setGridStencilMesh.position.set((x+2)/gridSizeX,(y+2)/gridSizeY,0);
       renderer.render( sceneStencil, fullscreenQuadCamera, gridTexture, false );
@@ -495,10 +499,8 @@ function simulate(){
   state.buffers.color.setMask( true );
   state.buffers.depth.setLocked( false );
   state.buffers.depth.setMask( true );
-  state.buffers.stencil.setTest( false );
 
   // Draw particles to grid, use stencil routing.
-  state.buffers.stencil.setTest( true );
   state.buffers.stencil.setFunc( gl.EQUAL, 3, 0xffffffff );
   state.buffers.stencil.setOp( gl.INCR, gl.INCR, gl.INCR ); // Increment stencil value for every rendered fragment
   mapParticleToCellMesh.material = mapParticleMaterial;
@@ -549,6 +551,7 @@ function simulate(){
   bodyQuatTextureWrite = bodyQuatTextureRead;
   bodyQuatTextureRead = tmp;
 
+  state.buffers.depth.setTest( true );
 }
 
 // Test class for "ping pong" textures

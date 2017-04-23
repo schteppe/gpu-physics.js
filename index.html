@@ -12,6 +12,7 @@
 <script src="three.min.js"></script>
 
 <script id="sharedShaderCode" type="x-shader/x-fragment">
+precision highp float;
 int uvToIndex(vec2 uv, vec2 size) {
     ivec2 coord = ivec2(floor(uv*size+0.5));
     return coord.x + int(size.x) * coord.y;
