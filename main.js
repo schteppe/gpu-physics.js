@@ -1,4 +1,4 @@
-var numParticles = 64;
+var numParticles = 128;
 var numBodies = numParticles;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
@@ -190,10 +190,20 @@ function init() {
       [
         "<begin_vertex>",
         "vec2 particleUV = indexToUV(particleIndex,resolution);",
-        "transformed.xyz = vec3_applyQuat(transformed.xyz, texture2D(quatTex,particleUV).xyzw);",
+        "vec4 quat = texture2D(quatTex,particleUV).xyzw;",
+        "transformed.xyz = vec3_applyQuat(transformed.xyz, quat);",
         "transformed.xyz += texture2D(posTex,particleUV).xyz;",
+
       ].join("\n")
-    )
+    ).replace(
+      "#include <defaultnormal_vertex>",
+      [
+        "vec2 particleUV2 = indexToUV(particleIndex,resolution);",
+        "vec4 quat2 = texture2D(quatTex,particleUV2).xyzw;",
+        "objectNormal.xyz = vec3_applyQuat(objectNormal.xyz, quat2);",
+        "#include <defaultnormal_vertex>",
+
+      ].join("\n"))
   ].join('\n');
   var material = new THREE.ShaderMaterial({
     uniforms: uniforms,
