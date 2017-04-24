@@ -245,6 +245,7 @@ void main() {
     vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridPotZ);
 
     vec3 torque = vec3(0);
+    float mu = 3.0;
 
     // Neighbor friction
     for(int i=-1; i<2; i++){
@@ -271,7 +272,7 @@ void main() {
 
                             // Compute shear (tangential) force - this won't make sense until bodies are implemented
                             vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius*dir, relAngularVel);
-                            torque += damping * cross(radius*dir, relTangentVel);
+                            torque += mu * cross(radius*dir, relTangentVel);
                         }
                     }
                 }
@@ -280,18 +281,26 @@ void main() {
     }
 
     // Reduce rotation
-    torque -= damping * angularVelocity; // TODO: dont use same as contact
+    torque -= 0.000001 * angularVelocity;
 
-    // Apply torque from ground / bounds
-    /*vec3 boxMin = vec3(0.3);
-    vec3 boxMax = vec3(0.7,100.0,0.7);
-    vec3 x = position - radius;
-    vec3 relVel = velocity - vec3(0);
-    vec3 f = - stiffness * (x - boxMin) - damping * relVel;
-    force += step(x, boxMin) * f;
-    x = position + radius;
-    f = - stiffness * (x - boxMax) - damping * relVel;
-    force += step(boxMax, x) * f;*/
+    vec3 boxMax = vec3(0.7);
+    vec3 boxMin = vec3(0.3);
+    vec3 dirs[6];
+    dirs[0] = vec3(1,0,0);
+    dirs[1] = vec3(0,1,0);
+    dirs[2] = vec3(0,0,1);
+    dirs[3] = vec3(-1,0,0);
+    dirs[4] = vec3(0,-1,0);
+    dirs[5] = vec3(0,0,-1);
+    for(int i=0; i<6; i++){
+        vec3 dir = dirs[i];
+        if(dot(dir,position) - radius < dot(boxMin,dir)){
+            vec3 relVel = velocity - vec3(0);
+            vec3 relAngularVel = angularVelocity - vec3(0);
+            vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius * dir, relAngularVel);
+            torque += mu * cross(radius * dir, relTangentVel);
+        }
+    }
 
     gl_FragColor = vec4(torque, 0.0);
 }
@@ -301,13 +310,14 @@ void main() {
 uniform sampler2D velTex;
 uniform sampler2D forceTex;
 uniform vec4 params2;
+uniform float inertia;
 #define deltaTime params2.x
 
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution;
     vec4 velocity = texture2D(velTex, uv);
     vec4 force = texture2D(forceTex, uv);
-    gl_FragColor = vec4(velocity.xyz + force.xyz * deltaTime, 1.0);
+    gl_FragColor = vec4(velocity.xyz + force.xyz * deltaTime / inertia, 1.0);
 }
 </script>
 <script id="updatePositionFrag" type="x-shader/x-fragment">

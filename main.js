@@ -1,4 +1,4 @@
-var numParticles = 128;
+var numParticles = 64;
 var numBodies = numParticles;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
@@ -223,7 +223,8 @@ function init() {
     uniforms: {
       forceTex:  { value: null },
       velTex:  { value: null },
-      params2: { value: params2 }
+      params2: { value: params2 },
+      inertia: { value: 1 } // Inertia or mass
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateVelocityFrag' ),
@@ -589,6 +590,7 @@ function simulate(){
 
   // Update velocity
   fullScreenQuad.material = updateVelocityMaterial;
+  updateVelocityMaterial.uniforms.inertia.value = 1; // sphere mass == 1
   updateVelocityMaterial.uniforms.velTex.value = particleVelTextureRead.texture;
   updateVelocityMaterial.uniforms.forceTex.value = particleForceTexture.texture;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleVelTextureWrite, false );
@@ -611,6 +613,7 @@ function simulate(){
 
   // Update angular velocity
   fullScreenQuad.material = updateVelocityMaterial;
+  updateVelocityMaterial.uniforms.inertia.value = (2.0 * 1.0 * radius * radius / 5.0); // sphere with mass 1
   updateVelocityMaterial.uniforms.velTex.value = particleAngularVelTextureRead.texture;
   updateVelocityMaterial.uniforms.forceTex.value = particleTorqueTexture.texture;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleAngularVelTextureWrite, false );
