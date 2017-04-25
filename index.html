@@ -188,7 +188,7 @@ void main() {
 
     // Apply force from ground / bounds
     vec3 boxMin = vec3(0.3);
-    vec3 boxMax = vec3(0.7,100.0,0.7);
+    vec3 boxMax = vec3(0.7);
     vec3 x = position - radius;
     vec3 relVel = velocity - vec3(0);
     vec3 f = - stiffness * (x - boxMin) - damping * relVel;
@@ -245,7 +245,7 @@ void main() {
     vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridPotZ);
 
     vec3 torque = vec3(0);
-    float mu = 3.0;
+    float mu = 5.0;
 
     // Neighbor friction
     for(int i=-1; i<2; i++){
@@ -281,20 +281,25 @@ void main() {
     }
 
     // Reduce rotation
-    torque -= 0.000001 * angularVelocity;
+    torque -= 0.00001 * angularVelocity;
 
-    vec3 boxMax = vec3(0.7);
     vec3 boxMin = vec3(0.3);
-    vec3 dirs[6];
+    vec3 boxMax = vec3(0.7);
+    vec3 dirs[3];
     dirs[0] = vec3(1,0,0);
     dirs[1] = vec3(0,1,0);
     dirs[2] = vec3(0,0,1);
-    dirs[3] = vec3(-1,0,0);
-    dirs[4] = vec3(0,-1,0);
-    dirs[5] = vec3(0,0,-1);
-    for(int i=0; i<6; i++){
+    for(int i=0; i<3; i++){
         vec3 dir = dirs[i];
-        if(dot(dir,position) - radius < dot(boxMin,dir)){
+        if(dot(dir,position) - radius < boxMin[i]){
+            vec3 relVel = velocity - vec3(0);
+            vec3 relAngularVel = angularVelocity - vec3(0);
+            vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius * dir, relAngularVel);
+            torque += mu * cross(radius * dir, relTangentVel);
+        }
+
+        if(dot(dir,position) + radius > boxMax[i]){
+            dir = -dir;
             vec3 relVel = velocity - vec3(0);
             vec3 relAngularVel = angularVelocity - vec3(0);
             vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius * dir, relAngularVel);

@@ -1,11 +1,11 @@
 var numParticles = 128;
 var numBodies = numParticles;
-var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
-var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
+var gridResolution = new THREE.Vector3(numParticles/2, numParticles/16, numParticles/2);
+var gridPosition = new THREE.Vector3(0.25,0.29,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,-1,0);
-var showDebugGrid = false;
+var showDebugGrid = true;
 var params1 = new THREE.Vector4(
   2000, // stiffness
   15, // damping
@@ -139,12 +139,12 @@ function init() {
     out.set( 0, 0, 0, 1 );
   });
   fillRenderTarget(particleAngularVelTextureRead, function(out, x, y){
-    out.set(
+    /*out.set(
       30*(Math.random()-0.5),
       30*(Math.random()-0.5),
       30*(Math.random()-0.5),
       1
-    );
+    );*/
   });
 
   // main 3D scene
@@ -159,7 +159,7 @@ function init() {
   initDebugGrid();
 
   // Create an instanced mesh for spheres
-  var sphereGeometry = new THREE.SphereBufferGeometry(radius, 6, 8);
+  var sphereGeometry = new THREE.SphereBufferGeometry(radius, 8, 8);
   var triangles = 1;
   var instances = numParticles*numParticles;
   var geometry = new THREE.InstancedBufferGeometry();
@@ -180,6 +180,7 @@ function init() {
   var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
   uniforms.posTex = { value: null };
   uniforms.quatTex = { value: null };
+  uniforms.diffuse = { value: new THREE.Color() };
   var vert = [
     sharedShaderCode,
     "uniform sampler2D posTex;",
@@ -212,8 +213,12 @@ function init() {
     lights: true,
     defines: getDefines()
   });
+  material.defines.USE_MAP = true;
   spheresMesh = new THREE.Mesh( geometry, material );
   spheresMesh.frustumCulled = false;
+  var tex = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255]), 1, 2, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
+  tex.needsUpdate = true;
+  material.uniforms.map.value = tex;
   scene.add( spheresMesh );
 
   // Position update
