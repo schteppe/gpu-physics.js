@@ -414,7 +414,7 @@ void main() {
     float bodyIndex = particlePosAndBodyId.w;
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
-    vec3 bodyQuat = texture2D( bodyQuatTex, bodyUV );
+    vec4 bodyQuat = texture2D( bodyQuatTex, bodyUV );
     vec2 particleUV = indexToUV( particleIndex, resolution );
 
     vec3 relativeParticlePos = vec3_applyQuat(particlePos, bodyQuat);
