@@ -140,6 +140,17 @@ uniform sampler2D posTex;
 uniform sampler2D velTex;
 uniform sampler2D gridTex;
 
+vec3 particleForce(float STIFFNESS, float DAMPING, float DAMPING_T, float distance, vec3 xi, vec3 xj, vec3 vi, vec3 vj){
+    vec3 rij = xj - xi;
+    vec3 rij_unit = normalize(rij);
+    vec3 vij = vj - vi;
+    vec3 vij_t = vij - dot(vij, rij_unit) * rij_unit;
+    vec3 springForce = - STIFFNESS * (distance - length(rij)) * rij_unit;
+    vec3 dampingForce = DAMPING * vij;
+    vec3 tangentForce = DAMPING_T * vij_t;
+    return springForce + dampingForce + tangentForce;
+}
+
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution;
     int particleIndex = uvToIndex(uv, resolution);
@@ -171,14 +182,7 @@ void main() {
                         vec3 r = position - neighborPosition;
                         float len = length(r);
                         if(len > 0.0 && len < radius * 2.0){
-                            vec3 dir = normalize(r);
-                            vec3 relVel = velocity - neighborVelocity;
-
-                            force -= stiffness * (len - 2.0 * radius) * dir + damping * dot(relVel, dir) * dir;
-
-                            // Compute shear (tangential) force - this won't make sense until bodies are implemented
-                            vec3 relTangentVel = relVel - dot(relVel, dir) * dir;
-                            //force -= friction * relTangentVel;
+                            force += particleForce(stiffness, damping, friction, 2.0 * radius, position, neighborPosition, velocity, neighborVelocity);
                         }
                     }
                 }
@@ -189,23 +193,29 @@ void main() {
     // Apply force from ground / bounds
     vec3 boxMin = vec3(0.3);
     vec3 boxMax = vec3(0.7);
-    vec3 x = position - radius;
-    vec3 relVel = velocity - vec3(0);
-    vec3 f = - stiffness * (x - boxMin) - damping * relVel;
-    force += step(x, boxMin) * f;
-    x = position + radius;
-    f = - stiffness * (x - boxMax) - damping * relVel;
-    force += step(boxMax, x) * f;
-
-    // fountain test
-    //force.y += smoothstep(0.0, length(position-vec3(0.5,0.35,0.5)), 0.002)*100.0;
+    vec3 dirs[3];
+    dirs[0] = vec3(1,0,0);
+    dirs[1] = vec3(0,1,0);
+    dirs[2] = vec3(0,0,1);
+    for(int i=0; i<3; i++){
+        vec3 dir = dirs[i];
+        vec3 relVel = velocity - vec3(0);
+        float x = dot(dir,position) - radius;
+        if(x < boxMin[i]){
+            force += -stiffness * (x - boxMin[i]) * dir + damping * relVel;
+        }
+        x = dot(dir,position) + radius;
+        if(x > boxMax[i]){
+            dir = -dir;
+            force -= -stiffness * (x - boxMax[i]) * dir + damping * relVel;
+        }
+    }
 
     // Sphere interaction
     vec3 r = position - interactionSpherePos;
     float len = length(r);
     if(len > 0.0 && len < interactionSphereRadius+radius){
-        vec3 dir = normalize(r);
-        force -= stiffness * (len - (interactionSphereRadius+radius)) * dir + damping * dot(velocity, dir) * dir;
+        force += particleForce(stiffness, damping, friction, radius + interactionSphereRadius, position, interactionSpherePos, velocity, vec3(0));
     }
 
     // "Air friction" / drag force
@@ -270,8 +280,7 @@ void main() {
                             vec3 relVel = velocity - neighborVelocity;
                             vec3 relAngularVel = angularVelocity - neighborAngularVelocity;
 
-                            // Compute shear (tangential) force - this won't make sense until bodies are implemented
-                            vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius*dir, relAngularVel);
+                            vec3 relTangentVel = (relVel - dot(relVel, dir) * dir) + cross(radius*dir, relAngularVel);
                             torque += mu * cross(radius*dir, relTangentVel);
                         }
                     }
@@ -280,9 +289,10 @@ void main() {
         }
     }
 
-    // Reduce rotation
-    torque -= 0.00001 * angularVelocity;
+    // Rotation damping
+    torque -= 0.0001 * angularVelocity;
 
+    // Friction against walls
     vec3 boxMin = vec3(0.3);
     vec3 boxMax = vec3(0.7);
     vec3 dirs[3];
@@ -291,17 +301,14 @@ void main() {
     dirs[2] = vec3(0,0,1);
     for(int i=0; i<3; i++){
         vec3 dir = dirs[i];
+        vec3 relVel = velocity - vec3(0);
+        vec3 relAngularVel = angularVelocity - vec3(0);
         if(dot(dir,position) - radius < boxMin[i]){
-            vec3 relVel = velocity - vec3(0);
-            vec3 relAngularVel = angularVelocity - vec3(0);
             vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius * dir, relAngularVel);
             torque += mu * cross(radius * dir, relTangentVel);
         }
-
         if(dot(dir,position) + radius > boxMax[i]){
             dir = -dir;
-            vec3 relVel = velocity - vec3(0);
-            vec3 relAngularVel = angularVelocity - vec3(0);
             vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius * dir, relAngularVel);
             torque += mu * cross(radius * dir, relTangentVel);
         }
