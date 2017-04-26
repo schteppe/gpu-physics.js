@@ -163,9 +163,9 @@ function init() {
   var instances = numParticles*numParticles;
   var geometry = new THREE.InstancedBufferGeometry();
   geometry.maxInstancedCount = instances;
-  geometry.addAttribute( 'position', sphereGeometry.attributes.position.clone() );
-  geometry.addAttribute( 'normal', sphereGeometry.attributes.normal.clone() );
-  geometry.addAttribute( 'uv', sphereGeometry.attributes.uv.clone() );
+  for(var attributeName in sphereGeometry.attributes){
+    geometry.addAttribute( attributeName, sphereGeometry.attributes[attributeName].clone() );
+  }
   geometry.setIndex( sphereGeometry.index.clone() );
   var particleIndices = new THREE.InstancedBufferAttribute( new Float32Array( instances * 1 ), 1, 1 );
   for ( var i = 0, ul = particleIndices.count; i < ul; i++ ) {
