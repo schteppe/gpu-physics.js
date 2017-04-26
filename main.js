@@ -26,6 +26,7 @@ var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
 var particlePosTextureRead, particlePosTextureWrite, particleVelTextureRead, particleVelTextureWrite, gridTexture, particleForceTexture;
 var material, fullScreenQuad, mesh;
 var sceneMap;
+var sceneMapParticlesToBodies;
 var setGridStencilMaterial, setGridStencilMesh;
 var texturedMaterial;
 var mapParticleMaterial;
@@ -41,6 +42,7 @@ var dataTex = {};
 var debugGridMesh;
 var updateQuaternionMaterial;
 var localParticlePositionToWorldMaterial;
+var addForceToBodyMaterial;
 var gizmo;
 
 init();
@@ -137,14 +139,6 @@ function init() {
   fillRenderTarget(particleQuatTextureRead, function(out, x, y){
     out.set( 0, 0, 0, 1 );
   });
-  fillRenderTarget(particleAngularVelTextureRead, function(out, x, y){
-    /*out.set(
-      30*(Math.random()-0.5),
-      30*(Math.random()-0.5),
-      30*(Math.random()-0.5),
-      1
-    );*/
-  });
 
   // main 3D scene
   scene = new THREE.Scene();
@@ -154,7 +148,7 @@ function init() {
   var ambientLight = new THREE.AmbientLight( 0x111111 );
   scene.add( ambientLight );
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
-  camera.position.set(2,1,2);
+  camera.position.set(2,1,7);
   initDebugGrid();
 
   // Create an instanced mesh for spheres
@@ -301,26 +295,28 @@ function init() {
     },
     vertexShader: getShader( 'addParticleForceToBodyVert' ),
     fragmentShader: getShader( 'addParticleForceToBodyFrag' ),
-    defines: getDefines()
+    defines: getDefines(),
+    blending: THREE.AdditiveBlending
   });
 
-  // Add torque to body material
+  // Add torque to body material - needed?
   addTorqueToBodyMaterial = new THREE.ShaderMaterial({
     uniforms: {
-      relativeParticlePosTex:  { value: null },
-      particleForceTex:  { value: null },
+      relativeParticlePosTex: { value: null },
+      particleForceTex: { value: null },
     },
     vertexShader: getShader( 'addParticleTorqueToBodyVert' ),
     fragmentShader: getShader( 'addParticleForceToBodyFrag' ), // reuse
-    defines: getDefines()
+    defines: getDefines(),
+    blending: THREE.AdditiveBlending
   });
 
   // localParticlePositionToWorld
   localParticlePositionToWorldMaterial = new THREE.ShaderMaterial({
     uniforms: {
       localParticlePosTex:  { value: null },
-      bodyPosTex:  { value: null },
-      bodyQuatTex:  { value: null },
+      bodyPosTex: { value: null },
+      bodyQuatTex: { value: null },
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'localParticlePositionToWorldFrag' ),
@@ -392,12 +388,28 @@ function init() {
   setGridStencilMesh = new THREE.Points( onePointPerTexelGeometry, setGridStencilMaterial );
   sceneStencil.add( setGridStencilMesh );
 
+  // Scene for mapping the particle force to bodies - one GL_POINT for each particle
+  sceneMapParticlesToBodies = new THREE.Scene();
+  var mapParticleToBodyGeometry = new THREE.BufferGeometry();
+  var bodyIndices = new Float32Array( numParticles * numParticles );
+  var particleIndices = new Float32Array( numParticles * numParticles );
+  for(var i=0; i<numParticles*numParticles; i++){
+    particleIndices[i] = i;
+    bodyIndices[i] = i; // one for each particle... for now
+  }
+  mapParticleToBodyGeometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array(numParticles*numParticles*3), 3 ) );
+  mapParticleToBodyGeometry.addAttribute( 'bodyIndex', new THREE.BufferAttribute( bodyIndices, 1 ) );
+  mapParticleToBodyGeometry.addAttribute( 'particleIndex', new THREE.BufferAttribute( particleIndices, 1 ) );
+  mapParticleToBodyMesh = new THREE.Points( mapParticleToBodyGeometry, addForceToBodyMaterial );
+  sceneMapParticlesToBodies.add( mapParticleToBodyMesh );
+
   // Debug quads
   /*
   addDebugQuad('positions', 1, 1, 1, function(){ return particlePosTextureRead.texture; });
   addDebugQuad('grid', 1, 1, 1/(numParticles*numParticles), function(){ return gridTexture.texture; });
   addDebugQuad('angularVelocity', 1, 1, 1, function(){ return bodyAngularVelTextureRead.texture; });
   */
+  addDebugQuad('bodyForce', 1, 1, 1, function(){ return bodyForceTexture.texture; });
 
   // Add controls
   controls = new THREE.OrbitControls( camera, renderer.domElement );
@@ -583,7 +595,7 @@ function simulate(){
   state.buffers.depth.setLocked( false );
   state.buffers.depth.setMask( true );
 
-  // Draw particles to grid, use stencil routing.
+  // Draw particle positions to grid, use stencil routing.
   state.buffers.stencil.setFunc( gl.EQUAL, 3, 0xffffffff );
   state.buffers.stencil.setOp( gl.INCR, gl.INCR, gl.INCR ); // Increment stencil value for every rendered fragment
   mapParticleToCellMesh.material = mapParticleMaterial;
@@ -592,7 +604,7 @@ function simulate(){
   mapParticleMaterial.uniforms.posTex.value = null;
   state.buffers.stencil.setTest( false );
 
-  // Update forces / collision reaction
+  // Update particle forces / collision reaction
   fullScreenQuad.material = updateForceMaterial;
   updateForceMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
   updateForceMaterial.uniforms.velTex.value = particleVelTextureRead.texture;
@@ -600,7 +612,7 @@ function simulate(){
   updateForceMaterial.uniforms.velTex.value = null;
   updateForceMaterial.uniforms.posTex.value = null;
 
-  // Update torque / collision reaction
+  // Update torque / collision reaction - needed?
   fullScreenQuad.material = updateTorqueMaterial;
   updateTorqueMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
   updateTorqueMaterial.uniforms.velTex.value = particleVelTextureRead.texture;
@@ -609,6 +621,15 @@ function simulate(){
   updateTorqueMaterial.uniforms.velTex.value = null;
   updateTorqueMaterial.uniforms.posTex.value = null;
   updateTorqueMaterial.uniforms.angularVelTex.value = null;
+
+  // Add force to bodies
+  renderer.clearTarget(bodyForceTexture, true, false, false );
+  mapParticleToBodyMesh.material = addForceToBodyMaterial;
+  addForceToBodyMaterial.uniforms.relativeParticlePosTex.value = particlePosRelativeTexture.texture;
+  addForceToBodyMaterial.uniforms.particleForceTex.value = particleForceTexture.texture;
+  renderer.render( sceneMapParticlesToBodies, fullscreenQuadCamera, bodyForceTexture, false );
+  addForceToBodyMaterial.uniforms.relativeParticlePosTex.value = null;
+  addForceToBodyMaterial.uniforms.particleForceTex.value = null;
 
   // Update velocity
   fullScreenQuad.material = updateVelocityMaterial;
