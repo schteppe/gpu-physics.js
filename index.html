@@ -324,7 +324,6 @@ uniform sampler2D forceTex;
 uniform vec4 params2;
 uniform float inertia;
 #define deltaTime params2.x
-
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution;
     vec4 velocity = texture2D(velTex, uv);
@@ -332,12 +331,27 @@ void main() {
     gl_FragColor = vec4(velocity.xyz + force.xyz * deltaTime / inertia, 1.0);
 }
 </script>
+
+<script id="updateBodyVelocityFrag" type="x-shader/x-fragment">
+// Should be possible to use for both angular and linear velocity
+uniform sampler2D bodyVelTex;
+uniform sampler2D bodyForceTex;
+uniform vec4 params2;
+uniform float inertia;
+#define deltaTime params2.x
+void main() {
+    vec2 uv = gl_FragCoord.xy / bodyTextureResolution;
+    vec4 velocity = texture2D(bodyVelTex, uv);
+    vec4 force = texture2D(bodyForceTex, uv);
+    gl_FragColor = vec4(velocity.xyz + force.xyz * deltaTime / inertia, 1.0);
+}
+</script>
+
 <script id="updatePositionFrag" type="x-shader/x-fragment">
 uniform sampler2D posTex;
 uniform sampler2D velTex;
 uniform vec4 params2;
 #define deltaTime params2.x
-
 void main() {
    vec2 uv = gl_FragCoord.xy / resolution;
    vec3 position = texture2D(posTex, uv).xyz;
@@ -345,6 +359,20 @@ void main() {
    gl_FragColor = vec4(position + velocity * deltaTime, 1.0);
 }
 </script>
+
+<script id="updateBodyPositionFrag" type="x-shader/x-fragment">
+uniform sampler2D bodyPosTex;
+uniform sampler2D bodyVelTex;
+uniform vec4 params2;
+#define deltaTime params2.x
+void main() {
+   vec2 uv = gl_FragCoord.xy / bodyTextureResolution;
+   vec3 position = texture2D(bodyPosTex, uv).xyz;
+   vec3 velocity = texture2D(bodyVelTex, uv).xyz;
+   gl_FragColor = vec4(position + velocity * deltaTime, 1.0);
+}
+</script>
+
 <script id="updateQuaternionFrag" type="x-shader/x-fragment">
 uniform sampler2D quatTex;
 uniform sampler2D angularVelTex;
@@ -355,6 +383,20 @@ void main() {
    vec2 uv = gl_FragCoord.xy / resolution;
    vec4 quat = texture2D(quatTex, uv);
    vec3 angularVel = texture2D(angularVelTex, uv).xyz;
+   gl_FragColor = quat_integrate(quat, angularVel, deltaTime);
+}
+</script>
+
+<script id="updateBodyQuaternionFrag" type="x-shader/x-fragment">
+uniform sampler2D bodyQuatTex;
+uniform sampler2D bodyAngularVelTex;
+uniform vec4 params2;
+#define deltaTime params2.x
+
+void main() {
+   vec2 uv = gl_FragCoord.xy / bodyTextureResolution;
+   vec4 quat = texture2D(bodyQuatTex, uv);
+   vec3 angularVel = texture2D(bodyAngularVelTex, uv).xyz;
    gl_FragColor = quat_integrate(quat, angularVel, deltaTime);
 }
 </script>
