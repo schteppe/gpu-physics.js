@@ -147,6 +147,10 @@ function init() {
   fillRenderTarget(bodyQuatTextureRead, function(out, x, y){
     out.set( 0, 0, 0, 1 );
   });
+  fillRenderTarget(particlePosLocalTexture, function(out, x, y){
+    var bodyId =  y*numParticles+x;
+    out.set( 0, 0, 0, bodyId );
+  });
 
   // main 3D scene
   scene = new THREE.Scene();
@@ -156,7 +160,7 @@ function init() {
   var ambientLight = new THREE.AmbientLight( 0x111111 );
   scene.add( ambientLight );
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
-  camera.position.set(2,1,7);
+  camera.position.set(2,1,3);
   initDebugGrid();
 
   // Create an instanced mesh for spheres
@@ -453,8 +457,8 @@ function init() {
   addDebugQuad('positions', 1, 1, 1, function(){ return particlePosTextureRead.texture; });
   addDebugQuad('grid', 1, 1, 1/(numParticles*numParticles), function(){ return gridTexture.texture; });
   addDebugQuad('angularVelocity', 1, 1, 1, function(){ return bodyAngularVelTextureRead.texture; });
-  */
   addDebugQuad('bodyForce', 1, 1, 1, function(){ return bodyForceTexture.texture; });
+  */
 
   // Add controls
   controls = new THREE.OrbitControls( camera, renderer.domElement );

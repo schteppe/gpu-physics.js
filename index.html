@@ -467,13 +467,13 @@ void main() {
 
 <!-- transform body-local particle positions to world -->
 <script id="localParticlePositionToWorldFrag" type="x-shader/x-fragment">
-uniform sampler2D relativeParticlePosTex;
+uniform sampler2D localParticlePosTex;
 uniform sampler2D bodyPosTex;
 uniform sampler2D bodyQuatTex;
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution;
     float particleIndex = float(uvToIndex(uv, resolution));
-    vec4 particlePosAndBodyId = texture2D( relativeParticlePosTex, uv );
+    vec4 particlePosAndBodyId = texture2D( localParticlePosTex, uv );
     vec3 particlePos = particlePosAndBodyId.xyz;
 
     float bodyIndex = particlePosAndBodyId.w;
