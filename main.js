@@ -7,7 +7,7 @@ var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numPartic
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
-var gravity = new THREE.Vector3(0,0,0);
+var gravity = new THREE.Vector3(0,-1,0);
 var mass = 1;
 var inertia = 1 * (2.0 * mass * radius * radius / 5.0);
 var params1 = new THREE.Vector4(
@@ -44,7 +44,6 @@ var sceneMapParticlesToBodies;
 var setGridStencilMaterial, setGridStencilMesh;
 var texturedMaterial;
 var mapParticleMaterial;
-var updatePositionMaterial;
 var updateVelocityMaterial;
 var forceMaterial;
 var updateTorqueMaterial;
@@ -53,7 +52,6 @@ var mapParticleToCellMesh;
 var spheresMesh;
 var sharedShaderCode;
 var debugGridMesh;
-var updateQuaternionMaterial;
 var localParticlePositionToWorldMaterial;
 var addForceToBodyMaterial;
 var updateBodyVelocityMaterial;
@@ -81,11 +79,10 @@ function init() {
   sharedShaderCode = document.getElementById( 'sharedShaderCode' ).textContent;
 
   // Compute upper closest power of 2 for the grid texture size in z
-  var potSize = 1;
-  while(potSize*potSize < gridResolution.z){
-    potSize *= 2;
+  gridPotZ = 1;
+  while(gridPotZ*gridPotZ < gridResolution.z){
+    gridPotZ *= 2;
   }
-  gridPotZ = potSize;
 
   // Set up renderer
   renderer = new THREE.WebGLRenderer();
@@ -138,11 +135,11 @@ function init() {
   particleForceTexture = createRenderTarget(numParticles, numParticles);
 
   // Broadphase
-  gridTexture = createRenderTarget(2*gridResolution.x*potSize, 2*gridResolution.y*potSize);
+  gridTexture = createRenderTarget(2*gridResolution.x*gridPotZ, 2*gridResolution.y*gridPotZ);
 
   console.log((numParticles*numParticles) + ' particles');
   console.log((numBodies*numBodies) + ' bodies');
-  console.log('Grid texture is ' + (2*gridResolution.x*potSize) + 'x' + (2*gridResolution.y*potSize));
+  console.log('Grid texture is ' + (2*gridResolution.x*gridPotZ) + 'x' + (2*gridResolution.y*gridPotZ));
 
   function pixelToId(x,y,sx,sy){
     return x*sx + y; // not sure why this is flipped 90 degrees compared to the shader impl?
@@ -260,18 +257,6 @@ function init() {
   material.uniforms.map.value = tex;
   scene.add( spheresMesh );
 
-  // Position update
-  updatePositionMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      posTex:  { value: null },
-      velTex:  { value: null },
-      params2: { value: params2 }
-    },
-    vertexShader: getShader( 'vertexShader' ),
-    fragmentShader: getShader( 'updatePositionFrag' ),
-    defines: getDefines()
-  });
-
   // Body position update
   updateBodyPositionMaterial = new THREE.ShaderMaterial({
     uniforms: {
@@ -308,18 +293,6 @@ function init() {
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateBodyVelocityFrag' ),
-    defines: getDefines()
-  });
-
-  // Update quaternions
-  updateQuaternionMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      quatTex: { value: null },
-      angularVelTex: { value: null },
-      params2: { value: params2 }
-    },
-    vertexShader: getShader( 'vertexShader' ),
-    fragmentShader: getShader( 'updateQuaternionFrag' ),
     defines: getDefines()
   });
 
@@ -376,7 +349,7 @@ function init() {
     uniforms: {
       relativeParticlePosTex:  { value: null },
       particleForceTex:  { value: null },
-      globalForce:  { value: new THREE.Vector3(0,-1,0) },
+      globalForce:  { value: gravity },
     },
     vertexShader: getShader( 'addParticleForceToBodyVert' ),
     fragmentShader: getShader( 'addParticleForceToBodyFrag' ),
@@ -491,29 +464,6 @@ function init() {
   mapParticleToBodyGeometry.addAttribute( 'particleIndex', new THREE.BufferAttribute( particleIndices, 1 ) );
   mapParticleToBodyMesh = new THREE.Points( mapParticleToBodyGeometry, addForceToBodyMaterial );
   sceneMapParticlesToBodies.add( mapParticleToBodyMesh );
-
-
-  // Just testing!
-  additiveParticlesMaterial = new THREE.ShaderMaterial({
-    uniforms: {},
-    vertexShader: getShader( 'additiveParticlesVert' ),
-    fragmentShader: getShader( 'additiveParticlesFrag' ),
-    defines: getDefines(),
-    transparent: true,
-    blending: THREE.AdditiveBlending
-  });
-  additiveParticlesMaterial.extensions.fragDepth = false;
-  var additiveParticlesGeometry = new THREE.BufferGeometry();
-  var n = 10;
-  var app = new Float32Array(n*n*3);
-  for(var i=0; i<n*n; i++){
-    app[3*i + 0] = Math.random();
-    app[3*i + 1] = Math.random();
-    app[3*i + 2] = -i / (n*n);
-  }
-  additiveParticlesGeometry.addAttribute( 'position', new THREE.BufferAttribute( app, 3 ) );
-  additiveParticlesMesh = new THREE.Points( additiveParticlesGeometry, additiveParticlesMaterial );
-  //scene.add( additiveParticlesMesh );
 
   // Debug quads
   //addDebugQuad('particlePos', 1, 1, 1, function(){ return particlePosWorldTexture.texture; });
@@ -823,15 +773,15 @@ function initGUI(){
     deltaTime: params2.x,
     moreObjects: function(){ location.href = "?n=" + (numParticles*2); },
     lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
-    showBroadphase: false
+    showBroadphase: false,
+    gravity: gravity.y,
   };
   function guiChanged() {
     params1.x = controller.stiffness;
     params1.y = controller.damping;
     params1.w = controller.drag;
-
     params2.x = controller.deltaTime;
-
+    gravity.y = controller.gravity;
     if(controller.showBroadphase) scene.add(debugGridMesh); else scene.remove(debugGridMesh);
   }
   var gui = new dat.GUI();
@@ -839,6 +789,7 @@ function initGUI(){
   gui.add( controller, "damping", 0, 100, 0.1 ).onChange( guiChanged );
   gui.add( controller, "drag", 0, 10, 0.1 ).onChange( guiChanged );
   gui.add( controller, "deltaTime", 0, 0.1, 0.001 ).onChange( guiChanged );
+  gui.add( controller, "gravity", -1, 1, 0.1 ).onChange( guiChanged );
   gui.add( controller, "moreObjects" );
   gui.add( controller, "lessObjects" );
   gui.add( controller, "showBroadphase" ).onChange( guiChanged );

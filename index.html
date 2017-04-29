@@ -135,7 +135,6 @@ uniform vec4 params3;
 #define interactionSpherePos params3.xyz
 #define interactionSphereRadius params3.w
 
-uniform vec3 gravity;
 uniform vec3 cellSize;
 uniform vec3 gridPos;
 
@@ -353,19 +352,6 @@ void main() {
 }
 </script>
 
-<script id="updatePositionFrag" type="x-shader/x-fragment">
-uniform sampler2D posTex;
-uniform sampler2D velTex;
-uniform vec4 params2;
-#define deltaTime params2.x
-void main() {
-   vec2 uv = gl_FragCoord.xy / resolution;
-   vec3 position = texture2D(posTex, uv).xyz;
-   vec3 velocity = texture2D(velTex, uv).xyz;
-   gl_FragColor = vec4(position + velocity * deltaTime, 1.0);
-}
-</script>
-
 <script id="updateBodyPositionFrag" type="x-shader/x-fragment">
 uniform sampler2D bodyPosTex;
 uniform sampler2D bodyVelTex;
@@ -376,20 +362,6 @@ void main() {
    vec3 position = texture2D(bodyPosTex, uv).xyz;
    vec3 velocity = texture2D(bodyVelTex, uv).xyz;
    gl_FragColor = vec4(position + velocity * deltaTime, 1.0);
-}
-</script>
-
-<script id="updateQuaternionFrag" type="x-shader/x-fragment">
-uniform sampler2D quatTex;
-uniform sampler2D angularVelTex;
-uniform vec4 params2;
-#define deltaTime params2.x
-
-void main() {
-   vec2 uv = gl_FragCoord.xy / resolution;
-   vec4 quat = texture2D(quatTex, uv);
-   vec3 angularVel = texture2D(angularVelTex, uv).xyz;
-   gl_FragColor = quat_integrate(quat, angularVel, deltaTime);
 }
 </script>
 
