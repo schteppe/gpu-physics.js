@@ -83,6 +83,48 @@ vec3 vec3_applyQuat(vec3 v, vec4 q){
     );
 }
 
+mat3 quat2mat(vec4 q){
+    float x = q.x;
+    float y = q.y;
+    float z = q.z;
+    float w = q.w;
+    float x2 = x + x;
+    float y2 = y + y;
+    float z2 = z + z;
+    float xx = x * x2;
+    float xy = x * y2;
+    float xz = x * z2;
+    float yy = y * y2;
+    float yz = y * z2;
+    float zz = z * z2;
+    float wx = w * x2;
+    float wy = w * y2;
+    float wz = w * z2;
+
+    return mat3(
+        1.0 - ( yy + zz ),  xy - wz,            xz + wy,
+        xy + wz,            1.0 - ( xx + zz ),  yz - wx,
+        xz - wy,            yz + wx,            1.0 - ( xx + yy )
+    );
+}
+
+mat3 transpose2( const in mat3 v ) {
+
+	mat3 tmp;
+	tmp[0] = vec3(v[0].x, v[1].x, v[2].x);
+	tmp[1] = vec3(v[0].y, v[1].y, v[2].y);
+	tmp[2] = vec3(v[0].z, v[1].z, v[2].z);
+
+	return tmp;
+
+}
+
+mat3 invInertiaWorld(vec4 q, vec3 invInertia){
+    mat3 R = quat2mat(q);
+    mat3 I = mat3(invInertia.x,0,0,  0,invInertia.y,0,  0,0,invInertia.z);
+    return R * I * transpose2(R);
+}
+
 </script>
 <script id="vertexShader" type="x-shader/x-vertex">
 void main() {
@@ -319,34 +361,22 @@ void main() {
     gl_FragColor = vec4(torque, 0.0);
 }
 </script>
-<script id="updateVelocityFrag" type="x-shader/x-fragment">
-// Should be possible to use for both angular and linear velocity
-uniform sampler2D velTex;
-uniform sampler2D forceTex;
-uniform vec4 params2;
-uniform float inertia;
-#define deltaTime params2.x
-void main() {
-    vec2 uv = gl_FragCoord.xy / resolution;
-    vec4 velocity = texture2D(velTex, uv);
-    vec4 force = texture2D(forceTex, uv);
-    gl_FragColor = vec4(velocity.xyz + force.xyz * deltaTime / inertia, 1.0);
-}
-</script>
 
 <script id="updateBodyVelocityFrag" type="x-shader/x-fragment">
 // Should be possible to use for both angular and linear velocity
+uniform sampler2D bodyQuatTex;
 uniform sampler2D bodyVelTex;
 uniform sampler2D bodyForceTex;
 uniform vec4 params2;
-uniform float inertia;
+uniform vec3 invInertia;
 uniform vec3 maxVelocity;
 #define deltaTime params2.x
 void main() {
     vec2 uv = gl_FragCoord.xy / bodyTextureResolution;
     vec4 velocity = texture2D(bodyVelTex, uv);
     vec4 force = texture2D(bodyForceTex, uv);
-    vec3 newVelocity = velocity.xyz + force.xyz * deltaTime / inertia;
+    vec4 quat = texture2D(bodyQuatTex, uv);
+    vec3 newVelocity = velocity.xyz + force.xyz * deltaTime * invInertiaWorld(quat, invInertia);
     newVelocity = clamp(newVelocity, -maxVelocity, maxVelocity);
     gl_FragColor = vec4(newVelocity, 1.0);
 }

@@ -3,15 +3,13 @@ var query = parseParams();
 var paused = false;
 var numParticles = query.n ? parseInt(query.n,10) : 64;
 var numBodies = numParticles/2;
-var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
-var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
+var gridResolution = new THREE.Vector3(numParticles/2, numParticles/16, numParticles/2);
+var gridPosition = new THREE.Vector3(0.25,0.29,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,-1,0);
-var mass = 1;
-var inertia = 1 * (2.0 * mass * radius * radius / 5.0);
 var params1 = new THREE.Vector4(
-  1000, // stiffness
+  2300, // stiffness
   0.9, // damping
   radius, // radius
   0.2 // drag
@@ -34,6 +32,10 @@ function getParticleLocalPos(out, particleId){
   //out.set(0,0,0);
 }
 
+var mass = 1;
+var invMass = new THREE.Vector3(1/mass,1/mass,1/mass);
+var invInertia = new THREE.Vector3(1,1,1);
+calculateBoxInvInertia(invInertia, 1, new THREE.Vector3(radius*2*4,radius*2,radius*2));
 var gridPotZ;
 var container, stats, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
@@ -44,7 +46,6 @@ var sceneMapParticlesToBodies;
 var setGridStencilMaterial, setGridStencilMesh;
 var texturedMaterial;
 var mapParticleMaterial;
-var updateVelocityMaterial;
 var forceMaterial;
 var updateTorqueMaterial;
 var debugQuads = {};
@@ -237,7 +238,7 @@ function init() {
       [
         "#include <color_vertex>",
         "vec2 particleUV3 = indexToUV(particleIndex,resolution);",
-        "vColor = vec3(particleUV3,0);",
+        "vColor = vec3((floor(particleUV3*3.0)+1.0)/3.0,0);",
       ].join("\n")
     )
   ].join('\n');
@@ -269,26 +270,14 @@ function init() {
     defines: getDefines()
   });
 
-  // Update velocity - should work for both linear and angular
-  updateVelocityMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      forceTex:  { value: null },
-      velTex:  { value: null },
-      params2: { value: params2 },
-      inertia: { value: mass } // Inertia or mass
-    },
-    vertexShader: getShader( 'vertexShader' ),
-    fragmentShader: getShader( 'updateVelocityFrag' ),
-    defines: getDefines()
-  });
-
   // Update body velocity - should work for both linear and angular
   updateBodyVelocityMaterial = new THREE.ShaderMaterial({
     uniforms: {
+      bodyQuatTex:  { value: null },
       bodyForceTex:  { value: null },
       bodyVelTex:  { value: null },
       params2: { value: params2 },
-      inertia: { value: mass }, // Inertia or mass
+      invInertia: { value: invInertia }, // Inertia or mass
       maxVelocity: { value: new THREE.Vector3(5,5,5) }
     },
     vertexShader: getShader( 'vertexShader' ),
@@ -710,7 +699,7 @@ function simulate(){
 
   // Update body velocity
   fullScreenQuad.material = updateBodyVelocityMaterial;
-  updateBodyVelocityMaterial.uniforms.inertia.value = mass;
+  updateBodyVelocityMaterial.uniforms.invInertia.value = invMass;
   updateBodyVelocityMaterial.uniforms.bodyVelTex.value = bodyVelTextureRead.texture;
   updateBodyVelocityMaterial.uniforms.bodyForceTex.value = bodyForceTexture.texture;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, bodyVelTextureWrite, false );
@@ -722,12 +711,14 @@ function simulate(){
 
   // Update body angular velocity
   fullScreenQuad.material = updateBodyVelocityMaterial;
-  updateBodyVelocityMaterial.uniforms.inertia.value = inertia;
+  updateBodyVelocityMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
+  updateBodyVelocityMaterial.uniforms.invInertia.value = invInertia;
   updateBodyVelocityMaterial.uniforms.bodyVelTex.value = bodyAngularVelTextureRead.texture;
   updateBodyVelocityMaterial.uniforms.bodyForceTex.value = bodyTorqueTexture.texture;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, bodyAngularVelTextureWrite, false );
   updateBodyVelocityMaterial.uniforms.bodyVelTex.value = null;
   updateBodyVelocityMaterial.uniforms.bodyForceTex.value = null;
+  updateBodyVelocityMaterial.uniforms.bodyQuatTex.value = null;
   tmp = bodyAngularVelTextureWrite;
   bodyAngularVelTextureWrite = bodyAngularVelTextureRead;
   bodyAngularVelTextureRead = tmp;
@@ -811,4 +802,18 @@ function parseParams(){
       for(var key in b) a[key] = b[key];
       return a;
     });
+}
+
+function calculateSphereInertia(out,mass,radius){
+    var I = 2 * mass * radius * radius / 5;
+    out.set(I, I, I);
+}
+
+function calculateBoxInvInertia(out, mass, extents){
+  var c = 1 / 12 * mass;
+  out.set(
+    1 / (c * ( 2 * extents.y * 2 * extents.y + 2 * extents.z * 2 * extents.z )),
+    1 / (c * ( 2 * extents.x * 2 * extents.x + 2 * extents.z * 2 * extents.z )),
+    1 / (c * ( 2 * extents.y * 2 * extents.y + 2 * extents.x * 2 * extents.x ))
+  );
 }
