@@ -7,7 +7,7 @@ var gridResolution = new THREE.Vector3(numParticles/2, numParticles/16, numParti
 var gridPosition = new THREE.Vector3(0.25,0.29,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
-var gravity = new THREE.Vector3(0,-1,0);
+var gravity = new THREE.Vector3(0,-0.5,0);
 var params1 = new THREE.Vector4(
   2300, // stiffness
   0.9, // damping
