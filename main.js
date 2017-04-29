@@ -1,12 +1,13 @@
+var query = parseParams();
+
 var paused = false;
-var numParticles = 128;
+var numParticles = query.n ? parseInt(query.n,10) : 64;
 var numBodies = numParticles/2;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,0,0);
-var showDebugGrid = false;
 var mass = 1;
 var inertia = 1 * (2.0 * mass * radius * radius / 5.0);
 var params1 = new THREE.Vector4(
@@ -34,7 +35,7 @@ function getParticleLocalPos(out, particleId){
 }
 
 var gridPotZ;
-var container, controls;
+var container, stats, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
 var particlePosWorldTexture, particleVelTexture, gridTexture, particleForceTexture;
 var material, fullScreenQuad, mesh;
@@ -93,6 +94,11 @@ function init() {
   renderer.autoClear = false;
   container.appendChild( renderer.domElement );
   window.addEventListener( 'resize', onWindowResize, false );
+
+  stats = new Stats();
+  stats.domElement.style.position = 'absolute';
+  stats.domElement.style.top = '0px';
+  container.appendChild( stats.domElement );
 
   texturedMaterial = new THREE.ShaderMaterial({
     uniforms: {
@@ -238,7 +244,6 @@ function init() {
       ].join("\n")
     )
   ].join('\n');
-  console.log(vert)
   var material = new THREE.ShaderMaterial({
     uniforms: uniforms,
     vertexShader: vert,
@@ -549,7 +554,6 @@ function createRenderTarget(w,h,format){
 }
 
 function initDebugGrid(){
-  if(!showDebugGrid) return;
   var w = gridResolution.x*cellSize.x;
   var h = gridResolution.y*cellSize.y;
   var d = gridResolution.z*cellSize.z;
@@ -560,10 +564,8 @@ function initDebugGrid(){
   debugGridMesh.position.x += w/2;
   debugGridMesh.position.y += h/2;
   debugGridMesh.position.z += d/2;
-  scene.add(debugGridMesh);
 }
 function updateDebugGrid(){
-  if(!showDebugGrid) return;
   var w = gridResolution.x*cellSize.x;
   var h = gridResolution.y*cellSize.y;
   var d = gridResolution.z*cellSize.z;
@@ -623,6 +625,7 @@ function onWindowResize() {
 function animate() {
   requestAnimationFrame( animate );
   render();
+  stats.update();
 }
 
 function render() {
@@ -812,8 +815,49 @@ function setQuaternionFromAxisAngle(quat,axis,angle){
   quat.w = Math.cos(angle*0.5);
 }
 
-window.addEventListener('keydown', function(evt){
-  if(evt.keyCode == 80){
-    paused = !paused;
+function initGUI(){
+  var controller  = {
+    stiffness: params1.x,
+    damping: params1.y,
+    drag: params1.w,
+    deltaTime: params2.x,
+    moreObjects: function(){ location.href = "?n=" + (numParticles*2); },
+    lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
+    showBroadphase: false
+  };
+  function guiChanged() {
+    params1.x = controller.stiffness;
+    params1.y = controller.damping;
+    params1.w = controller.drag;
+
+    params2.x = controller.deltaTime;
+
+    if(controller.showBroadphase) scene.add(debugGridMesh); else scene.remove(debugGridMesh);
   }
-});
+  var gui = new dat.GUI();
+  gui.add( controller, "stiffness", 0, 5000, 0.1 ).onChange( guiChanged );
+  gui.add( controller, "damping", 0, 100, 0.1 ).onChange( guiChanged );
+  gui.add( controller, "drag", 0, 10, 0.1 ).onChange( guiChanged );
+  gui.add( controller, "deltaTime", 0, 0.1, 0.001 ).onChange( guiChanged );
+  gui.add( controller, "moreObjects" );
+  gui.add( controller, "lessObjects" );
+  gui.add( controller, "showBroadphase" ).onChange( guiChanged );
+  guiChanged();
+}
+initGUI();
+
+function parseParams(){
+  return location.search
+    .substr(1)
+    .split("&")
+    .map(function(pair){
+      var a = pair.split("=");
+      var o = {};
+      o[a[0]] = a[1];
+      return o;
+    })
+    .reduce(function(a,b){
+      for(var key in b) a[key] = b[key];
+      return a;
+    });
+}
