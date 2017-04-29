@@ -18,8 +18,8 @@ int uvToIndex(vec2 uv, vec2 size) {
     return coord.x + int(size.x) * coord.y;
 }
 vec2 indexToUV(float index, vec2 res){
-    vec2 particleUV = vec2(mod(index/res.x,1.0), floor( index/res.y ) / res.x);
-    return particleUV;
+    vec2 uv = vec2(mod(index/res.x,1.0), floor( index/res.y ) / res.x);
+    return uv;
 }
 // Get grid position as a vec3: (xIndex, yIndex, zIndex)
 vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize){
@@ -89,8 +89,9 @@ void main() {
 </script>
 <script id="testFrag" type="x-shader/x-fragment">
 uniform sampler2D texture;
+uniform vec2 res;
 void main() {
-    vec2 uv = gl_FragCoord.xy / resolution;
+    vec2 uv = gl_FragCoord.xy / res;
     gl_FragColor = texture2D( texture, uv );
 }
 </script>
@@ -160,7 +161,7 @@ void main() {
     vec3 velocity = texture2D(velTex, uv).xyz;
     vec3 particleGridPos = worldPosToGridPos(position, gridPos, cellSize);
 
-    vec3 force = gravity;
+    vec3 force = vec3(0);
     ivec3 iGridRes = ivec3(gridResolution);
     vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridPotZ);
 
@@ -202,12 +203,12 @@ void main() {
         vec3 relVel = velocity - vec3(0);
         float x = dot(dir,position) - radius;
         if(x < boxMin[i]){
-            force += -stiffness * (x - boxMin[i]) * dir + damping * relVel;
+            force += -( stiffness * (x - boxMin[i]) * dir + damping * relVel);
         }
         x = dot(dir,position) + radius;
         if(x > boxMax[i]){
             dir = -dir;
-            force -= -stiffness * (x - boxMax[i]) * dir + damping * relVel;
+            force -= -( stiffness * (x - boxMax[i]) * dir - damping * relVel);
         }
     }
 
@@ -221,7 +222,7 @@ void main() {
     // "Air friction" / drag force
     force -= drag * velocity;
 
-    gl_FragColor = vec4(force, 0.0);
+    gl_FragColor = vec4(force, 1.0);
 }
 </script>
 
@@ -293,8 +294,8 @@ void main() {
     torque -= 0.0001 * angularVelocity;
 
     // Friction against walls
-    vec3 boxMin = vec3(0.3);
-    vec3 boxMax = vec3(0.7);
+    vec3 boxMin = vec3(0.0);
+    vec3 boxMax = vec3(1.0);
     vec3 dirs[3];
     dirs[0] = vec3(1,0,0);
     dirs[1] = vec3(0,1,0);
@@ -338,12 +339,15 @@ uniform sampler2D bodyVelTex;
 uniform sampler2D bodyForceTex;
 uniform vec4 params2;
 uniform float inertia;
+uniform vec3 maxVelocity;
 #define deltaTime params2.x
 void main() {
     vec2 uv = gl_FragCoord.xy / bodyTextureResolution;
     vec4 velocity = texture2D(bodyVelTex, uv);
     vec4 force = texture2D(bodyForceTex, uv);
-    gl_FragColor = vec4(velocity.xyz + force.xyz * deltaTime / inertia, 1.0);
+    vec3 newVelocity = velocity.xyz + force.xyz * deltaTime / inertia;
+    newVelocity = clamp(newVelocity, -maxVelocity, maxVelocity);
+    gl_FragColor = vec4(newVelocity, 1.0);
 }
 </script>
 
@@ -415,7 +419,7 @@ void main() {
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
     gl_PointSize = 1.0;
-    gl_Position = vec4(2.0 * (bodyUV - 0.5), 0, 1);
+    gl_Position = vec4(2.0 * (bodyUV - 0.5), -particleIndex / (resolution.x*resolution.y), 1); // have to do this to make additive work?
 }
 </script>
 <script id="addParticleTorqueToBodyVert" type="x-shader/x-vertex">
@@ -432,13 +436,27 @@ void main() {
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
     gl_PointSize = 1.0;
-    gl_Position = vec4(2.0 * (bodyUV - 0.5), 0, 1);
+    gl_Position = vec4(2.0 * (bodyUV - 0.5), -particleIndex / (resolution.x*resolution.y), 1);
 }
 </script>
 <script id="addParticleForceToBodyFrag" type="x-shader/x-fragment">
 varying vec3 vBodyForce;
+uniform vec3 globalForce;
 void main() {
-   gl_FragColor = vec4(vBodyForce, 1.0);
+   gl_FragColor = vec4(vBodyForce + globalForce, 1.0); // alpha==0 is ok?
+}
+</script>
+
+
+<script id="additiveParticlesVert" type="x-shader/x-vertex">
+void main() {
+    gl_PointSize = 20.0;
+    gl_Position = vec4(position, 1);
+}
+</script>
+<script id="additiveParticlesFrag" type="x-shader/x-fragment">
+void main() {
+   gl_FragColor = vec4(0.1,0.1,0.1,1.0);
 }
 </script>
 
@@ -446,21 +464,19 @@ void main() {
 <!-- transform body-local particle positions to world, relative to the body -->
 <script id="localParticlePositionToRelativeFrag" type="x-shader/x-fragment">
 uniform sampler2D localParticlePosTex;
-uniform sampler2D bodyPosTex;
 uniform sampler2D bodyQuatTex;
 void main() {
     vec2 uv = gl_FragCoord.xy / resolution;
     float particleIndex = float(uvToIndex(uv, resolution));
     vec4 particlePosAndBodyId = texture2D( localParticlePosTex, uv );
     vec3 particlePos = particlePosAndBodyId.xyz;
+
     float bodyIndex = particlePosAndBodyId.w;
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
     vec4 bodyQuat = texture2D( bodyQuatTex, bodyUV );
-    vec2 particleUV = indexToUV( particleIndex, resolution );
 
     vec3 relativeParticlePos = vec3_applyQuat(particlePos, bodyQuat);
-
     gl_FragColor = vec4(relativeParticlePos, bodyIndex);
 }
 </script>
@@ -496,14 +512,14 @@ uniform sampler2D bodyAngularVelTex;
 void main() {
     vec2 particleUV = gl_FragCoord.xy / resolution;
     vec4 particlePosAndBodyId = texture2D( relativeParticlePosTex, particleUV );
-    vec3 relativeParticlePosTex = particlePosAndBodyId.xyz;
+    vec3 relativeParticlePosition = particlePosAndBodyId.xyz;
     float bodyIndex = particlePosAndBodyId.w;
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
 
-    vec4 bodyVelocity = texture2D( bodyVelTex, bodyUV );
-    vec4 bodyAngularVelocity = texture2D( bodyAngularVelTex, bodyUV );
-    vec3 particleVelocity = bodyVelocity + cross(relativeParticlePosition, bodyAngularVelocity);
+    vec3 bodyVelocity = texture2D( bodyVelTex, bodyUV ).xyz;
+    vec3 bodyAngularVelocity = texture2D( bodyAngularVelTex, bodyUV ).xyz;
+    vec3 particleVelocity = bodyVelocity - cross(relativeParticlePosition, bodyAngularVelocity);
 
     gl_FragColor = vec4(particleVelocity, 1);
 }

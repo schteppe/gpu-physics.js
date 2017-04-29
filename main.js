@@ -1,29 +1,42 @@
-var numParticles = 64;
-var numBodies = numParticles;
+var paused = false;
+var numParticles = 128;
+var numBodies = numParticles/2;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
-var gridPosition = new THREE.Vector3(0.25,0.29,0.25);
+var gridPosition = new THREE.Vector3(0.25,0.28,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
-var gravity = new THREE.Vector3(0,-1,0);
-var showDebugGrid = true;
+var gravity = new THREE.Vector3(0,0,0);
+var showDebugGrid = false;
+var mass = 1;
+var inertia = 1 * (2.0 * mass * radius * radius / 5.0);
 var params1 = new THREE.Vector4(
-  2000, // stiffness
-  5, // damping
+  1000, // stiffness
+  0.9, // damping
   radius, // radius
-  0.5 // drag
+  0.2 // drag
 );
 var params2 = new THREE.Vector4(
-  1/100, // time step
+  1/120, // time step
   5, // friction damping
   0, // unused
   0 // unused
 );
-var params3 = new THREE.Vector4(0.5,0.5,0.5,0.05);
+var params3 = new THREE.Vector4(0.5,0.6,0.5,0.05);
+function getBodyId(particleId){
+  var bodyId = Math.floor(particleId / 4);
+  //var bodyId = particleId;
+  return bodyId;
+}
+function getParticleLocalPos(out, particleId){
+  var x = (particleId % 4 - 1.5) * radius * 2.01;
+  out.set(x,0,0);
+  //out.set(0,0,0);
+}
 
 var gridPotZ;
 var container, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
-var particlePosTextureRead, particlePosTextureWrite, particleVelTextureRead, particleVelTextureWrite, gridTexture, particleForceTexture;
+var particlePosWorldTexture, particleVelTexture, gridTexture, particleForceTexture;
 var material, fullScreenQuad, mesh;
 var sceneMap;
 var sceneMapParticlesToBodies;
@@ -32,13 +45,12 @@ var texturedMaterial;
 var mapParticleMaterial;
 var updatePositionMaterial;
 var updateVelocityMaterial;
-var updateForceMaterial;
+var forceMaterial;
 var updateTorqueMaterial;
 var debugQuads = {};
 var mapParticleToCellMesh;
 var spheresMesh;
 var sharedShaderCode;
-var dataTex = {};
 var debugGridMesh;
 var updateQuaternionMaterial;
 var localParticlePositionToWorldMaterial;
@@ -83,7 +95,10 @@ function init() {
   window.addEventListener( 'resize', onWindowResize, false );
 
   texturedMaterial = new THREE.ShaderMaterial({
-    uniforms: { texture: { value: null } },
+    uniforms: {
+      texture: { value: null },
+      res: { value: new THREE.Vector2() },
+    },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'testFrag' ),
     defines: getDefines()
@@ -97,7 +112,7 @@ function init() {
   fullScreenQuad = new THREE.Mesh( plane, texturedMaterial );
   fullscreenQuadScene.add( fullScreenQuad );
 
-  // Body textures: todo
+  // Body textures
   bodyPosTextureRead = createRenderTarget(numBodies, numBodies);
   bodyPosTextureWrite = createRenderTarget(numBodies, numBodies);
   bodyQuatTextureRead = createRenderTarget(numBodies, numBodies);
@@ -113,16 +128,8 @@ function init() {
   particlePosLocalTexture = createRenderTarget(numParticles, numParticles);
   particlePosRelativeTexture = createRenderTarget(numParticles, numParticles);
   particlePosWorldTexture = createRenderTarget(numParticles, numParticles);
-  particlePosTextureRead = createRenderTarget(numParticles, numParticles);
-  particlePosTextureWrite = createRenderTarget(numParticles, numParticles);
-  particleQuatTextureRead = createRenderTarget(numParticles, numParticles);
-  particleQuatTextureWrite = createRenderTarget(numParticles, numParticles);
-  particleVelTextureRead = createRenderTarget(numParticles, numParticles);
-  particleVelTextureWrite = createRenderTarget(numParticles, numParticles);
-  particleAngularVelTextureRead = createRenderTarget(numParticles, numParticles);
-  particleAngularVelTextureWrite = createRenderTarget(numParticles, numParticles);
+  particleVelTexture = createRenderTarget(numParticles, numParticles);
   particleForceTexture = createRenderTarget(numParticles, numParticles);
-  particleTorqueTexture = createRenderTarget(numParticles, numParticles);
 
   // Broadphase
   gridTexture = createRenderTarget(2*gridResolution.x*potSize, 2*gridResolution.y*potSize);
@@ -131,25 +138,33 @@ function init() {
   console.log((numBodies*numBodies) + ' bodies');
   console.log('Grid texture is ' + (2*gridResolution.x*potSize) + 'x' + (2*gridResolution.y*potSize));
 
+  function pixelToId(x,y,sx,sy){
+    return x*sx + y; // not sure why this is flipped 90 degrees compared to the shader impl?
+  }
+
   // Initial state
-  fillRenderTarget(particlePosTextureRead, function(out, x, y){
-    out.set( 0.35 + 0.3*Math.random(), 0.1*Math.random() + 0.3, 0.35 + 0.3*Math.random(), 1 );
+  var tempVec = new THREE.Vector3();
+  fillRenderTarget(particlePosLocalTexture, function(out, x, y){
+    var particleId = pixelToId(x,y,numParticles,numParticles);
+    getParticleLocalPos(tempVec, particleId);
+    var bodyId =  getBodyId(particleId);
+    out.set( tempVec.x, tempVec.y, tempVec.z, bodyId );
+  });
+  fillRenderTarget(bodyVelTextureRead, function(out, x, y){
+    out.set( 0, 0, 0, 1 );
   });
   fillRenderTarget(bodyPosTextureRead, function(out, x, y){
     out.set( 0.35 + 0.3*Math.random(), 0.1*Math.random() + 0.3, 0.35 + 0.3*Math.random(), 1 );
-  });
-  fillRenderTarget(particleVelTextureRead, function(out, x, y){
-    out.set( 0, 0, 0, 1 );
-  });
-  fillRenderTarget(particleQuatTextureRead, function(out, x, y){
-    out.set( 0, 0, 0, 1 );
+    //out.set( radius + 2*x*radius, radius*1.2 + (y*numParticles+x) * radius*0.4,radius + 2*y*radius,  1 );
+    //out.set( 0, 0, 0, 1 );
+    //out.set( x, y, 0, 1 );
   });
   fillRenderTarget(bodyQuatTextureRead, function(out, x, y){
-    out.set( 0, 0, 0, 1 );
-  });
-  fillRenderTarget(particlePosLocalTexture, function(out, x, y){
-    var bodyId =  y*numParticles+x;
-    out.set( 0, 0, 0, bodyId );
+    //out.set( 0, 0, 0, 1 );
+    //out.set( 0, 0, Math.sin(Math.PI / 2), Math.cos(Math.PI / 2) );
+    var axis = new THREE.Vector3(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5);
+    axis.normalize();
+    setQuaternionFromAxisAngle(out, axis, -Math.PI /8);
   });
 
   // main 3D scene
@@ -160,7 +175,7 @@ function init() {
   var ambientLight = new THREE.AmbientLight( 0x111111 );
   scene.add( ambientLight );
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
-  camera.position.set(2,1,3);
+  camera.position.set(2,1,2);
   initDebugGrid();
 
   // Create an instanced mesh for spheres
@@ -180,15 +195,14 @@ function init() {
   geometry.addAttribute( 'particleIndex', particleIndices );
   geometry.boundingSphere = null;
 
-  // Spheres material - extend the phong shader in three.js
+  // Particle spheres material - extend the phong shader in three.js
   var phongShader = THREE.ShaderLib.phong;
   var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
-  uniforms.posTex = { value: null };
+  uniforms.particleWorldPosTex = { value: null };
   uniforms.quatTex = { value: null };
-  uniforms.diffuse = { value: new THREE.Color() };
   var vert = [
     sharedShaderCode,
-    "uniform sampler2D posTex;",
+    "uniform sampler2D particleWorldPosTex;",
     "uniform sampler2D quatTex;",
     "attribute float particleIndex;",
     phongShader.vertexShader.replace(
@@ -196,29 +210,44 @@ function init() {
       [
         "<begin_vertex>",
         "vec2 particleUV = indexToUV(particleIndex,resolution);",
-        "vec4 quat = texture2D(quatTex,particleUV).xyzw;",
+        "vec4 particlePosAndBodyId = texture2D(particleWorldPosTex,particleUV);",
+        "vec3 particlePos = particlePosAndBodyId.xyz;",
+        "vec2 bodyUV = indexToUV(particlePosAndBodyId.w,bodyTextureResolution);",
+        "vec4 quat = texture2D(quatTex,bodyUV).xyzw;",
         "transformed.xyz = vec3_applyQuat(transformed.xyz, quat);",
-        "transformed.xyz += texture2D(posTex,particleUV).xyz;",
+        "transformed.xyz += particlePos;",
 
       ].join("\n")
     ).replace(
       "#include <defaultnormal_vertex>",
       [
         "vec2 particleUV2 = indexToUV(particleIndex,resolution);",
-        "vec4 quat2 = texture2D(quatTex,particleUV2).xyzw;",
+        "vec4 particlePosAndBodyId2 = texture2D(particleWorldPosTex,particleUV2);",
+        "vec2 bodyUV2 = indexToUV(particlePosAndBodyId2.w,bodyTextureResolution);",
+        "vec4 quat2 = texture2D(quatTex,bodyUV2).xyzw;",
+
         "objectNormal.xyz = vec3_applyQuat(objectNormal.xyz, quat2);",
         "#include <defaultnormal_vertex>",
-
-      ].join("\n"))
+      ].join("\n")
+    ).replace(
+      "#include <color_vertex>",
+      [
+        "#include <color_vertex>",
+        "vec2 particleUV3 = indexToUV(particleIndex,resolution);",
+        "vColor = vec3(particleUV3,0);",
+      ].join("\n")
+    )
   ].join('\n');
+  console.log(vert)
   var material = new THREE.ShaderMaterial({
     uniforms: uniforms,
     vertexShader: vert,
-    fragmentShader: phongShader.fragmentShader,
+    fragmentShader: phongShader.fragmentShader.replace("",""),
     lights: true,
     defines: getDefines()
   });
-  material.defines.USE_MAP = true;
+  //material.defines.USE_MAP = true;
+  material.defines.USE_COLOR = true;
   spheresMesh = new THREE.Mesh( geometry, material );
   spheresMesh.frustumCulled = false;
   var tex = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255]), 1, 2, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
@@ -256,7 +285,7 @@ function init() {
       forceTex:  { value: null },
       velTex:  { value: null },
       params2: { value: params2 },
-      inertia: { value: 1 } // Inertia or mass
+      inertia: { value: mass } // Inertia or mass
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateVelocityFrag' ),
@@ -269,7 +298,8 @@ function init() {
       bodyForceTex:  { value: null },
       bodyVelTex:  { value: null },
       params2: { value: params2 },
-      inertia: { value: 1 } // Inertia or mass
+      inertia: { value: mass }, // Inertia or mass
+      maxVelocity: { value: new THREE.Vector3(5,5,5) }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateBodyVelocityFrag' ),
@@ -301,7 +331,7 @@ function init() {
   });
 
   // Update force material
-  updateForceMaterial = new THREE.ShaderMaterial({
+  forceMaterial = new THREE.ShaderMaterial({
     uniforms: {
       cellSize: { value: cellSize },
       gridPos: { value: gridPosition },
@@ -341,11 +371,13 @@ function init() {
     uniforms: {
       relativeParticlePosTex:  { value: null },
       particleForceTex:  { value: null },
+      globalForce:  { value: new THREE.Vector3(0,-1,0) },
     },
     vertexShader: getShader( 'addParticleForceToBodyVert' ),
     fragmentShader: getShader( 'addParticleForceToBodyFrag' ),
     defines: getDefines(),
-    blending: THREE.AdditiveBlending
+    blending: THREE.AdditiveBlending,
+    transparent: true
   });
 
   // Add torque to body material - needed?
@@ -353,11 +385,13 @@ function init() {
     uniforms: {
       relativeParticlePosTex: { value: null },
       particleForceTex: { value: null },
+      globalForce:  { value: new THREE.Vector3(0,0,0) },
     },
     vertexShader: getShader( 'addParticleTorqueToBodyVert' ),
     fragmentShader: getShader( 'addParticleForceToBodyFrag' ), // reuse
     defines: getDefines(),
-    blending: THREE.AdditiveBlending
+    blending: THREE.AdditiveBlending,
+    transparent: true
   });
 
   // localParticlePositionToWorld
@@ -443,8 +477,9 @@ function init() {
   var bodyIndices = new Float32Array( numParticles * numParticles );
   var particleIndices = new Float32Array( numParticles * numParticles );
   for(var i=0; i<numParticles*numParticles; i++){
-    particleIndices[i] = i;
-    bodyIndices[i] = i; // one for each particle... for now
+    var particleId = i//numParticles*numParticles - 1 - i;
+    particleIndices[i] = particleId;
+    bodyIndices[i] = getBodyId(particleId); // one for each particle... for now
   }
   mapParticleToBodyGeometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array(numParticles*numParticles*3), 3 ) );
   mapParticleToBodyGeometry.addAttribute( 'bodyIndex', new THREE.BufferAttribute( bodyIndices, 1 ) );
@@ -452,13 +487,39 @@ function init() {
   mapParticleToBodyMesh = new THREE.Points( mapParticleToBodyGeometry, addForceToBodyMaterial );
   sceneMapParticlesToBodies.add( mapParticleToBodyMesh );
 
+
+  // Just testing!
+  additiveParticlesMaterial = new THREE.ShaderMaterial({
+    uniforms: {},
+    vertexShader: getShader( 'additiveParticlesVert' ),
+    fragmentShader: getShader( 'additiveParticlesFrag' ),
+    defines: getDefines(),
+    transparent: true,
+    blending: THREE.AdditiveBlending
+  });
+  additiveParticlesMaterial.extensions.fragDepth = false;
+  var additiveParticlesGeometry = new THREE.BufferGeometry();
+  var n = 10;
+  var app = new Float32Array(n*n*3);
+  for(var i=0; i<n*n; i++){
+    app[3*i + 0] = Math.random();
+    app[3*i + 1] = Math.random();
+    app[3*i + 2] = -i / (n*n);
+  }
+  additiveParticlesGeometry.addAttribute( 'position', new THREE.BufferAttribute( app, 3 ) );
+  additiveParticlesMesh = new THREE.Points( additiveParticlesGeometry, additiveParticlesMaterial );
+  //scene.add( additiveParticlesMesh );
+
   // Debug quads
-  /*
-  addDebugQuad('positions', 1, 1, 1, function(){ return particlePosTextureRead.texture; });
-  addDebugQuad('grid', 1, 1, 1/(numParticles*numParticles), function(){ return gridTexture.texture; });
-  addDebugQuad('angularVelocity', 1, 1, 1, function(){ return bodyAngularVelTextureRead.texture; });
-  addDebugQuad('bodyForce', 1, 1, 1, function(){ return bodyForceTexture.texture; });
-  */
+  //addDebugQuad('particlePos', 1, 1, 1, function(){ return particlePosWorldTexture.texture; });
+  //addDebugQuad('bodyPos', 1, 1, 1, function(){ return bodyPosTextureRead.texture; });
+  //addDebugQuad('bodyVel', 1, 1, 1, function(){ return bodyVelTextureRead.texture; });
+  //addDebugQuad('particleVel', 1, 1, 1, function(){ return particleVelTexture.texture; });
+  //addDebugQuad('particleForce', 1, 1, 1, function(){ return particleForceTexture.texture; });
+  //addDebugQuad('bodyForce', 1, 1, 1, function(){ return bodyForceTexture.texture; });
+  //addDebugQuad('particleRelPos', 1, 1, 1, function(){ return particlePosRelativeTexture.texture; });
+  //addDebugQuad('grid', 1, 1, 1/(numParticles*numParticles), function(){ return gridTexture.texture; });
+  //addDebugQuad('angularVelocity', 1, 1, 1, function(){ return bodyAngularVelTextureRead.texture; });
 
   // Add controls
   controls = new THREE.OrbitControls( camera, renderer.domElement );
@@ -472,7 +533,7 @@ function init() {
     params3.y = mesh.position.y;
     params3.z = mesh.position.z;
   });
-  mesh.position.set(0.5,0.5,0.5);
+  mesh.position.set(params3.x,params3.y,params3.z);
   scene.add(mesh);
   gizmo.attach(mesh);
   scene.add(gizmo);
@@ -529,12 +590,10 @@ function fillRenderTarget(renderTarget, getPixelFunc){
       data[p + 3] = pixel.w;
     }
   }
-  var key = w + 'x' + h;
-  //if(!dataTex[key]){ // not working properly?
-    dataTex[key] = new THREE.DataTexture( data, w, h, THREE.RGBAFormat, THREE.FloatType );
-  //}
-  dataTex[key].needsUpdate = true;
-  texturedMaterial.uniforms.texture.value = dataTex[key];
+  var dataTex = new THREE.DataTexture( data, w, h, THREE.RGBAFormat, THREE.FloatType );
+  dataTex.needsUpdate = true;
+  texturedMaterial.uniforms.texture.value = dataTex;
+  texturedMaterial.uniforms.res.value.set(w,h);
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, renderTarget, true );
   texturedMaterial.uniforms.texture.value = null;
 }
@@ -554,8 +613,6 @@ function addDebugQuad(name, sizeX, sizeY, colorScale, getTextureFunc){
   scene.add( mesh );
   return mesh;
 }
-function updateDebugQuads(){
-}
 
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -571,22 +628,27 @@ function animate() {
 function render() {
   controls.update();
 
-  simulate();
+  if(!paused)
+    simulate();
 
   // Render main scene
   updateDebugGrid();
-  updateDebugQuads();
-  spheresMesh.material.uniforms.posTex.value = particlePosTextureRead.texture;
-  spheresMesh.material.uniforms.quatTex.value = particleQuatTextureRead.texture;
+  spheresMesh.material.uniforms.particleWorldPosTex.value = particlePosWorldTexture.texture;
+  spheresMesh.material.uniforms.quatTex.value = bodyQuatTextureRead.texture;
   renderer.setRenderTarget(null);
   renderer.setClearColor(0x222222, 1.0);
   renderer.clear();
-  renderer.render( scene, camera, null, false );
-  spheresMesh.material.uniforms.posTex.value = null;
+  renderer.render( scene, camera );
+  spheresMesh.material.uniforms.particleWorldPosTex.value = null;
   spheresMesh.material.uniforms.quatTex.value = null;
 }
 
 function simulate(){
+
+  var gl = renderer.context;
+  var state = renderer.state;
+  state.buffers.depth.setTest( false );
+  state.buffers.stencil.setTest( false );
 
   // Local particle positions to world
   fullScreenQuad.material = localParticlePositionToWorldMaterial;
@@ -608,9 +670,18 @@ function simulate(){
   localParticlePositionToRelativeMaterial.uniforms.bodyPosTex.value = null;
   localParticlePositionToRelativeMaterial.uniforms.bodyQuatTex.value = null;
 
+  // Body velocity to particles in world space
+  fullScreenQuad.material = bodyVelocityToParticleVelocityMaterial;
+  bodyVelocityToParticleVelocityMaterial.uniforms.relativeParticlePosTex.value = particlePosRelativeTexture.texture;
+  bodyVelocityToParticleVelocityMaterial.uniforms.bodyVelTex.value = bodyVelTextureRead.texture;
+  bodyVelocityToParticleVelocityMaterial.uniforms.bodyAngularVelTex.value = bodyAngularVelTextureRead.texture;
+  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleVelTexture, false );
+  bodyVelocityToParticleVelocityMaterial.uniforms.relativeParticlePosTex.value = null;
+  bodyVelocityToParticleVelocityMaterial.uniforms.bodyVelTex.value = null;
+  bodyVelocityToParticleVelocityMaterial.uniforms.bodyAngularVelTex.value = null;
+
+
   // Try drawing a rectangle to the stencil buffer to mask out a square
-  var gl = renderer.context;
-  var state = renderer.state;
 
   // Set up the grid texture for stencil routing.
   // See http://www.gpgpu.org/static/s2007/slides/15-GPGPU-physics.pdf slide 24
@@ -648,31 +719,26 @@ function simulate(){
   state.buffers.stencil.setFunc( gl.EQUAL, 3, 0xffffffff );
   state.buffers.stencil.setOp( gl.INCR, gl.INCR, gl.INCR ); // Increment stencil value for every rendered fragment
   mapParticleToCellMesh.material = mapParticleMaterial;
-  mapParticleMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
+  mapParticleMaterial.uniforms.posTex.value = particlePosWorldTexture.texture;
   renderer.render( sceneMap, fullscreenQuadCamera, gridTexture, false );
   mapParticleMaterial.uniforms.posTex.value = null;
   state.buffers.stencil.setTest( false );
 
   // Update particle forces / collision reaction
-  fullScreenQuad.material = updateForceMaterial;
-  updateForceMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
-  updateForceMaterial.uniforms.velTex.value = particleVelTextureRead.texture;
+  state.buffers.depth.setTest( false );
+  state.buffers.stencil.setTest( false );
+  fullScreenQuad.material = forceMaterial;
+  forceMaterial.uniforms.posTex.value = particlePosWorldTexture.texture;
+  forceMaterial.uniforms.velTex.value = particleVelTexture.texture;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleForceTexture, false );
-  updateForceMaterial.uniforms.velTex.value = null;
-  updateForceMaterial.uniforms.posTex.value = null;
-
-  // Update torque / collision reaction - needed?
-  fullScreenQuad.material = updateTorqueMaterial;
-  updateTorqueMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
-  updateTorqueMaterial.uniforms.velTex.value = particleVelTextureRead.texture;
-  updateTorqueMaterial.uniforms.angularVelTex.value = particleAngularVelTextureRead.texture;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleTorqueTexture, false );
-  updateTorqueMaterial.uniforms.velTex.value = null;
-  updateTorqueMaterial.uniforms.posTex.value = null;
-  updateTorqueMaterial.uniforms.angularVelTex.value = null;
+  forceMaterial.uniforms.velTex.value = null;
+  forceMaterial.uniforms.posTex.value = null;
 
   // Add force to bodies
-  renderer.clearTarget(bodyForceTexture, true, false, false );
+  state.buffers.depth.setTest( false );
+  state.buffers.stencil.setTest( false );
+  renderer.setClearColor( 0x000000, 1.0 );
+  renderer.clearTarget(bodyForceTexture, true, true, true ); // clear the color only?
   mapParticleToBodyMesh.material = addForceToBodyMaterial;
   addForceToBodyMaterial.uniforms.relativeParticlePosTex.value = particlePosRelativeTexture.texture;
   addForceToBodyMaterial.uniforms.particleForceTex.value = particleForceTexture.texture;
@@ -680,21 +746,18 @@ function simulate(){
   addForceToBodyMaterial.uniforms.relativeParticlePosTex.value = null;
   addForceToBodyMaterial.uniforms.particleForceTex.value = null;
 
-  // Update particle velocity
-  fullScreenQuad.material = updateVelocityMaterial;
-  updateVelocityMaterial.uniforms.inertia.value = 1; // sphere mass == 1
-  updateVelocityMaterial.uniforms.velTex.value = particleVelTextureRead.texture;
-  updateVelocityMaterial.uniforms.forceTex.value = particleForceTexture.texture;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleVelTextureWrite, false );
-  updateVelocityMaterial.uniforms.velTex.value = null;
-  updateVelocityMaterial.uniforms.forceTex.value = null;
-  var tmp = particleVelTextureWrite;
-  particleVelTextureWrite = particleVelTextureRead;
-  particleVelTextureRead = tmp;
+  // Add torque to bodies
+  renderer.clearTarget(bodyTorqueTexture, true, true, true ); // clear the color only?
+  mapParticleToBodyMesh.material = addTorqueToBodyMaterial;
+  addTorqueToBodyMaterial.uniforms.relativeParticlePosTex.value = particlePosRelativeTexture.texture;
+  addTorqueToBodyMaterial.uniforms.particleForceTex.value = particleForceTexture.texture;
+  renderer.render( sceneMapParticlesToBodies, fullscreenQuadCamera, bodyTorqueTexture, false );
+  addTorqueToBodyMaterial.uniforms.relativeParticlePosTex.value = null;
+  addTorqueToBodyMaterial.uniforms.particleForceTex.value = null;
 
   // Update body velocity
   fullScreenQuad.material = updateBodyVelocityMaterial;
-  updateBodyVelocityMaterial.uniforms.inertia.value = 1; // sphere mass == 1
+  updateBodyVelocityMaterial.uniforms.inertia.value = mass;
   updateBodyVelocityMaterial.uniforms.bodyVelTex.value = bodyVelTextureRead.texture;
   updateBodyVelocityMaterial.uniforms.bodyForceTex.value = bodyForceTexture.texture;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, bodyVelTextureWrite, false );
@@ -704,16 +767,17 @@ function simulate(){
   bodyVelTextureWrite = bodyVelTextureRead;
   bodyVelTextureRead = tmp;
 
-  // Update positions
-  fullScreenQuad.material = updatePositionMaterial;
-  updatePositionMaterial.uniforms.posTex.value = particlePosTextureRead.texture;
-  updatePositionMaterial.uniforms.velTex.value = particleVelTextureRead.texture;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particlePosTextureWrite, false );
-  updatePositionMaterial.uniforms.velTex.value = null;
-  updatePositionMaterial.uniforms.posTex.value = null;
-  tmp = particlePosTextureWrite; // swap
-  particlePosTextureWrite = particlePosTextureRead;
-  particlePosTextureRead = tmp;
+  // Update body angular velocity
+  fullScreenQuad.material = updateBodyVelocityMaterial;
+  updateBodyVelocityMaterial.uniforms.inertia.value = inertia;
+  updateBodyVelocityMaterial.uniforms.bodyVelTex.value = bodyAngularVelTextureRead.texture;
+  updateBodyVelocityMaterial.uniforms.bodyForceTex.value = bodyTorqueTexture.texture;
+  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, bodyAngularVelTextureWrite, false );
+  updateBodyVelocityMaterial.uniforms.bodyVelTex.value = null;
+  updateBodyVelocityMaterial.uniforms.bodyForceTex.value = null;
+  tmp = bodyAngularVelTextureWrite;
+  bodyAngularVelTextureWrite = bodyAngularVelTextureRead;
+  bodyAngularVelTextureRead = tmp;
 
   // Update body positions
   fullScreenQuad.material = updateBodyPositionMaterial;
@@ -725,41 +789,6 @@ function simulate(){
   tmp = bodyPosTextureWrite; // swap
   bodyPosTextureWrite = bodyPosTextureRead;
   bodyPosTextureRead = tmp;
-
-  // Update angular velocity
-  fullScreenQuad.material = updateVelocityMaterial;
-  updateVelocityMaterial.uniforms.inertia.value = (2.0 * 1.0 * radius * radius / 5.0); // sphere with mass 1
-  updateVelocityMaterial.uniforms.velTex.value = particleAngularVelTextureRead.texture;
-  updateVelocityMaterial.uniforms.forceTex.value = particleTorqueTexture.texture;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleAngularVelTextureWrite, false );
-  updateVelocityMaterial.uniforms.velTex.value = null;
-  updateVelocityMaterial.uniforms.forceTex.value = null;
-  tmp = particleAngularVelTextureWrite;
-  particleAngularVelTextureWrite = particleAngularVelTextureRead;
-  particleAngularVelTextureRead = tmp;
-
-  // Update body angular velocity
-  fullScreenQuad.material = updateBodyVelocityMaterial;
-  updateBodyVelocityMaterial.uniforms.inertia.value = (2.0 * 1.0 * radius * radius / 5.0); // sphere with mass 1
-  updateBodyVelocityMaterial.uniforms.bodyVelTex.value = bodyAngularVelTextureRead.texture;
-  updateBodyVelocityMaterial.uniforms.bodyForceTex.value = bodyTorqueTexture.texture;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, bodyAngularVelTextureWrite, false );
-  updateBodyVelocityMaterial.uniforms.bodyVelTex.value = null;
-  updateBodyVelocityMaterial.uniforms.bodyForceTex.value = null;
-  tmp = bodyAngularVelTextureWrite;
-  bodyAngularVelTextureWrite = bodyAngularVelTextureRead;
-  bodyAngularVelTextureRead = tmp;
-
-  // Update particle quaternions
-  fullScreenQuad.material = updateQuaternionMaterial;
-  updateQuaternionMaterial.uniforms.quatTex.value = particleQuatTextureRead.texture;
-  updateQuaternionMaterial.uniforms.angularVelTex.value = particleAngularVelTextureRead.texture;
-  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleQuatTextureWrite, false );
-  updateQuaternionMaterial.uniforms.quatTex.value = null;
-  updateQuaternionMaterial.uniforms.angularVelTex.value = null;
-  tmp = particleQuatTextureWrite;
-  particleQuatTextureWrite = particleQuatTextureRead;
-  particleQuatTextureRead = tmp;
 
   // Update body quaternions
   fullScreenQuad.material = updateBodyQuaternionMaterial;
@@ -774,3 +803,17 @@ function simulate(){
 
   state.buffers.depth.setTest( true );
 }
+
+function setQuaternionFromAxisAngle(quat,axis,angle){
+  var s = Math.sin(angle*0.5);
+  quat.x = axis.x * s;
+  quat.y = axis.y * s;
+  quat.z = axis.z * s;
+  quat.w = Math.cos(angle*0.5);
+}
+
+window.addEventListener('keydown', function(evt){
+  if(evt.keyCode == 80){
+    paused = !paused;
+  }
+});
