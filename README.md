@@ -5,9 +5,15 @@ GPU Rigid Bodies in Three.js
 
 ![Demo](https://cloud.githubusercontent.com/assets/1063152/25567729/a1e103c8-2df4-11e7-9e74-4242b5d9ea55.png)
 
-## About
+## About the demo
 
-The demo is largely based on [GPU Gems 3 ch. 29, Real-Time Rigid Body Simulation on GPUs](https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch29.html). The simulation loop is in short:
+An insane amount of rigid bodies are waiting to spawn. How many can your GPU handle? Use the GUI to tweak simulation parameters or just shove the sphere into the container to see what happens.
+
+## Implementation
+
+The demo is largely based on [GPU Gems 3 ch. 29, Real-Time Rigid Body Simulation on GPUs](https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch29.html). It heavily relies on the `THREE.WebGLRenderTarget` class and custom shaders.
+
+The simulation loop is in short:
 
 <ol>
 <li>Create float render targets of size N*N for bodies: position, quaternion, velocity, angular velocity, force, torque.</li>
