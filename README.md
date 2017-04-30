@@ -31,6 +31,7 @@ The simulation loop is in short:
 <li>Body positions are updated: position += deltaTime * velocity.</li>
 <li>Render each body by looking up body position and quaternion in the correct render target texture.</li>
 </ol>
+</ol>
 
 ## Possible improvements
 
