@@ -4,11 +4,37 @@
     <title>three.js canvas - camera - orthographic</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-    <link rel="stylesheet" href="style.css"/>
+    <style>
+        body {
+            color: #ffffff;
+            font-family: "Lucida Grande", sans-serif;
+            font-size: 11px;
+            font-weight: normal;
+            text-align: center;
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            padding: 5px;
+        }
+
+        a {
+            color: #ffffff;
+        }
+    </style>
 </head>
 <body>
 
 <div id="container"></div>
+<div id="info">
+    <b>GPGPU rigid bodies</b> | Created by <a href="http://twitter.com/schteppe" target="_blank">@schteppe</a> | Powered by <a href="http://github.com/mrdoob/three.js" target="_blank">three.js</a>
+</div>
+
 <script src="three.min.js"></script>
 <script src="stats.min.js"></script>
 <script src="dat.gui.min.js"></script>

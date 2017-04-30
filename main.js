@@ -39,10 +39,8 @@ calculateBoxInvInertia(invInertia, 1, new THREE.Vector3(radius*2*4,radius*2,radi
 var gridPotZ;
 var container, stats, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
-var particlePosWorldTexture, particleVelTexture, gridTexture, particleForceTexture;
-var material, fullScreenQuad, mesh;
-var sceneMap;
-var sceneMapParticlesToBodies;
+var fullScreenQuad, mesh;
+var sceneMap, sceneMapParticlesToBodies;
 var setGridStencilMaterial, setGridStencilMesh;
 var texturedMaterial;
 var mapParticleMaterial;
@@ -57,6 +55,23 @@ var localParticlePositionToWorldMaterial;
 var addForceToBodyMaterial;
 var updateBodyVelocityMaterial;
 var gizmo;
+
+var bodyPosTextureRead;
+var bodyPosTextureWrite;
+var bodyQuatTextureRead;
+var bodyQuatTextureWrite;
+var bodyVelTextureRead;
+var bodyVelTextureWrite;
+var bodyAngularVelTextureRead;
+var bodyAngularVelTextureWrite;
+var bodyForceTexture;
+var bodyTorqueTexture;
+var particlePosLocalTexture;
+var particlePosRelativeTexture;
+var particlePosWorldTexture;
+var particleVelTexture;
+var particleForceTexture;
+var gridTexture;
 
 init();
 animate();
