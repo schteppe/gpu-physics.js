@@ -25,6 +25,8 @@
 
         a {
             color: #ffffff;
+            font-weight: bold;
+            text-decoration: none;
         }
     </style>
 </head>
@@ -34,10 +36,6 @@
 <div id="info">
     <b>GPGPU rigid bodies</b> | Created by <a href="http://twitter.com/schteppe" target="_blank">@schteppe</a> | Powered by <a href="http://github.com/mrdoob/three.js" target="_blank">three.js</a>
 </div>
-
-<script src="three.min.js"></script>
-<script src="stats.min.js"></script>
-<script src="dat.gui.min.js"></script>
 
 <script id="sharedShaderCode" type="x-shader/x-fragment">
 precision highp float;
@@ -552,10 +550,12 @@ void main() {
 }
 </script>
 
-
-
-<script src="three.orbitcontrols.js"></script>
-<script src="three.transformcontrols.js"></script>
+<script src="lib/three.min.js"></script>
+<script src="lib/stats.min.js"></script>
+<script src="lib/dat.gui.min.js"></script>
+<script src="lib/three.orbitcontrols.js"></script>
+<script src="lib/three.transformcontrols.js"></script>
 <script src="main.js"></script>
+
 </body>
 </html>
