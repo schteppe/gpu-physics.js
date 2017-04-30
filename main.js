@@ -200,7 +200,7 @@ function init() {
   var ambientLight = new THREE.AmbientLight( 0x111111 );
   scene.add( ambientLight );
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
-  camera.position.set(2,1,2);
+  camera.position.set(1.5,0.7,1.1);
   initDebugGrid();
 
   // Create an instanced mesh for spheres
