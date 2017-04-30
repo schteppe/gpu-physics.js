@@ -1,7 +1,7 @@
 var query = parseParams();
 
 var paused = false;
-var numParticles = query.n ? parseInt(query.n,10) : 64;
+var numParticles = query.n ? parseInt(query.n,10) : 128;
 var numBodies = numParticles/2;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/16, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.29,0.25);
@@ -642,9 +642,6 @@ function simulate(){
   bodyVelocityToParticleVelocityMaterial.uniforms.relativeParticlePosTex.value = null;
   bodyVelocityToParticleVelocityMaterial.uniforms.bodyVelTex.value = null;
   bodyVelocityToParticleVelocityMaterial.uniforms.bodyAngularVelTex.value = null;
-
-
-  // Try drawing a rectangle to the stencil buffer to mask out a square
 
   // Set up the grid texture for stencil routing.
   // See http://www.gpgpu.org/static/s2007/slides/15-GPGPU-physics.pdf slide 24
