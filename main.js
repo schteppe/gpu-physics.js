@@ -166,9 +166,15 @@ function init() {
   fillRenderTarget(bodyQuatTextureRead, function(out, x, y){
     //out.set( 0, 0, 0, 1 );
     //out.set( 0, 0, Math.sin(Math.PI / 2), Math.cos(Math.PI / 2) );
-    var axis = new THREE.Vector3(Math.random()-0.5,Math.random()-0.5,Math.random()-0.5);
+    var axis = new THREE.Vector3(
+      Math.random()-0.5,
+      Math.random()-0.5,
+      Math.random()-0.5
+    );
     axis.normalize();
-    setQuaternionFromAxisAngle(out, axis, -Math.PI /8);
+    var q = new THREE.Quaternion();
+    q.setFromAxisAngle(axis, -Math.PI /8);
+    out.copy(q);
   });
 
   // main 3D scene
@@ -746,14 +752,6 @@ function simulate(){
   bodyQuatTextureRead = tmp;
 
   state.buffers.depth.setTest( true );
-}
-
-function setQuaternionFromAxisAngle(quat,axis,angle){
-  var s = Math.sin(angle*0.5);
-  quat.x = axis.x * s;
-  quat.y = axis.y * s;
-  quat.z = axis.z * s;
-  quat.w = Math.cos(angle*0.5);
 }
 
 function initGUI(){
