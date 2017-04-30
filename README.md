@@ -31,3 +31,8 @@ The simulation loop is in short:
 <li>Body positions are updated: position += deltaTime * velocity.</li>
 <li>Render each body by looking up body position and quaternion in the correct render target texture.</li>
 </ol>
+
+## Possible improvements
+
+* Seems like a lot of the simulation loop is spent updating the stencil buffer for the large grid render target. Using PBOs and drawPixels (available in WebGL2?) could for sure speed it up.
+* Using a single channel for the grid texture could for sure help saving some graphics memory.
