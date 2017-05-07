@@ -48,7 +48,7 @@ var forceMaterial;
 var updateTorqueMaterial;
 var debugQuads = {};
 var mapParticleToCellMesh;
-var spheresMesh;
+var debugMesh;
 var sharedShaderCode;
 var debugGridMesh;
 var localParticlePositionToWorldMaterial;
@@ -203,24 +203,23 @@ function init() {
   camera.position.set(1.5,0.7,1.1);
   initDebugGrid();
 
-  // Create an instanced mesh for spheres
+  // Create an instanced mesh for debug spheres
   var sphereGeometry = new THREE.SphereBufferGeometry(radius, 8, 8);
-  var triangles = 1;
   var instances = numParticles*numParticles;
-  var geometry = new THREE.InstancedBufferGeometry();
-  geometry.maxInstancedCount = instances;
+  var debugGeometry = new THREE.InstancedBufferGeometry();
+  debugGeometry.maxInstancedCount = instances;
   for(var attributeName in sphereGeometry.attributes){
-    geometry.addAttribute( attributeName, sphereGeometry.attributes[attributeName].clone() );
+    debugGeometry.addAttribute( attributeName, sphereGeometry.attributes[attributeName].clone() );
   }
-  geometry.setIndex( sphereGeometry.index.clone() );
+  debugGeometry.setIndex( sphereGeometry.index.clone() );
   var particleIndices = new THREE.InstancedBufferAttribute( new Float32Array( instances * 1 ), 1, 1 );
   for ( var i = 0, ul = particleIndices.count; i < ul; i++ ) {
     particleIndices.setX( i, i );
   }
-  geometry.addAttribute( 'particleIndex', particleIndices );
-  geometry.boundingSphere = null;
+  debugGeometry.addAttribute( 'particleIndex', particleIndices );
+  debugGeometry.boundingSphere = null;
 
-  // Particle spheres material - extend the phong shader in three.js
+  // Particle spheres material / debug material - extend the phong shader in three.js
   var phongShader = THREE.ShaderLib.phong;
   var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
   uniforms.particleWorldPosTex = { value: null };
@@ -263,21 +262,94 @@ function init() {
       ].join("\n")
     )
   ].join('\n');
-  var material = new THREE.ShaderMaterial({
+  var debugMaterial = new THREE.ShaderMaterial({
     uniforms: uniforms,
     vertexShader: vert,
     fragmentShader: phongShader.fragmentShader.replace("",""),
     lights: true,
     defines: getDefines()
   });
-  //material.defines.USE_MAP = true;
-  material.defines.USE_COLOR = true;
-  spheresMesh = new THREE.Mesh( geometry, material );
-  spheresMesh.frustumCulled = false;
+  //debugMaterial.defines.USE_MAP = true;
+  debugMaterial.defines.USE_COLOR = true;
+  debugMesh = new THREE.Mesh( debugGeometry, debugMaterial );
+  debugMesh.frustumCulled = false;
   var tex = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255]), 1, 2, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
   tex.needsUpdate = true;
-  material.uniforms.map.value = tex;
-  scene.add( spheresMesh );
+  debugMaterial.uniforms.map.value = tex;
+  //scene.add( debugMesh );
+
+
+  // Create an instanced mesh for cylinders
+  var cylinderGeometry = new THREE.CylinderBufferGeometry(radius, radius, 2*4*radius, 8, 0);
+  cylinderGeometry.rotateZ(Math.PI / 2);// particles are spread along x, not y
+  var bodyInstances = numBodies*numBodies;
+  var meshGeometry = new THREE.InstancedBufferGeometry();
+  meshGeometry.maxInstancedCount = bodyInstances;
+  for(var attributeName in cylinderGeometry.attributes){
+    meshGeometry.addAttribute( attributeName, cylinderGeometry.attributes[attributeName].clone() );
+  }
+  meshGeometry.setIndex( cylinderGeometry.index.clone() );
+  var bodyIndices = new THREE.InstancedBufferAttribute( new Float32Array( bodyInstances * 1 ), 1, 1 );
+  for ( var i = 0, ul = bodyIndices.count; i < ul; i++ ) {
+    bodyIndices.setX( i, i ); // one index per instance
+  }
+  meshGeometry.addAttribute( 'bodyIndex', bodyIndices );
+  meshGeometry.boundingSphere = null;
+
+  // Mesh material - extend the phong shader
+  var meshUniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
+  meshUniforms.particleWorldPosTex = { value: null };
+  meshUniforms.bodyQuatTex = { value: null };
+  meshUniforms.bodyPosTex = { value: null };
+  var meshVertexShader = [ // TODO: put in the HTML
+    sharedShaderCode,
+    "uniform sampler2D particleWorldPosTex;",
+    "uniform sampler2D bodyPosTex;",
+    "uniform sampler2D bodyQuatTex;",
+    "attribute float bodyIndex;",
+    phongShader.vertexShader.replace(
+      "<begin_vertex>",
+      [
+        "<begin_vertex>",
+        "vec2 bodyUV = indexToUV(bodyIndex,bodyTextureResolution);",
+        "vec3 bodyPos = texture2D(bodyPosTex,bodyUV).xyz;",
+        "vec4 bodyQuat = texture2D(bodyQuatTex,bodyUV).xyzw;",
+        "transformed.xyz = vec3_applyQuat(transformed.xyz, bodyQuat);",
+        "transformed.xyz += bodyPos;",
+
+      ].join("\n")
+    ).replace(
+      "#include <defaultnormal_vertex>",
+      [
+        "vec2 bodyUV2 = indexToUV(bodyIndex,bodyTextureResolution);",
+        "vec3 bodyPos2 = texture2D(bodyPosTex,bodyUV2).xyz;",
+        "vec4 bodyQuat2 = texture2D(bodyQuatTex,bodyUV2).xyzw;",
+        "objectNormal.xyz = vec3_applyQuat(objectNormal.xyz, bodyQuat2);",
+        "#include <defaultnormal_vertex>",
+      ].join("\n")
+    ).replace(
+      "#include <color_vertex>",
+      [
+        "#include <color_vertex>",
+        "vec2 bodyUV3 = indexToUV(bodyIndex,bodyTextureResolution);",
+        "vColor = vec3((floor(bodyUV3*3.0)+1.0)/3.0,0);",
+      ].join("\n")
+    )
+  ].join('\n');
+  var meshMaterial = new THREE.ShaderMaterial({
+    uniforms: meshUniforms,
+    vertexShader: meshVertexShader,
+    fragmentShader: phongShader.fragmentShader.replace("",""),
+    lights: true,
+    defines: getDefines()
+  });
+  //meshMaterial.defines.USE_MAP = true;
+  meshMaterial.defines.USE_COLOR = true;
+  meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
+  meshMesh.frustumCulled = false;
+  scene.add( meshMesh );
+
+
 
   // Body position update
   updateBodyPositionMaterial = new THREE.ShaderMaterial({
@@ -596,14 +668,25 @@ function render() {
 
   // Render main scene
   updateDebugGrid();
-  spheresMesh.material.uniforms.particleWorldPosTex.value = particlePosWorldTexture.texture;
-  spheresMesh.material.uniforms.quatTex.value = bodyQuatTextureRead.texture;
+
+  debugMesh.material.uniforms.particleWorldPosTex.value = particlePosWorldTexture.texture;
+  debugMesh.material.uniforms.quatTex.value = bodyQuatTextureRead.texture;
+
+  meshMesh.material.uniforms.particleWorldPosTex.value = particlePosWorldTexture.texture;
+  meshMesh.material.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
+  meshMesh.material.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
+
   renderer.setRenderTarget(null);
   renderer.setClearColor(0x222222, 1.0);
   renderer.clear();
   renderer.render( scene, camera );
-  spheresMesh.material.uniforms.particleWorldPosTex.value = null;
-  spheresMesh.material.uniforms.quatTex.value = null;
+
+  meshMesh.material.uniforms.particleWorldPosTex.value = null;
+  meshMesh.material.uniforms.bodyPosTex.value = null;
+  meshMesh.material.uniforms.bodyQuatTex.value = null;
+
+  debugMesh.material.uniforms.particleWorldPosTex.value = null;
+  debugMesh.material.uniforms.quatTex.value = null;
 }
 
 function simulate(){
@@ -775,6 +858,8 @@ function initGUI(){
     moreObjects: function(){ location.href = "?n=" + (numParticles*2); },
     lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
     showBroadphase: false,
+    showParticles: false,
+    showBodies: true,
     gravity: gravity.y,
   };
   function guiChanged() {
@@ -784,6 +869,8 @@ function initGUI(){
     params2.x = controller.deltaTime;
     gravity.y = controller.gravity;
     if(controller.showBroadphase) scene.add(debugGridMesh); else scene.remove(debugGridMesh);
+    if(controller.showParticles) scene.add(debugMesh); else scene.remove(debugMesh);
+    if(controller.showBodies) scene.add(meshMesh); else scene.remove(meshMesh);
   }
   var gui = new dat.GUI();
   gui.add( controller, "stiffness", 0, 5000, 0.1 ).onChange( guiChanged );
@@ -794,6 +881,8 @@ function initGUI(){
   gui.add( controller, "moreObjects" );
   gui.add( controller, "lessObjects" );
   gui.add( controller, "showBroadphase" ).onChange( guiChanged );
+  gui.add( controller, "showParticles" ).onChange( guiChanged );
+  gui.add( controller, "showBodies" ).onChange( guiChanged );
   guiChanged();
 }
 initGUI();
