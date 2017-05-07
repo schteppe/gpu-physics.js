@@ -572,7 +572,9 @@ void main() {
     #include <uv2_vertex>
     #include <color_vertex>
     vec2 bodyUV = indexToUV(bodyIndex,bodyTextureResolution);
+#ifdef USE_COLOR
     vColor = vec3((floor(bodyUV*3.0)+1.0)/3.0,0);
+#endif
     #include <beginnormal_vertex>
     #include <morphnormal_vertex>
     #include <skinbase_vertex>
@@ -631,7 +633,9 @@ void main() {
     #include <uv2_vertex>
     #include <color_vertex>
     vec2 particleUV = indexToUV(particleIndex,resolution);
+#ifdef USE_COLOR
     vColor = vec3((floor(particleUV*3.0)+1.0)/3.0,0);
+#endif
     #include <beginnormal_vertex>
     #include <morphnormal_vertex>
     #include <skinbase_vertex>

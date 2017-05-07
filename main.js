@@ -82,13 +82,13 @@ function getShader(id){
   return sharedShaderCode + code;
 }
 
-function getDefines(){
-  return {
+function getDefines(overrides){
+  return Object.assign({}, overrides||{}, {
     resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
     gridResolution: 'vec3( ' + gridResolution.x.toFixed( 1 ) + ', ' + gridResolution.y.toFixed( 1 ) + ', ' + gridResolution.z.toFixed( 1 ) + " )",
     gridPotZ: 'int(' + gridPotZ + ')',
     bodyTextureResolution: 'vec2( ' + numBodies.toFixed( 1 ) + ', ' + numBodies.toFixed( 1 ) + " )",
-  };
+  });
 }
 
 function init() {
@@ -231,16 +231,16 @@ function init() {
     vertexShader: getShader('renderParticlesVertex'),
     fragmentShader: phongShader.fragmentShader,
     lights: true,
-    defines: getDefines()
+    defines: getDefines({
+      USE_MAP: true,
+      //USE_COLOR: true
+    })
   });
-  //debugMaterial.defines.USE_MAP = true;
-  debugMaterial.defines.USE_COLOR = true;
   debugMesh = new THREE.Mesh( debugGeometry, debugMaterial );
   debugMesh.frustumCulled = false;
   var tex = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255]), 1, 2, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
   tex.needsUpdate = true;
   debugMaterial.uniforms.map.value = tex;
-  //scene.add( debugMesh );
 
 
   // Create an instanced mesh for cylinders
@@ -270,15 +270,14 @@ function init() {
     vertexShader: meshVertexShader,
     fragmentShader: phongShader.fragmentShader,
     lights: true,
-    defines: getDefines()
+    defines: getDefines({
+      //USE_MAP: true,
+      USE_COLOR: true,
+    })
   });
-  //meshMaterial.defines.USE_MAP = true;
-  meshMaterial.defines.USE_COLOR = true;
   meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
   meshMesh.frustumCulled = false;
   scene.add( meshMesh );
-
-
 
   // Body position update
   updateBodyPositionMaterial = new THREE.ShaderMaterial({
