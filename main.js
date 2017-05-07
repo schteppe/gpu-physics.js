@@ -9,8 +9,8 @@ var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,-0.5,0);
 var params1 = new THREE.Vector4(
-  2300, // stiffness
-  0.9, // damping
+  1700, // stiffness
+  6, // damping
   radius, // radius
   0.2 // drag
 );
@@ -190,7 +190,7 @@ function init() {
     );
     axis.normalize();
     var q = new THREE.Quaternion();
-    q.setFromAxisAngle(axis, -Math.PI /8);
+    q.setFromAxisAngle(axis, Math.random() * Math.PI * 2);
     out.copy(q);
   });
 
