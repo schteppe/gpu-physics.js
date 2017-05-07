@@ -215,7 +215,7 @@ vec3 particleForce(float STIFFNESS, float DAMPING, float DAMPING_T, float distan
     vec3 vij = vj - vi;
     vec3 vij_t = vij - dot(vij, rij_unit) * rij_unit;
     vec3 springForce = - STIFFNESS * (distance - length(rij)) * rij_unit; // TODO: Should be max 2*radius?
-    vec3 dampingForce = DAMPING * vij; // TODO: Should be along rij only?
+    vec3 dampingForce = DAMPING * dot(vij,rij_unit) * rij_unit;
     vec3 tangentForce = DAMPING_T * vij_t;
     return springForce + dampingForce + tangentForce;
 }
@@ -324,7 +324,6 @@ void main() {
     vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridPotZ);
 
     vec3 torque = vec3(0);
-    float mu = 5.0;
 
     // Neighbor friction
     for(int i=-1; i<2; i++){
@@ -341,7 +340,7 @@ void main() {
                     vec3 neighborVelocity = texture2D(velTex, neighborUV).xyz;
                     vec3 neighborAngularVelocity = texture2D(bodyAngularVelTex, neighborUV).xyz;
                     if(neighborIndex >=0 && neighborIndex != particleIndex && iNeighborCellGridPos.x>=0 && iNeighborCellGridPos.y>=0 && iNeighborCellGridPos.z>=0 && iNeighborCellGridPos.x<iGridRes.x && iNeighborCellGridPos.y<iGridRes.y && iNeighborCellGridPos.z<iGridRes.z){ // Not self!
-                        // Apply contact force from neighbor
+                        // Apply contact torque from neighbor
                         vec3 r = position - neighborPosition;
                         float len = length(r);
                         if(len > 0.0 && len < radius * 2.0){
@@ -350,7 +349,7 @@ void main() {
                             vec3 relAngularVel = angularVelocity - neighborAngularVelocity;
 
                             vec3 relTangentVel = (relVel - dot(relVel, dir) * dir) + cross(radius*dir, relAngularVel);
-                            torque += mu * cross(radius*dir, relTangentVel);
+                            torque += friction * cross(radius*dir, relTangentVel);
                         }
                     }
                 }
@@ -374,12 +373,12 @@ void main() {
         vec3 relAngularVel = angularVelocity - vec3(0);
         if(dot(dir,position) - radius < boxMin[i]){
             vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius * dir, relAngularVel);
-            torque += mu * cross(radius * dir, relTangentVel);
+            torque += friction * cross(radius * dir, relTangentVel);
         }
         if(dot(dir,position) + radius > boxMax[i]){
             dir = -dir;
             vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius * dir, relAngularVel);
-            torque += mu * cross(radius * dir, relTangentVel);
+            torque += friction * cross(radius * dir, relTangentVel);
         }
     }
 
@@ -456,14 +455,14 @@ uniform sampler2D relativeParticlePosTex;
 uniform sampler2D particleForceTex;
 uniform sampler2D particleTorqueTex;
 attribute float particleIndex;
-attribute float bodyIndex; // Should this be in a texture?
+attribute float bodyIndex;
 varying vec3 vBodyForce;
 void main() {
     vec2 particleUV = indexToUV( particleIndex, resolution );
     vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;
-   // vec3 particleTorque = texture2D( particleTorqueTex, particleUV ).xyz;
+    vec3 particleTorque = texture2D( particleTorqueTex, particleUV ).xyz;
     vec3 relativeParticlePos = texture2D( relativeParticlePosTex, particleUV ).xyz;
-    vBodyForce = cross(relativeParticlePos, particleForce)/* + particleTorque*/;
+    vBodyForce = cross(relativeParticlePos, particleForce) + particleTorque;
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
     gl_PointSize = 1.0;

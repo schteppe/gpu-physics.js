@@ -16,7 +16,7 @@ var params1 = new THREE.Vector4(
 );
 var params2 = new THREE.Vector4(
   1/120, // time step
-  5, // friction damping
+  3, // friction damping
   0, // unused
   0 // unused
 );
@@ -797,6 +797,7 @@ function initGUI(){
     damping: params1.y,
     drag: params1.w,
     deltaTime: params2.x,
+    friction: params2.y,
     moreObjects: function(){ location.href = "?n=" + (numParticles*2); },
     lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
     toggleParticles: function(){
@@ -816,6 +817,7 @@ function initGUI(){
     params1.y = controller.damping;
     params1.w = controller.drag;
     params2.x = controller.deltaTime;
+    params2.y = controller.friction;
     gravity.y = controller.gravity;
     if(controller.showBroadphase) scene.add(debugGridMesh); else scene.remove(debugGridMesh);
   }
@@ -823,6 +825,7 @@ function initGUI(){
   gui.add( controller, "stiffness", 0, 5000, 0.1 ).onChange( guiChanged );
   gui.add( controller, "damping", 0, 100, 0.1 ).onChange( guiChanged );
   gui.add( controller, "drag", 0, 10, 0.1 ).onChange( guiChanged );
+  gui.add( controller, "friction", 0, 10, 0.001 ).onChange( guiChanged );
   gui.add( controller, "deltaTime", 0, 0.1, 0.001 ).onChange( guiChanged );
   gui.add( controller, "gravity", -1, 1, 0.1 ).onChange( guiChanged );
   gui.add( controller, "moreObjects" );
