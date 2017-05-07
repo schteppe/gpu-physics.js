@@ -298,44 +298,9 @@ function init() {
 
   // Mesh material - extend the phong shader
   var meshUniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
-  meshUniforms.particleWorldPosTex = { value: null };
   meshUniforms.bodyQuatTex = { value: null };
   meshUniforms.bodyPosTex = { value: null };
-  var meshVertexShader = [ // TODO: put in the HTML
-    sharedShaderCode,
-    "uniform sampler2D particleWorldPosTex;",
-    "uniform sampler2D bodyPosTex;",
-    "uniform sampler2D bodyQuatTex;",
-    "attribute float bodyIndex;",
-    phongShader.vertexShader.replace(
-      "<begin_vertex>",
-      [
-        "<begin_vertex>",
-        "vec2 bodyUV = indexToUV(bodyIndex,bodyTextureResolution);",
-        "vec3 bodyPos = texture2D(bodyPosTex,bodyUV).xyz;",
-        "vec4 bodyQuat = texture2D(bodyQuatTex,bodyUV).xyzw;",
-        "transformed.xyz = vec3_applyQuat(transformed.xyz, bodyQuat);",
-        "transformed.xyz += bodyPos;",
-
-      ].join("\n")
-    ).replace(
-      "#include <defaultnormal_vertex>",
-      [
-        "vec2 bodyUV2 = indexToUV(bodyIndex,bodyTextureResolution);",
-        "vec3 bodyPos2 = texture2D(bodyPosTex,bodyUV2).xyz;",
-        "vec4 bodyQuat2 = texture2D(bodyQuatTex,bodyUV2).xyzw;",
-        "objectNormal.xyz = vec3_applyQuat(objectNormal.xyz, bodyQuat2);",
-        "#include <defaultnormal_vertex>",
-      ].join("\n")
-    ).replace(
-      "#include <color_vertex>",
-      [
-        "#include <color_vertex>",
-        "vec2 bodyUV3 = indexToUV(bodyIndex,bodyTextureResolution);",
-        "vColor = vec3((floor(bodyUV3*3.0)+1.0)/3.0,0);",
-      ].join("\n")
-    )
-  ].join('\n');
+  meshVertexShader = getShader('renderBodiesVertex');
   var meshMaterial = new THREE.ShaderMaterial({
     uniforms: meshUniforms,
     vertexShader: meshVertexShader,
@@ -672,7 +637,6 @@ function render() {
   debugMesh.material.uniforms.particleWorldPosTex.value = particlePosWorldTexture.texture;
   debugMesh.material.uniforms.quatTex.value = bodyQuatTextureRead.texture;
 
-  meshMesh.material.uniforms.particleWorldPosTex.value = particlePosWorldTexture.texture;
   meshMesh.material.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
   meshMesh.material.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
 
@@ -681,7 +645,6 @@ function render() {
   renderer.clear();
   renderer.render( scene, camera );
 
-  meshMesh.material.uniforms.particleWorldPosTex.value = null;
   meshMesh.material.uniforms.bodyPosTex.value = null;
   meshMesh.material.uniforms.bodyQuatTex.value = null;
 
