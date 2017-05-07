@@ -71,6 +71,7 @@ var particlePosRelativeTexture;
 var particlePosWorldTexture;
 var particleVelTexture;
 var particleForceTexture;
+var particleTorqueTexture;
 var gridTexture;
 
 init();
@@ -149,6 +150,7 @@ function init() {
   particlePosWorldTexture = createRenderTarget(numParticles, numParticles);
   particleVelTexture = createRenderTarget(numParticles, numParticles);
   particleForceTexture = createRenderTarget(numParticles, numParticles);
+  particleTorqueTexture = createRenderTarget(numParticles, numParticles);
 
   // Broadphase
   gridTexture = createRenderTarget(2*gridResolution.x*gridPotZ, 2*gridResolution.y*gridPotZ);
@@ -342,7 +344,7 @@ function init() {
       gridPos: { value: gridPosition },
       posTex:  { value: null },
       velTex:  { value: null },
-      angularVelTex:  { value: null },
+      bodyAngularVelTex:  { value: null },
       gridTex:  { value: gridTexture.texture },
       params1: { value: params1 },
       params2: { value: params2 },
@@ -367,11 +369,12 @@ function init() {
     transparent: true
   });
 
-  // Add torque to body material - needed?
+  // Add torque to body material
   addTorqueToBodyMaterial = new THREE.ShaderMaterial({
     uniforms: {
       relativeParticlePosTex: { value: null },
       particleForceTex: { value: null },
+      particleTorqueTex: { value: null },
       globalForce:  { value: new THREE.Vector3(0,0,0) },
     },
     vertexShader: getShader( 'addParticleTorqueToBodyVert' ),
@@ -702,6 +705,18 @@ function simulate(){
   forceMaterial.uniforms.velTex.value = null;
   forceMaterial.uniforms.posTex.value = null;
 
+  // Update particle torques / collision reaction
+  state.buffers.depth.setTest( false );
+  state.buffers.stencil.setTest( false );
+  fullScreenQuad.material = updateTorqueMaterial;
+  updateTorqueMaterial.uniforms.posTex.value = particlePosWorldTexture.texture;
+  updateTorqueMaterial.uniforms.velTex.value = particleVelTexture.texture;
+  updateTorqueMaterial.uniforms.bodyAngularVelTex.value = bodyAngularVelTextureRead.texture; // Angular velocity for indivitual particles and bodies are the same
+  renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleTorqueTexture, false );
+  updateTorqueMaterial.uniforms.velTex.value = null;
+  updateTorqueMaterial.uniforms.bodyAngularVelTex.value = null;
+  updateTorqueMaterial.uniforms.posTex.value = null;
+
   // Add force to bodies
   state.buffers.depth.setTest( false );
   state.buffers.stencil.setTest( false );
@@ -719,9 +734,11 @@ function simulate(){
   mapParticleToBodyMesh.material = addTorqueToBodyMaterial;
   addTorqueToBodyMaterial.uniforms.relativeParticlePosTex.value = particlePosRelativeTexture.texture;
   addTorqueToBodyMaterial.uniforms.particleForceTex.value = particleForceTexture.texture;
+  addTorqueToBodyMaterial.uniforms.particleTorqueTex.value = particleTorqueTexture.texture;
   renderer.render( sceneMapParticlesToBodies, fullscreenQuadCamera, bodyTorqueTexture, false );
   addTorqueToBodyMaterial.uniforms.relativeParticlePosTex.value = null;
   addTorqueToBodyMaterial.uniforms.particleForceTex.value = null;
+  addTorqueToBodyMaterial.uniforms.particleTorqueTex.value = null;
 
   // Update body velocity
   fullScreenQuad.material = updateBodyVelocityMaterial;

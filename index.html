@@ -214,8 +214,8 @@ vec3 particleForce(float STIFFNESS, float DAMPING, float DAMPING_T, float distan
     vec3 rij_unit = normalize(rij);
     vec3 vij = vj - vi;
     vec3 vij_t = vij - dot(vij, rij_unit) * rij_unit;
-    vec3 springForce = - STIFFNESS * (distance - length(rij)) * rij_unit;
-    vec3 dampingForce = DAMPING * vij;
+    vec3 springForce = - STIFFNESS * (distance - length(rij)) * rij_unit; // TODO: Should be max 2*radius?
+    vec3 dampingForce = DAMPING * vij; // TODO: Should be along rij only?
     vec3 tangentForce = DAMPING_T * vij_t;
     return springForce + dampingForce + tangentForce;
 }
@@ -308,7 +308,7 @@ uniform vec3 gridPos;
 
 uniform sampler2D posTex;
 uniform sampler2D velTex;
-uniform sampler2D angularVelTex;
+uniform sampler2D bodyAngularVelTex;
 uniform sampler2D gridTex;
 
 void main() {
@@ -318,7 +318,7 @@ void main() {
     // Get id and position of current
     vec3 position = texture2D(posTex, uv).xyz;
     vec3 velocity = texture2D(velTex, uv).xyz;
-    vec3 angularVelocity = texture2D(angularVelTex, uv).xyz;
+    vec3 angularVelocity = texture2D(bodyAngularVelTex, uv).xyz;
     vec3 particleGridPos = worldPosToGridPos(position, gridPos, cellSize);
     ivec3 iGridRes = ivec3(gridResolution);
     vec2 gridTexRes = 2.0 * gridResolution.xy * vec2(gridPotZ);
@@ -339,7 +339,7 @@ void main() {
                     vec2 neighborUV = indexToUV(float(neighborIndex), resolution);
                     vec3 neighborPosition = texture2D(posTex, neighborUV).xyz;
                     vec3 neighborVelocity = texture2D(velTex, neighborUV).xyz;
-                    vec3 neighborAngularVelocity = texture2D(angularVelTex, neighborUV).xyz;
+                    vec3 neighborAngularVelocity = texture2D(bodyAngularVelTex, neighborUV).xyz;
                     if(neighborIndex >=0 && neighborIndex != particleIndex && iNeighborCellGridPos.x>=0 && iNeighborCellGridPos.y>=0 && iNeighborCellGridPos.z>=0 && iNeighborCellGridPos.x<iGridRes.x && iNeighborCellGridPos.y<iGridRes.y && iNeighborCellGridPos.z<iGridRes.z){ // Not self!
                         // Apply contact force from neighbor
                         vec3 r = position - neighborPosition;
@@ -454,6 +454,7 @@ void main() {
 <script id="addParticleTorqueToBodyVert" type="x-shader/x-vertex">
 uniform sampler2D relativeParticlePosTex;
 uniform sampler2D particleForceTex;
+uniform sampler2D particleTorqueTex;
 attribute float particleIndex;
 attribute float bodyIndex; // Should this be in a texture?
 varying vec3 vBodyForce;
