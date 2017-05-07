@@ -799,9 +799,16 @@ function initGUI(){
     deltaTime: params2.x,
     moreObjects: function(){ location.href = "?n=" + (numParticles*2); },
     lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
+    toggleParticles: function(){
+      if(scene.children.indexOf(debugMesh) !== -1){
+        scene.remove(debugMesh);
+        scene.add(meshMesh);
+      } else {
+        scene.remove(meshMesh);
+        scene.add(debugMesh);
+      }
+    },
     showBroadphase: false,
-    showParticles: false,
-    showBodies: true,
     gravity: gravity.y,
   };
   function guiChanged() {
@@ -811,8 +818,6 @@ function initGUI(){
     params2.x = controller.deltaTime;
     gravity.y = controller.gravity;
     if(controller.showBroadphase) scene.add(debugGridMesh); else scene.remove(debugGridMesh);
-    if(controller.showParticles) scene.add(debugMesh); else scene.remove(debugMesh);
-    if(controller.showBodies) scene.add(meshMesh); else scene.remove(meshMesh);
   }
   var gui = new dat.GUI();
   gui.add( controller, "stiffness", 0, 5000, 0.1 ).onChange( guiChanged );
@@ -823,8 +828,7 @@ function initGUI(){
   gui.add( controller, "moreObjects" );
   gui.add( controller, "lessObjects" );
   gui.add( controller, "showBroadphase" ).onChange( guiChanged );
-  gui.add( controller, "showParticles" ).onChange( guiChanged );
-  gui.add( controller, "showBodies" ).onChange( guiChanged );
+  gui.add( controller, "toggleParticles" ).onChange( guiChanged );
   guiChanged();
 }
 initGUI();

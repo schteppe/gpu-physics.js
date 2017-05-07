@@ -477,20 +477,6 @@ void main() {
 }
 </script>
 
-
-<script id="additiveParticlesVert" type="x-shader/x-vertex">
-void main() {
-    gl_PointSize = 20.0;
-    gl_Position = vec4(position, 1);
-}
-</script>
-<script id="additiveParticlesFrag" type="x-shader/x-fragment">
-void main() {
-   gl_FragColor = vec4(0.1,0.1,0.1,1.0);
-}
-</script>
-
-
 <!-- transform body-local particle positions to world, relative to the body -->
 <script id="localParticlePositionToRelativeFrag" type="x-shader/x-fragment">
 uniform sampler2D localParticlePosTex;
