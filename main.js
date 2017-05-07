@@ -224,48 +224,10 @@ function init() {
   var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
   uniforms.particleWorldPosTex = { value: null };
   uniforms.quatTex = { value: null };
-  var vert = [
-    sharedShaderCode,
-    "uniform sampler2D particleWorldPosTex;",
-    "uniform sampler2D quatTex;",
-    "attribute float particleIndex;",
-    phongShader.vertexShader.replace(
-      "<begin_vertex>",
-      [
-        "<begin_vertex>",
-        "vec2 particleUV = indexToUV(particleIndex,resolution);",
-        "vec4 particlePosAndBodyId = texture2D(particleWorldPosTex,particleUV);",
-        "vec3 particlePos = particlePosAndBodyId.xyz;",
-        "vec2 bodyUV = indexToUV(particlePosAndBodyId.w,bodyTextureResolution);",
-        "vec4 quat = texture2D(quatTex,bodyUV).xyzw;",
-        "transformed.xyz = vec3_applyQuat(transformed.xyz, quat);",
-        "transformed.xyz += particlePos;",
-
-      ].join("\n")
-    ).replace(
-      "#include <defaultnormal_vertex>",
-      [
-        "vec2 particleUV2 = indexToUV(particleIndex,resolution);",
-        "vec4 particlePosAndBodyId2 = texture2D(particleWorldPosTex,particleUV2);",
-        "vec2 bodyUV2 = indexToUV(particlePosAndBodyId2.w,bodyTextureResolution);",
-        "vec4 quat2 = texture2D(quatTex,bodyUV2).xyzw;",
-
-        "objectNormal.xyz = vec3_applyQuat(objectNormal.xyz, quat2);",
-        "#include <defaultnormal_vertex>",
-      ].join("\n")
-    ).replace(
-      "#include <color_vertex>",
-      [
-        "#include <color_vertex>",
-        "vec2 particleUV3 = indexToUV(particleIndex,resolution);",
-        "vColor = vec3((floor(particleUV3*3.0)+1.0)/3.0,0);",
-      ].join("\n")
-    )
-  ].join('\n');
   var debugMaterial = new THREE.ShaderMaterial({
     uniforms: uniforms,
-    vertexShader: vert,
-    fragmentShader: phongShader.fragmentShader.replace("",""),
+    vertexShader: getShader('renderParticlesVertex'),
+    fragmentShader: phongShader.fragmentShader,
     lights: true,
     defines: getDefines()
   });
@@ -304,7 +266,7 @@ function init() {
   var meshMaterial = new THREE.ShaderMaterial({
     uniforms: meshUniforms,
     vertexShader: meshVertexShader,
-    fragmentShader: phongShader.fragmentShader.replace("",""),
+    fragmentShader: phongShader.fragmentShader,
     lights: true,
     defines: getDefines()
   });
