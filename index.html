@@ -194,7 +194,6 @@ uniform vec4 params1;
 #define stiffness params1.x
 #define damping params1.y
 #define radius params1.z
-#define drag params1.w
 uniform vec4 params2;
 #define friction params2.y
 
@@ -287,9 +286,6 @@ void main() {
         force += particleForce(stiffness, damping, friction, radius + interactionSphereRadius, position, interactionSpherePos, velocity, vec3(0));
     }
 
-    // "Air friction" / drag force
-    force -= drag * velocity;
-
     gl_FragColor = vec4(force, 1.0);
 }
 </script>
@@ -299,7 +295,6 @@ uniform vec4 params1;
 #define stiffness params1.x
 #define damping params1.y
 #define radius params1.z
-#define drag params1.w
 uniform vec4 params2;
 #define friction params2.y
 
@@ -357,9 +352,6 @@ void main() {
         }
     }
 
-    // Rotation damping
-    torque -= 0.0001 * angularVelocity;
-
     // Friction against walls
     vec3 boxMin = vec3(0.0);
     vec3 boxMax = vec3(1.0);
@@ -391,10 +383,12 @@ void main() {
 uniform sampler2D bodyQuatTex;
 uniform sampler2D bodyVelTex;
 uniform sampler2D bodyForceTex;
-uniform vec4 params2;
 uniform vec3 invInertia;
 uniform vec3 maxVelocity;
+uniform vec4 params2;
 #define deltaTime params2.x
+#define drag params2.z
+
 void main() {
     vec2 uv = gl_FragCoord.xy / bodyTextureResolution;
     vec4 velocity = texture2D(bodyVelTex, uv);
@@ -402,6 +396,10 @@ void main() {
     vec4 quat = texture2D(bodyQuatTex, uv);
     vec3 newVelocity = velocity.xyz + force.xyz * deltaTime * invInertiaWorld(quat, invInertia);
     newVelocity = clamp(newVelocity, -maxVelocity, maxVelocity);
+
+    // Apply damping
+    newVelocity *= pow(1.0 - drag, deltaTime);
+
     gl_FragColor = vec4(newVelocity, 1.0);
 }
 </script>
