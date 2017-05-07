@@ -461,8 +461,9 @@ varying vec3 vBodyForce;
 void main() {
     vec2 particleUV = indexToUV( particleIndex, resolution );
     vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;
+   // vec3 particleTorque = texture2D( particleTorqueTex, particleUV ).xyz;
     vec3 relativeParticlePos = texture2D( relativeParticlePosTex, particleUV ).xyz;
-    vBodyForce = cross(relativeParticlePos, particleForce);
+    vBodyForce = cross(relativeParticlePos, particleForce)/* + particleTorque*/;
     vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
     bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
     gl_PointSize = 1.0;

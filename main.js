@@ -238,13 +238,13 @@ function init() {
   });
   debugMesh = new THREE.Mesh( debugGeometry, debugMaterial );
   debugMesh.frustumCulled = false;
-  var tex = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255]), 1, 2, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
-  tex.needsUpdate = true;
-  debugMaterial.uniforms.map.value = tex;
+  var checkerTexture = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255, 255,255,255,255, 255,0,0,255]), 2, 2, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
+  checkerTexture.needsUpdate = true;
+  debugMaterial.uniforms.map.value = checkerTexture;
 
 
   // Create an instanced mesh for cylinders
-  var cylinderGeometry = new THREE.CylinderBufferGeometry(radius, radius, 2*4*radius, 8, 0);
+  var cylinderGeometry = new THREE.CylinderBufferGeometry(radius, radius, 2*4*radius, 8);
   cylinderGeometry.rotateZ(Math.PI / 2);// particles are spread along x, not y
   var bodyInstances = numBodies*numBodies;
   var meshGeometry = new THREE.InstancedBufferGeometry();
@@ -271,10 +271,11 @@ function init() {
     fragmentShader: phongShader.fragmentShader,
     lights: true,
     defines: getDefines({
-      //USE_MAP: true,
-      USE_COLOR: true,
+      USE_MAP: true,
+      //USE_COLOR: true,
     })
   });
+  meshMaterial.uniforms.map.value = checkerTexture;
   meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
   meshMesh.frustumCulled = false;
   scene.add( meshMesh );
