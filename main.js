@@ -2,6 +2,7 @@ var query = parseParams();
 
 var paused = false;
 var numParticles = query.n ? parseInt(query.n,10) : 16;
+//var numBodies = numParticles/2;
 var numBodies = numParticles/2;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/16, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.29,0.25);
@@ -22,11 +23,12 @@ var params2 = new THREE.Vector4(
 );
 var params3 = new THREE.Vector4(0.5,0.6,0.5,0.05);
 function getBodyId(particleId){
-  var bodyId = Math.floor(particleId / 4);
+  //var bodyId = Math.floor(particleId / 4);
+  var bodyId = particleId;
   return bodyId;
 }
 function getParticleLocalPos(out, particleId){
-  var x = (particleId % 4 - 1.5) * radius * 2.01;
+  var x = 0;//(particleId % 4 - 1.5) * radius * 2.01;
   out.set(x,0,0);
 }
 
@@ -171,6 +173,9 @@ function init() {
   });
   fillRenderTarget(bodyVelTextureRead, function(out, x, y){
     out.set( 0, 0, 0, 1 );
+  });
+  fillRenderTarget(bodyAngularVelTextureRead, function(out, x, y){
+    out.set( 0, 0, 0, 0 );
   });
   fillRenderTarget(bodyPosTextureRead, function(out, x, y){
     out.set( 0.35 + 0.3*Math.random(), 0.1*Math.random() + 0.3, 0.35 + 0.3*Math.random(), 1 );
@@ -325,6 +330,7 @@ function init() {
       gridPos: { value: gridPosition },
       posTex:  { value: null },
       velTex:  { value: null },
+      bodyAngularVelTex:  { value: null },
       gridTex:  { value: gridTexture.texture },
       gravity: { value: gravity },
       params1: { value: params1 },
@@ -700,9 +706,11 @@ function simulate(){
   fullScreenQuad.material = forceMaterial;
   forceMaterial.uniforms.posTex.value = particlePosWorldTexture.texture;
   forceMaterial.uniforms.velTex.value = particleVelTexture.texture;
+  forceMaterial.uniforms.bodyAngularVelTex.value = bodyAngularVelTextureRead.texture;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, particleForceTexture, false );
   forceMaterial.uniforms.velTex.value = null;
   forceMaterial.uniforms.posTex.value = null;
+  forceMaterial.uniforms.bodyAngularVelTex.value = null;
 
   // Update particle torques / collision reaction
   state.buffers.depth.setTest( false );
