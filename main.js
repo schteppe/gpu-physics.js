@@ -1,13 +1,13 @@
 var query = parseParams();
 
 var paused = false;
-var numParticles = query.n ? parseInt(query.n,10) : 128;
+var numParticles = query.n ? parseInt(query.n,10) : 16;
 var numBodies = numParticles/2;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/16, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.29,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
-var gravity = new THREE.Vector3(0,-0.5,0);
+var gravity = new THREE.Vector3(0.0,-0.5,0);
 var params1 = new THREE.Vector4(
   1700, // stiffness
   6, // damping
@@ -16,8 +16,8 @@ var params1 = new THREE.Vector4(
 );
 var params2 = new THREE.Vector4(
   1/120, // time step
-  0, // friction damping
-  0.4, // velocity damping
+  1, // friction damping
+  0.1, // velocity damping
   0 // unused
 );
 var params3 = new THREE.Vector4(0.5,0.6,0.5,0.05);
@@ -179,16 +179,17 @@ function init() {
     //out.set( x, y, 0, 1 );
   });
   fillRenderTarget(bodyQuatTextureRead, function(out, x, y){
-    //out.set( 0, 0, 0, 1 );
-    //out.set( 0, 0, Math.sin(Math.PI / 2), Math.cos(Math.PI / 2) );
-    var axis = new THREE.Vector3(
+    // out.set( 0, 0, 0, 1 );
+    // out.set( 0, 0, Math.sin(Math.PI / 2), Math.cos(Math.PI / 2) );
+    var q = new THREE.Quaternion();
+    /*var axis = new THREE.Vector3(
       Math.random()-0.5,
       Math.random()-0.5,
       Math.random()-0.5
     );
     axis.normalize();
-    var q = new THREE.Quaternion();
-    q.setFromAxisAngle(axis, Math.random() * Math.PI * 2);
+    q.setFromAxisAngle(axis, Math.random() * Math.PI * 2);*/
+    q.setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI / 2);
     out.copy(q);
   });
 
@@ -298,7 +299,7 @@ function init() {
       bodyVelTex:  { value: null },
       params2: { value: params2 },
       invInertia: { value: invInertia }, // Inertia or mass
-      maxVelocity: { value: new THREE.Vector3(5,5,5) }
+      maxVelocity: { value: new THREE.Vector3(10000,10000,10000) }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateBodyVelocityFrag' ),
