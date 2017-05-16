@@ -4,7 +4,7 @@ var paused = false;
 var numParticles = query.n ? parseInt(query.n,10) : 64;
 //var numBodies = numParticles/2;
 var numBodies = numParticles;
-var gridResolution = new THREE.Vector3(numParticles/2, numParticles/16, numParticles/2);
+var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.29,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
@@ -55,6 +55,7 @@ var localParticlePositionToWorldMaterial;
 var addForceToBodyMaterial;
 var updateBodyVelocityMaterial;
 var gizmo;
+var interactionSphereMesh;
 
 var bodyPosTextureRead;
 var bodyPosTextureWrite;
@@ -498,16 +499,20 @@ function init() {
   controls.enableZoom = true;
   controls.target.set(0.5, 0.4, 0.5);
 
-  var mesh=new THREE.Mesh(new THREE.SphereBufferGeometry(params3.w,16,16), new THREE.MeshPhongMaterial({ color: 0xffffff }));
+  interactionSphereMesh = new THREE.Mesh(new THREE.SphereBufferGeometry(params3.w,16,16), new THREE.MeshPhongMaterial({ color: 0xffffff }));
   gizmo = new THREE.TransformControls( camera, renderer.domElement );
   gizmo.addEventListener( 'change', function(){
-    params3.x = mesh.position.x;
-    params3.y = mesh.position.y;
-    params3.z = mesh.position.z;
+    if(this.object === interactionSphereMesh){
+      params3.x = interactionSphereMesh.position.x;
+      params3.y = interactionSphereMesh.position.y;
+      params3.z = interactionSphereMesh.position.z;
+    } else if(this.object === debugGridMesh){
+      gridPosition.copy(debugGridMesh.position);
+    }
   });
-  mesh.position.set(params3.x,params3.y,params3.z);
-  scene.add(mesh);
-  gizmo.attach(mesh);
+  interactionSphereMesh.position.set(params3.x,params3.y,params3.z);
+  scene.add(interactionSphereMesh);
+  gizmo.attach(interactionSphereMesh);
   scene.add(gizmo);
 }
 
@@ -526,20 +531,14 @@ function initDebugGrid(){
   var d = gridResolution.z*cellSize.z;
   var boxGeom = new THREE.BoxGeometry( w, h, d );
   var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
-  debugGridMesh = new THREE.Mesh(boxGeom,wireframeMaterial);
+  debugGridMesh = new THREE.Object3D();
+  var mesh = new THREE.Mesh(boxGeom,wireframeMaterial);
+  debugGridMesh.add(mesh);
   debugGridMesh.position.copy(gridPosition);
-  debugGridMesh.position.x += w/2;
-  debugGridMesh.position.y += h/2;
-  debugGridMesh.position.z += d/2;
+  mesh.position.set(w/2, h/2, d/2);
 }
 function updateDebugGrid(){
-  var w = gridResolution.x*cellSize.x;
-  var h = gridResolution.y*cellSize.y;
-  var d = gridResolution.z*cellSize.z;
   debugGridMesh.position.copy(gridPosition);
-  debugGridMesh.position.x += w/2;
-  debugGridMesh.position.y += h/2;
-  debugGridMesh.position.z += d/2;
 }
 
 function fillRenderTarget(renderTarget, getPixelFunc){
@@ -810,6 +809,7 @@ function initGUI(){
     renderParticles: true,
     showBroadphase: false,
     gravity: gravity.y,
+    gizmo: 'sphere'
   };
   function guiChanged() {
     params1.x = controller.stiffness;
@@ -826,6 +826,15 @@ function initGUI(){
       scene.remove(debugMesh);
       scene.add(meshMesh);
     }
+    gizmo.detach(gizmo.object);
+    switch(controller.gizmo){
+      case 'sphere':
+        gizmo.attach(interactionSphereMesh);
+        break;
+      case 'broadphase':
+        gizmo.attach(debugGridMesh);
+        break;
+    }
   }
   var gui = new dat.GUI();
   gui.add( controller, "stiffness", 0, 5000, 0.1 ).onChange( guiChanged );
@@ -838,6 +847,7 @@ function initGUI(){
   gui.add( controller, "lessObjects" );
   gui.add( controller, "showBroadphase" ).onChange( guiChanged );
   gui.add( controller, "renderParticles" ).onChange( guiChanged );
+  gui.add( controller, 'gizmo', [ 'sphere', 'broadphase' ] ).onChange( guiChanged );
   guiChanged();
 }
 initGUI();
