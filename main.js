@@ -1,7 +1,7 @@
 var query = parseParams();
 
 var paused = false;
-var numParticles = query.n ? parseInt(query.n,10) : 16;
+var numParticles = query.n ? parseInt(query.n,10) : 64;
 //var numBodies = numParticles/2;
 var numBodies = numParticles/2;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/16, numParticles/2);
@@ -35,7 +35,7 @@ function getParticleLocalPos(out, particleId){
 var mass = 1;
 var invMass = new THREE.Vector3(1/mass,1/mass,1/mass);
 var invInertia = new THREE.Vector3(1,1,1);
-calculateBoxInvInertia(invInertia, 1, new THREE.Vector3(radius*2*4,radius*2,radius*2));
+calculateBoxInvInertia(invInertia, 1, new THREE.Vector3(radius*2,radius*2,radius*2));
 var gridPotZ;
 var container, stats, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
@@ -807,7 +807,7 @@ function initGUI(){
     drag: params2.z,
     moreObjects: function(){ location.href = "?n=" + (numParticles*2); },
     lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
-    renderParticles: false,
+    renderParticles: true,
     showBroadphase: false,
     gravity: gravity.y,
   };
