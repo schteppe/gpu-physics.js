@@ -2,8 +2,8 @@ var query = parseParams();
 
 var paused = false;
 var numParticles = query.n ? parseInt(query.n,10) : 64;
-//var numBodies = numParticles/2;
-var numBodies = numParticles;
+var numBodies = numParticles/2;
+//var numBodies = numParticles;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 var gridPosition = new THREE.Vector3(0.25,0.29,0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
@@ -23,19 +23,19 @@ var params2 = new THREE.Vector4(
 );
 var params3 = new THREE.Vector4(0.5,0.6,0.5,0.05);
 function getBodyId(particleId){
-  //var bodyId = Math.floor(particleId / 4);
-  var bodyId = particleId;
+  var bodyId = Math.floor(particleId / 4);
+  //var bodyId = particleId;
   return bodyId;
 }
 function getParticleLocalPos(out, particleId){
-  var x = 0;//(particleId % 4 - 1.5) * radius * 2.01;
+  var x = (particleId % 4 - 1.5) * radius * 2.01;
   out.set(x,0,0);
 }
 
 var mass = 1;
 var invMass = new THREE.Vector3(1/mass,1/mass,1/mass);
 var invInertia = new THREE.Vector3(1,1,1);
-calculateBoxInvInertia(invInertia, 1, new THREE.Vector3(radius*2,radius*2,radius*2));
+calculateBoxInvInertia(invInertia, 1, new THREE.Vector3(radius*2*4,radius*2,radius*2));
 var gridPotZ;
 var container, stats, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
@@ -806,7 +806,7 @@ function initGUI(){
     drag: params2.z,
     moreObjects: function(){ location.href = "?n=" + (numParticles*2); },
     lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
-    renderParticles: true,
+    renderParticles: false,
     showBroadphase: false,
     gravity: gravity.y,
     gizmo: 'sphere'
