@@ -404,8 +404,6 @@ void main() {
         vec3 dir = dirs[i];
         vec3 relVel = velocity;
         vec3 relAngularVel = angularVelocity;
-        /*
-        */
         if(dot(dir,position) - radius < boxMin[i]){
             vec3 relTangentVel = (relVel - dot(relVel, dir) * dir) + cross(radius * dir, relAngularVel);
             torque += friction * cross(radius * dir, relTangentVel);
