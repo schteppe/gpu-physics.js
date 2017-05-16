@@ -288,27 +288,27 @@ void main() {
     // Apply force from ground / bounds
     vec3 boxMin = vec3(0.3);
     vec3 boxMax = vec3(0.7);
-    /*
     vec3 dirs[3];
     dirs[0] = vec3(1,0,0);
     dirs[1] = vec3(0,1,0);
     dirs[2] = vec3(0,0,1);
     for(int i=0; i<3; i++){
         vec3 dir = dirs[i];
-        vec3 relVel = velocity - vec3(0);
+        vec3 tangentVel = (cross(radius * dir, bodyAngularVelocity) + velocity - dot(velocity,dir) * dir);
         float x = dot(dir,position) - radius;
         if(x < boxMin[i]){
-            force += -( stiffness * (x - boxMin[i]) * dir + damping * relVel);
+            force += -( stiffness * (x - boxMin[i]) * dir + damping * dot(velocity,dir) * dir);
+            force -= friction * tangentVel;
         }
         x = dot(dir,position) + radius;
         if(x > boxMax[i]){
             dir = -dir;
-            force -= -( stiffness * (x - boxMax[i]) * dir - damping * relVel);
+            force -= -( stiffness * (x - boxMax[i]) * dir - damping * dot(velocity,dir) * dir);
+            force -= friction * tangentVel;
         }
     }
-    */
 
-
+    /*
     vec3 y = vec3(0,1,0);
     float x = dot(y,position) - radius;
     if(x < boxMin.y){
@@ -316,6 +316,7 @@ void main() {
         vec3 tangentVel = (cross(radius*y, bodyAngularVelocity) + velocity - dot(velocity,y) * y);
         force -= friction * tangentVel;
     }
+    */
 
     // Sphere interaction
     vec3 r = position - interactionSpherePos;
@@ -399,14 +400,15 @@ void main() {
     dirs[0] = vec3(1,0,0);
     dirs[1] = vec3(0,1,0);
     dirs[2] = vec3(0,0,1);
-    /*
     for(int i=0; i<3; i++){
         vec3 dir = dirs[i];
         vec3 relVel = velocity;
         vec3 relAngularVel = angularVelocity;
+        /*
+        */
         if(dot(dir,position) - radius < boxMin[i]){
             vec3 relTangentVel = (relVel - dot(relVel, dir) * dir) + cross(radius * dir, relAngularVel);
-            torque -= friction * cross(radius * dir, relTangentVel);
+            torque += friction * cross(radius * dir, relTangentVel);
         }
         if(dot(dir,position) + radius > boxMax[i]){
             dir = -dir;
@@ -414,13 +416,14 @@ void main() {
             torque += friction * cross(radius * dir, relTangentVel);
         }
     }
-    */
 
+    /*
     vec3 y = vec3(0,1,0);
     if(dot(y,position) - radius < boxMin.y){
         vec3 relTangentVel = (velocity - dot(velocity, y) * y) + cross(radius * y, angularVelocity);
         torque += friction * cross(radius * y, relTangentVel);
     }
+    */
 
     gl_FragColor = vec4(torque, 0.0);
 }
