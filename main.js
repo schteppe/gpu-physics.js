@@ -293,7 +293,7 @@ function init() {
     fragmentShader: phongShader.fragmentShader,
     lights: true,
     defines: getDefines({
-      USE_MAP: true,
+      //USE_MAP: true,
       //USE_COLOR: true,
     })
   });
