@@ -4,8 +4,8 @@ var paused = false;
 var numParticles = query.n ? parseInt(query.n,10) : 64;
 var numBodies = numParticles/2;
 //var numBodies = numParticles;
-var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
-var gridPosition = new THREE.Vector3(0.25,0.29,0.25);
+var gridResolution = new THREE.Vector3(numParticles, numParticles/8, numParticles);
+var gridPosition = new THREE.Vector3(-0.5,0,-0.5);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0.0,-0.5,0);
@@ -21,7 +21,7 @@ var params2 = new THREE.Vector4(
   0.1, // velocity damping
   0 // unused
 );
-var params3 = new THREE.Vector4(0.5,0.6,0.5,0.05);
+var params3 = new THREE.Vector4(0.0,0.1,0.0,0.05);
 function getBodyId(particleId){
   var bodyId = Math.floor(particleId / 4);
   //var bodyId = particleId;
@@ -107,6 +107,7 @@ function init() {
   renderer.setPixelRatio( 1/*window.devicePixelRatio*/ ); // For some reason, device pixel ratio messes up the rendertargets on mobile
   renderer.setSize( window.innerWidth, window.innerHeight );
   renderer.autoClear = false;
+  //renderer.shadowMap.enabled = true;
   container.appendChild( renderer.domElement );
   window.addEventListener( 'resize', onWindowResize, false );
 
@@ -179,7 +180,7 @@ function init() {
     out.set( 0, 0, 0, 0 );
   });
   fillRenderTarget(bodyPosTextureRead, function(out, x, y){
-    out.set( 0.35 + 0.3*Math.random(), 0.1*Math.random() + 0.3, 0.35 + 0.3*Math.random(), 1 );
+    out.set( -0.3 + 0.6*Math.random(), 0.1*Math.random(), -0.3 + 0.6*Math.random(), 1 );
     //out.set( radius + 2*x*radius, radius*1.2 + (y*numParticles+x) * radius*0.4,radius + 2*y*radius,  1 );
     //out.set( 0, 0, 0, 1 );
     //out.set( x, y, 0, 1 );
@@ -188,27 +189,43 @@ function init() {
     // out.set( 0, 0, 0, 1 );
     // out.set( 0, 0, Math.sin(Math.PI / 2), Math.cos(Math.PI / 2) );
     var q = new THREE.Quaternion();
-    /*var axis = new THREE.Vector3(
+    var axis = new THREE.Vector3(
       Math.random()-0.5,
       Math.random()-0.5,
       Math.random()-0.5
     );
     axis.normalize();
-    q.setFromAxisAngle(axis, Math.random() * Math.PI * 2);*/
-    q.setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI / 2);
+    q.setFromAxisAngle(axis, Math.random() * Math.PI * 2);
+    //q.setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI / 2);
     out.copy(q);
   });
 
   // main 3D scene
   scene = new THREE.Scene();
-  var light = new THREE.DirectionalLight();
-  light.position.set(10,10,20);
+  light = new THREE.DirectionalLight();
+  var helper = new THREE.DirectionalLightHelper( light, 1 );
+  scene.add( helper );
+  light.castShadow = true;
+  light.shadow.mapSize.width = 512;
+  light.shadow.mapSize.height = 512;
+  var d = 1;
+  light.shadow.camera.left = - d;
+  light.shadow.camera.right = d;
+  light.shadow.camera.top = d;
+  light.shadow.camera.bottom = - d;
+  light.shadow.camera.far = 100;
+  light.position.set(1,1,1);
   scene.add(light);
   var ambientLight = new THREE.AmbientLight( 0x111111 );
   scene.add( ambientLight );
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
-  camera.position.set(1.5,0.7,1.1);
+  camera.position.set(1.1,0.7,0.8);
   initDebugGrid();
+  var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x111111 } );
+  var groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000 ), groundMaterial );
+  groundMesh.rotation.x = - Math.PI / 2;
+  groundMesh.receiveShadow = true;
+  scene.add( groundMesh );
 
   // Create an instanced mesh for debug spheres
   var sphereGeometry = new THREE.SphereBufferGeometry(radius, 8, 8);
@@ -283,6 +300,18 @@ function init() {
   meshMaterial.uniforms.map.value = checkerTexture;
   meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
   meshMesh.frustumCulled = false;
+  meshMesh.castShadow = true;
+  /*meshMesh.customDepthMaterial = new THREE.ShaderMaterial({
+    vertexShader: getShader('renderBodiesDepth'),
+    fragmentShader: THREE.ShaderLib.depth.fragmentShader,
+    defines: getDefines({ DEPTH_PACKING: 3200 }),
+    uniforms: THREE.UniformsUtils.merge([
+        THREE.UniformsLib.shadowmap,
+        {
+            lightPosition: {value: new THREE.Vector3(1, 1, 1)},
+        }
+    ])
+  });*/
   scene.add( meshMesh );
 
   // Body position update
@@ -497,7 +526,8 @@ function init() {
   // Add controls
   controls = new THREE.OrbitControls( camera, renderer.domElement );
   controls.enableZoom = true;
-  controls.target.set(0.5, 0.4, 0.5);
+  controls.target.set(0.0, 0.1, 0.0);
+  controls.maxPolarAngle = Math.PI * 0.5;
 
   interactionSphereMesh = new THREE.Mesh(new THREE.SphereBufferGeometry(params3.w,16,16), new THREE.MeshPhongMaterial({ color: 0xffffff }));
   gizmo = new THREE.TransformControls( camera, renderer.domElement );
@@ -511,6 +541,8 @@ function init() {
     }
   });
   interactionSphereMesh.position.set(params3.x,params3.y,params3.z);
+  interactionSphereMesh.castShadow = true;
+  interactionSphereMesh.receiveShadow = true;
   scene.add(interactionSphereMesh);
   gizmo.attach(interactionSphereMesh);
   scene.add(gizmo);
