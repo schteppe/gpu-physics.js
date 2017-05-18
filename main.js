@@ -107,7 +107,7 @@ function init() {
   renderer.setPixelRatio( 1/*window.devicePixelRatio*/ ); // For some reason, device pixel ratio messes up the rendertargets on mobile
   renderer.setSize( window.innerWidth, window.innerHeight );
   renderer.autoClear = false;
-  //renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = true;
   container.appendChild( renderer.domElement );
   window.addEventListener( 'resize', onWindowResize, false );
 
@@ -206,9 +206,8 @@ function init() {
   var helper = new THREE.DirectionalLightHelper( light, 1 );
   scene.add( helper );
   light.castShadow = true;
-  light.shadow.mapSize.width = 512;
-  light.shadow.mapSize.height = 512;
-  var d = 1;
+  light.shadow.mapSize.width = light.shadow.mapSize.height = 512*2;
+  var d = 0.5;
   light.shadow.camera.left = - d;
   light.shadow.camera.right = d;
   light.shadow.camera.top = d;
@@ -222,7 +221,7 @@ function init() {
   camera.position.set(1.1,0.7,0.8);
   initDebugGrid();
   var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x111111 } );
-  var groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000 ), groundMaterial );
+  groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000 ), groundMaterial );
   groundMesh.rotation.x = - Math.PI / 2;
   groundMesh.receiveShadow = true;
   scene.add( groundMesh );
@@ -301,6 +300,29 @@ function init() {
   meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
   meshMesh.frustumCulled = false;
   meshMesh.castShadow = true;
+  meshMesh.receiveShadow = true;
+  meshMesh.customDepthMaterial = new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.merge([
+        THREE.ShaderLib.depth.uniforms,
+        meshUniforms,
+        {
+        }
+    ]),
+    vertexShader: meshVertexShader,
+    fragmentShader: THREE.ShaderLib.depth.fragmentShader,
+    lights: true,
+    side: THREE.DoubleSide,
+    defines: getDefines({
+      DEPTH_PACKING: 3201,
+      //USE_MAP: true,
+      //USE_COLOR: true,
+      USE_SHADOWMAP: ''
+    }),
+    clipping: true
+  });
+  /*meshMesh.customDepthMaterial.uniforms.lightPosition = {
+    value: new THREE.Vector3(1, 1, 1)
+  };*/
   /*meshMesh.customDepthMaterial = new THREE.ShaderMaterial({
     vertexShader: getShader('renderBodiesDepth'),
     fragmentShader: THREE.ShaderLib.depth.fragmentShader,
@@ -641,16 +663,20 @@ function render() {
   meshMesh.material.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
   meshMesh.material.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
 
+  meshMesh.customDepthMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
+  meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
+
   renderer.setRenderTarget(null);
   renderer.setClearColor(0x222222, 1.0);
   renderer.clear();
   renderer.render( scene, camera );
 
+  /*
   meshMesh.material.uniforms.bodyPosTex.value = null;
   meshMesh.material.uniforms.bodyQuatTex.value = null;
-
   debugMesh.material.uniforms.particleWorldPosTex.value = null;
   debugMesh.material.uniforms.quatTex.value = null;
+  */
 }
 
 function simulate(){
