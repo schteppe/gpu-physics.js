@@ -660,7 +660,7 @@ var time = 0;
 function simulate(){
   time += params2.x;
 
-  if( controller && controller.gizmo === 'none') {
+  if( controller && controller.interaction === 'none') {
     // Animate sphere
     interactionSphereMesh.position.x = params3.x = 0.12*Math.sin(2*1.9*time);
     interactionSphereMesh.position.z = params3.z = 0.12*Math.cos(2*2.1*time);
@@ -855,9 +855,8 @@ function initGUI(){
     lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
     paused: paused,
     renderParticles: false,
-    showBroadphase: false,
     gravity: gravity.y,
-    gizmo: 'none'
+    interaction: 'none'
   };
   function guiChanged() {
     params1.x = controller.stiffness;
@@ -867,7 +866,7 @@ function initGUI(){
     params2.z = controller.drag;
     gravity.y = controller.gravity;
     paused = controller.paused;
-    if(controller.showBroadphase) scene.add(debugGridMesh); else scene.remove(debugGridMesh);
+    if(controller.interaction === 'broadphase') scene.add(debugGridMesh); else scene.remove(debugGridMesh);
     if(controller.renderParticles){
       scene.remove(meshMesh);
       scene.add(debugMesh);
@@ -876,7 +875,7 @@ function initGUI(){
       scene.add(meshMesh);
     }
     gizmo.detach(gizmo.object);
-    switch(controller.gizmo){
+    switch(controller.interaction){
       case 'sphere':
         gizmo.attach(interactionSphereMesh);
         break;
@@ -885,7 +884,7 @@ function initGUI(){
         break;
     }
   }
-  var gui = new dat.GUI();
+  gui = new dat.GUI();
   gui.add( controller, "stiffness", 0, 5000, 0.1 ).onChange( guiChanged );
   gui.add( controller, "damping", 0, 100, 0.1 ).onChange( guiChanged );
   gui.add( controller, "drag", 0, 1, 0.01 ).onChange( guiChanged );
@@ -895,10 +894,24 @@ function initGUI(){
   gui.add( controller, "gravity", -1, 1, 0.1 ).onChange( guiChanged );
   gui.add( controller, "moreObjects" );
   gui.add( controller, "lessObjects" );
-  gui.add( controller, "showBroadphase" ).onChange( guiChanged );
   gui.add( controller, "renderParticles" ).onChange( guiChanged );
-  gui.add( controller, 'gizmo', [ 'none', 'sphere', 'broadphase' ] ).onChange( guiChanged );
+  gui.add( controller, 'interaction', [ 'none', 'sphere', 'broadphase' ] ).onChange( guiChanged );
   guiChanged();
+
+  var raycaster = new THREE.Raycaster();
+  var mouse = new THREE.Vector2();
+  document.addEventListener('click', function( event ) {
+      event.preventDefault();
+      mouse.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
+      mouse.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
+      raycaster.setFromCamera( mouse, camera );
+      var intersects = raycaster.intersectObjects( [interactionSphereMesh] );
+      if ( intersects.length > 0 ) {
+          controller.interaction = 'sphere';
+          gui.updateDisplay();
+          guiChanged();
+      }
+  });
 }
 initGUI();
 
