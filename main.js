@@ -703,8 +703,8 @@ function simulate(){
   if( controller && controller.interaction === 'none') {
     // Animate sphere
     interactionSphereMesh.position.x = params3.x = 0.12*Math.sin(2*1.9*time);
-    interactionSphereMesh.position.z = params3.z = 0.12*Math.cos(2*2.1*time);
     interactionSphereMesh.position.y = params3.y = 0.05*(Math.sin(2*2*time)+0.5);
+    interactionSphereMesh.position.z = params3.z = 0.12*Math.cos(2*2.1*time);
 
   }
 
