@@ -1,13 +1,15 @@
 GPU physics simulation in WebGL
 ===============================
 
-[Launch demo](https://schteppe.github.io/gpu-physics/)
+[Launch demo](https://schteppe.github.io/gpu-physics.js/)
 
 ![Demo](gpu-physics.jpg)
 
 ## About the demo
 
 An insane amount of rigid bodies are waiting to spawn. How many can your GPU handle? Use the GUI to tweak simulation parameters or just shove the sphere into the container to see what happens.
+
+For now, this repo is just a single demo, but hopefully it can become a proper library usable with three.js or other webgl renderers.
 
 ## Implementation
 
