@@ -3,6 +3,7 @@ var query = parseParams();
 var paused = false;
 var controller;
 var numParticles = query.n ? parseInt(query.n,10) : 64;
+numParticles = Math.max(64, numParticles);
 var numBodies = numParticles/2;
 //var numBodies = numParticles;
 var gridResolution = new THREE.Vector3(numParticles, numParticles/8, numParticles);
@@ -167,7 +168,7 @@ function init() {
     return x*sx + y; // not sure why this is flipped 90 degrees compared to the shader impl?
   }
 
-  // Initial state
+  // Initial simulation state
   var tempVec = new THREE.Vector3();
   fillRenderTarget(particlePosLocalTexture, function(out, x, y){
     var particleId = pixelToId(x,y,numParticles,numParticles);
@@ -242,7 +243,6 @@ function init() {
     lights: true,
     defines: getDefines({
       USE_MAP: true,
-      //USE_COLOR: true
     })
   });
   debugMesh = new THREE.Mesh( debugGeometry, debugMaterial );
@@ -283,26 +283,21 @@ function init() {
   });
   meshMaterial.uniforms.map.value = checkerTexture;
   meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
-  meshMesh.frustumCulled = false;
-  meshMesh.castShadow = true;
-  meshMesh.receiveShadow = true;
+  meshMesh.frustumCulled = false; // Instances can't be culled like normal meshes
+  // Create a depth material for rendering instances to shadow map
   meshMesh.customDepthMaterial = new THREE.ShaderMaterial({
     uniforms: THREE.UniformsUtils.merge([
         THREE.ShaderLib.depth.uniforms,
-        meshUniforms,
-        {
-        }
+        meshUniforms
     ]),
     vertexShader: getShader('renderBodiesDepth'),
     fragmentShader: THREE.ShaderLib.depth.fragmentShader,
-    lights: true,
-    side: THREE.DoubleSide,
     defines: getDefines({
-      DEPTH_PACKING: 3201,
-      USE_SHADOWMAP: ''
-    }),
-    clipping: true
+      DEPTH_PACKING: 3201
+    })
   });
+  meshMesh.castShadow = true;
+  meshMesh.receiveShadow = true;
   scene.add( meshMesh );
 
   // Body position update
@@ -641,14 +636,15 @@ function render() {
   renderer.render( scene, camera );
 }
 
+var time = 0;
 function simulate(){
+  time += params2.x;
 
-  var time = Date.now()/1000;
   if( controller && controller.gizmo === 'none') {
     // Animate sphere
-    interactionSphereMesh.position.x = params3.x = 0.12*Math.sin(1.9*time);
-    interactionSphereMesh.position.z = params3.z = 0.12*Math.cos(2.1*time);
-    interactionSphereMesh.position.y = params3.y = 0.05*(Math.sin(2*time)+0.5);
+    interactionSphereMesh.position.x = params3.x = 0.12*Math.sin(2*1.9*time);
+    interactionSphereMesh.position.z = params3.z = 0.12*Math.cos(2*2.1*time);
+    interactionSphereMesh.position.y = params3.y = 0.05*(Math.sin(2*2*time)+0.5);
 
   }
 
