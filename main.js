@@ -18,12 +18,12 @@ var params1 = new THREE.Vector4(
   1700, // stiffness
   6, // damping
   radius, // radius
-  0.2 // drag
+  0 // unused
 );
 var params2 = new THREE.Vector4(
   1/120, // time step
-  1, // friction damping
-  0.1, // velocity damping
+  2, // friction damping
+  0.1, // drag
   0 // unused
 );
 var params3 = new THREE.Vector4(0.0,0.1,0.0,0.05);
@@ -381,7 +381,7 @@ function init() {
       bodyVelTex:  { value: null },
       bodyMassTex:  { value: null },
       params2: { value: params2 },
-      maxVelocity: { value: new THREE.Vector3(1000,1000,1000) }
+      maxVelocity: { value: new THREE.Vector3(100,100,100) }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateBodyVelocityFrag' ),
@@ -591,7 +591,6 @@ function init() {
   interactionSphereMesh.castShadow = true;
   interactionSphereMesh.receiveShadow = true;
   scene.add(interactionSphereMesh);
-  gizmo.attach(interactionSphereMesh);
   scene.add(gizmo);
 }
 
