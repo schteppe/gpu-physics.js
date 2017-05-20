@@ -2,7 +2,7 @@ var query = parseParams();
 
 var paused = false;
 var controller;
-var numParticles = query.n ? parseInt(query.n,10) : 64;
+var numParticles = query.n ? parseInt(query.n,10) : 128;
 numParticles = Math.max(64, numParticles);
 numParticles = Math.min(1024, numParticles);
 var numBodies = numParticles/2;
