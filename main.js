@@ -53,6 +53,7 @@ function getBodyMassProperties(out, particleId, bodyId){
   }
 }
 var gridPotZ;
+var gridZTiling = new THREE.Vector2();
 var container, stats, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
 var fullScreenQuad, mesh;
@@ -105,7 +106,8 @@ function getDefines(overrides){
     boxSize: 'vec3(' + boxSize.x + ', ' + boxSize.y + ', ' + boxSize.z + ')',
     resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
     gridResolution: 'vec3( ' + gridResolution.x.toFixed( 1 ) + ', ' + gridResolution.y.toFixed( 1 ) + ', ' + gridResolution.z.toFixed( 1 ) + " )",
-    gridPotZ: 'int(' + gridPotZ + ')',
+    gridZTiling: 'vec2(' + gridZTiling.x + ', ' + gridZTiling.y + ')',
+    gridTextureResolution: 'vec2(' + gridTexture.width + ', ' + gridTexture.height + ')',
     bodyTextureResolution: 'vec2( ' + numBodies.toFixed( 1 ) + ', ' + numBodies.toFixed( 1 ) + " )",
   });
 }
@@ -119,6 +121,20 @@ function init() {
   while(gridPotZ*gridPotZ < gridResolution.z){
     gridPotZ *= 2;
   }
+  gridZTiling.set(gridPotZ,gridPotZ);
+
+  /*
+  // Try to balance the z tiling to get a more square texture. Still not working...
+  gridZTiling.set(1,1);
+  while(gridZTiling.x * gridZTiling.y < gridResolution.z){
+    if(gridZTiling.x*gridResolution.x < gridZTiling.y*gridResolution.y){
+      gridZTiling.x*=2;
+    } else {
+      gridZTiling.y*=2;
+    }
+  }
+  console.log(gridZTiling)
+  */
 
   // Set up renderer
   renderer = new THREE.WebGLRenderer({});
@@ -133,24 +149,6 @@ function init() {
   stats.domElement.style.position = 'absolute';
   stats.domElement.style.top = '0px';
   container.appendChild( stats.domElement );
-
-  texturedMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      texture: { value: null },
-      res: { value: new THREE.Vector2() },
-    },
-    vertexShader: getShader( 'vertexShader' ),
-    fragmentShader: getShader( 'testFrag' ),
-    defines: getDefines()
-  });
-
-  // Fullscreen render pass helpers
-  fullscreenQuadScene = new THREE.Scene();
-  fullscreenQuadCamera = new THREE.Camera();
-  fullscreenQuadCamera.position.z = 1;
-  var plane = new THREE.PlaneBufferGeometry( 2, 2 );
-  fullScreenQuad = new THREE.Mesh( plane, texturedMaterial );
-  fullscreenQuadScene.add( fullScreenQuad );
 
   // Body textures
   bodyPosTextureRead = createRenderTarget(numBodies, numBodies);
@@ -174,7 +172,7 @@ function init() {
   particleTorqueTexture = createRenderTarget(numParticles, numParticles);
 
   // Broadphase
-  gridTexture = createRenderTarget(2*gridResolution.x*gridPotZ, 2*gridResolution.y*gridPotZ);
+  gridTexture = createRenderTarget(2*gridResolution.x*gridZTiling.x, 2*gridResolution.y*gridZTiling.y);
 
   console.log((numParticles*numParticles) + ' particles');
   console.log((numBodies*numBodies) + ' bodies');
@@ -183,6 +181,24 @@ function init() {
   function pixelToId(x,y,sx,sy){
     return x*sx + y; // not sure why this is flipped 90 degrees compared to the shader impl?
   }
+
+  texturedMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      texture: { value: null },
+      res: { value: new THREE.Vector2() },
+    },
+    vertexShader: getShader( 'vertexShader' ),
+    fragmentShader: getShader( 'testFrag' ),
+    defines: getDefines()
+  });
+
+  // Fullscreen render pass helpers
+  fullscreenQuadScene = new THREE.Scene();
+  fullscreenQuadCamera = new THREE.Camera();
+  fullscreenQuadCamera.position.z = 1;
+  var plane = new THREE.PlaneBufferGeometry( 2, 2 );
+  fullScreenQuad = new THREE.Mesh( plane, texturedMaterial );
+  fullscreenQuadScene.add( fullScreenQuad );
 
   // Initial simulation state
   var tempVec = new THREE.Vector3();
