@@ -266,7 +266,7 @@ function init() {
   });
   debugMesh = new THREE.Mesh( debugGeometry, debugMaterial );
   debugMesh.frustumCulled = false;
-  var checkerTexture = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255, 255,255,255,255, 255,0,0,255]), 2, 2, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
+  var checkerTexture = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255]), 2, 1, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
   checkerTexture.needsUpdate = true;
   debugMaterial.uniforms.map.value = checkerTexture;
 
@@ -855,6 +855,7 @@ function initGUI(){
     lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
     paused: paused,
     renderParticles: false,
+    renderShadows: true,
     gravity: gravity.y,
     interaction: 'none'
   };
@@ -873,6 +874,12 @@ function initGUI(){
     } else {
       scene.remove(debugMesh);
       scene.add(meshMesh);
+    }
+    if(controller.renderShadows){
+      renderer.shadowMap.autoUpdate = true;
+    } else {
+      renderer.clearTarget(light.shadow.map);
+      renderer.shadowMap.autoUpdate = false;
     }
     gizmo.detach(gizmo.object);
     switch(controller.interaction){
@@ -895,6 +902,7 @@ function initGUI(){
   gui.add( controller, "moreObjects" );
   gui.add( controller, "lessObjects" );
   gui.add( controller, "renderParticles" ).onChange( guiChanged );
+  gui.add( controller, "renderShadows" ).onChange( guiChanged );
   gui.add( controller, 'interaction', [ 'none', 'sphere', 'broadphase' ] ).onChange( guiChanged );
   guiChanged();
 
