@@ -29,15 +29,28 @@ function getBodyId(particleId){
   //var bodyId = particleId;
   return bodyId;
 }
-function getParticleLocalPos(out, particleId){
-  var x = (particleId % 4 - 1.5) * radius * 2.01;
-  out.set(x,0,0);
+function getParticleLocalPos(out, particleId, bodyId){
+  //if(bodyId % 2 === 0){
+    var x = (particleId % 4 - 1.5) * radius * 2.01;
+    out.set(x,0,0);
+  /*} else {
+    var i = particleId - Math.floor(particleId / 4) * 4;
+    var x = ((i % 2)-0.5) * radius * 2.01;
+    var y = (Math.floor(i / 2)-0.5) * radius * 2.01;
+    out.set(x,y,0);
+  }*/
 }
-
-var mass = 1;
-var invMass = new THREE.Vector3(1/mass,1/mass,1/mass);
-var invInertia = new THREE.Vector3(1,1,1);
-calculateBoxInvInertia(invInertia, 1, new THREE.Vector3(radius*2*4,radius*2,radius*2));
+function getBodyMassProperties(out, particleId, bodyId){
+  //if(bodyId % 2 === 0){
+    var mass = 1;
+    calculateBoxInvInertia(out, mass, new THREE.Vector3(radius*2*4,radius*2,radius*2));
+    out.w = 1 / mass;
+  /*
+  } else {
+    calculateBoxInvInertia(out, mass, new THREE.Vector3(radius*4,radius*4,radius*2));
+  }
+  */
+}
 var gridPotZ;
 var container, stats, controls;
 var fullscreenQuadCamera, camera, fullscreenQuadScene, scene, renderer;
@@ -69,6 +82,7 @@ var bodyAngularVelTextureRead;
 var bodyAngularVelTextureWrite;
 var bodyForceTexture;
 var bodyTorqueTexture;
+var bodyMassTexture;
 var particlePosLocalTexture;
 var particlePosRelativeTexture;
 var particlePosWorldTexture;
@@ -105,8 +119,7 @@ function init() {
   }
 
   // Set up renderer
-  renderer = new THREE.WebGLRenderer();
-
+  renderer = new THREE.WebGLRenderer({});
   renderer.setPixelRatio( 1/*window.devicePixelRatio*/ ); // For some reason, device pixel ratio messes up the GL_POINT size on android?
   renderer.setSize( window.innerWidth, window.innerHeight );
   renderer.autoClear = false;
@@ -148,6 +161,7 @@ function init() {
   bodyAngularVelTextureWrite = createRenderTarget(numBodies, numBodies);
   bodyForceTexture = createRenderTarget(numBodies, numBodies);
   bodyTorqueTexture = createRenderTarget(numBodies, numBodies);
+  bodyMassTexture = createRenderTarget(numBodies, numBodies); // (invInertia.xyz, invMass)
 
   // Particle textures
   particlePosLocalTexture = createRenderTarget(numParticles, numParticles);
@@ -172,12 +186,17 @@ function init() {
   var tempVec = new THREE.Vector3();
   fillRenderTarget(particlePosLocalTexture, function(out, x, y){
     var particleId = pixelToId(x,y,numParticles,numParticles);
-    getParticleLocalPos(tempVec, particleId);
     var bodyId =  getBodyId(particleId);
+    getParticleLocalPos(tempVec, particleId, bodyId);
     out.set( tempVec.x, tempVec.y, tempVec.z, bodyId );
   });
   fillRenderTarget(bodyPosTextureRead, function(out, x, y){
     out.set( -0.3 + 0.6*Math.random(), 0.1*Math.random(), -0.3 + 0.6*Math.random(), 1 );
+  });
+  fillRenderTarget(bodyMassTexture, function(out, x, y){
+    var particleId = pixelToId(x,y,numParticles,numParticles);
+    var bodyId =  getBodyId(particleId);
+    getBodyMassProperties(out, particleId, bodyId);
   });
   fillRenderTarget(bodyQuatTextureRead, function(out, x, y){
     var q = new THREE.Quaternion();
@@ -315,12 +334,13 @@ function init() {
   // Update body velocity - should work for both linear and angular
   updateBodyVelocityMaterial = new THREE.ShaderMaterial({
     uniforms: {
+      linearAngular:  { type: 'f', value: 0.0 },
       bodyQuatTex:  { value: null },
       bodyForceTex:  { value: null },
       bodyVelTex:  { value: null },
+      bodyMassTex:  { value: null },
       params2: { value: params2 },
-      invInertia: { value: invInertia }, // Inertia or mass
-      maxVelocity: { value: new THREE.Vector3(10000,10000,10000) }
+      maxVelocity: { value: new THREE.Vector3(1000,1000,1000) }
     },
     vertexShader: getShader( 'vertexShader' ),
     fragmentShader: getShader( 'updateBodyVelocityFrag' ),
@@ -773,7 +793,8 @@ function simulate(){
 
   // Update body velocity
   fullScreenQuad.material = updateBodyVelocityMaterial;
-  updateBodyVelocityMaterial.uniforms.invInertia.value = invMass;
+  updateBodyVelocityMaterial.uniforms.bodyMassTex.value = bodyMassTexture.texture;
+  updateBodyVelocityMaterial.uniforms.linearAngular.value = 0;
   updateBodyVelocityMaterial.uniforms.bodyVelTex.value = bodyVelTextureRead.texture;
   updateBodyVelocityMaterial.uniforms.bodyForceTex.value = bodyForceTexture.texture;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, bodyVelTextureWrite, false );
@@ -786,7 +807,8 @@ function simulate(){
   // Update body angular velocity
   fullScreenQuad.material = updateBodyVelocityMaterial;
   updateBodyVelocityMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
-  updateBodyVelocityMaterial.uniforms.invInertia.value = invInertia;
+  updateBodyVelocityMaterial.uniforms.bodyMassTex.value = bodyMassTexture.texture;
+  updateBodyVelocityMaterial.uniforms.linearAngular.value = 1;
   updateBodyVelocityMaterial.uniforms.bodyVelTex.value = bodyAngularVelTextureRead.texture;
   updateBodyVelocityMaterial.uniforms.bodyForceTex.value = bodyTorqueTexture.texture;
   renderer.render( fullscreenQuadScene, fullscreenQuadCamera, bodyAngularVelTextureWrite, false );

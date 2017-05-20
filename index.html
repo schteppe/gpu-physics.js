@@ -432,7 +432,8 @@ void main() {
 uniform sampler2D bodyQuatTex;
 uniform sampler2D bodyVelTex;
 uniform sampler2D bodyForceTex;
-uniform vec3 invInertia;
+uniform sampler2D bodyMassTex;
+uniform float linearAngular;
 uniform vec3 maxVelocity;
 uniform vec4 params2;
 #define deltaTime params2.x
@@ -443,7 +444,15 @@ void main() {
     vec4 velocity = texture2D(bodyVelTex, uv);
     vec4 force = texture2D(bodyForceTex, uv);
     vec4 quat = texture2D(bodyQuatTex, uv);
-    vec3 newVelocity = velocity.xyz + force.xyz * deltaTime * invInertiaWorld(quat, invInertia);
+    vec4 massProps = texture2D(bodyMassTex, uv);
+    vec3 newVelocity = velocity.xyz;
+    if( linearAngular < 0.5 ){
+        float invMass = massProps.w;
+        newVelocity += force.xyz * deltaTime * invMass;
+    } else {
+        vec3 invInertia = massProps.xyz;
+        newVelocity += force.xyz * deltaTime * invInertiaWorld(quat, invInertia);
+    }
     newVelocity = clamp(newVelocity, -maxVelocity, maxVelocity);
 
     // Apply damping
