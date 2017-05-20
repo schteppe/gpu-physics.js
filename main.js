@@ -182,6 +182,7 @@ function init() {
     return x*sx + y; // not sure why this is flipped 90 degrees compared to the shader impl?
   }
 
+  // For rendering a full screen quad
   texturedMaterial = new THREE.ShaderMaterial({
     uniforms: {
       texture: { value: null },
@@ -951,7 +952,6 @@ function initGUI(){
   var raycaster = new THREE.Raycaster();
   var mouse = new THREE.Vector2();
   document.addEventListener('click', function( event ) {
-      event.preventDefault();
       mouse.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
       mouse.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
       raycaster.setFromCamera( mouse, camera );

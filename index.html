@@ -135,25 +135,11 @@ mat3 quat2mat(vec4 q){
 
 mat3 invInertiaWorld(vec4 q, vec3 invInertia){
     mat3 R = quat2mat(q);
-    mat3 Rscaled = R;
-
-    Rscaled[0] *= invInertia; // Scale each column... todo: check if glsl mat3[] is rows
-    Rscaled[1] *= invInertia;
-    Rscaled[2] *= invInertia;
-
-    /*
-    Rscaled[0].xyz *= invInertia.x;
-    Rscaled[1].xyz *= invInertia.y;
-    Rscaled[2].xyz *= invInertia.z;
-    */
-
     mat3 I = mat3(
         invInertia.x, 0, 0,
         0, invInertia.y, 0,
         0, 0, invInertia.z
     );
-
-    //return Rscaled * transpose2(R);
     return transpose2(R) * I * R;
 }
 
