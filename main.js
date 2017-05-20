@@ -831,6 +831,7 @@ function initGUI(){
     drag: params2.z,
     moreObjects: function(){ location.href = "?n=" + (numParticles*2); },
     lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
+    paused: paused,
     renderParticles: false,
     showBroadphase: false,
     gravity: gravity.y,
@@ -843,6 +844,7 @@ function initGUI(){
     params2.y = controller.friction;
     params2.z = controller.drag;
     gravity.y = controller.gravity;
+    paused = controller.paused;
     if(controller.showBroadphase) scene.add(debugGridMesh); else scene.remove(debugGridMesh);
     if(controller.renderParticles){
       scene.remove(meshMesh);
@@ -867,6 +869,7 @@ function initGUI(){
   gui.add( controller, "drag", 0, 1, 0.01 ).onChange( guiChanged );
   gui.add( controller, "friction", 0, 10, 0.001 ).onChange( guiChanged );
   gui.add( controller, "deltaTime", 0, 0.1, 0.001 ).onChange( guiChanged );
+  gui.add( controller, "paused" ).onChange( guiChanged );
   gui.add( controller, "gravity", -1, 1, 0.1 ).onChange( guiChanged );
   gui.add( controller, "moreObjects" );
   gui.add( controller, "lessObjects" );
