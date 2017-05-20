@@ -37,4 +37,3 @@ The simulation loop is in short:
 
 * Seems like a lot of the simulation loop is spent updating the stencil buffer for the large grid render target. Using PBOs and drawPixels (available in WebGL2?) could speed it up.
 * Using a single channel for the grid texture could save some graphics memory.
-* Balancing the dimensions of the broadphase grid texture could increase the max object count.
