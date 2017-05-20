@@ -3,12 +3,13 @@ var query = parseParams();
 var paused = false;
 var controller;
 var numParticles = query.n ? parseInt(query.n,10) : 128;
-numParticles = Math.max(64, numParticles);
-numParticles = Math.min(1024, numParticles);
+if([64,128,256,512,1024].indexOf(numParticles) === -1){
+  numParticles = 128;
+}
 var numBodies = numParticles/2;
 var ySpread = 0.1;
 //var numBodies = numParticles;
-var gridResolution = new THREE.Vector3(numParticles/2, numParticles/2, numParticles/2);
+var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
 switch(numParticles){
   case 64:
     gridResolution.y = numParticles/8;
@@ -157,7 +158,7 @@ function init() {
   */
 
   // Set up renderer
-  renderer = new THREE.WebGLRenderer({});
+  renderer = new THREE.WebGLRenderer();
   renderer.setPixelRatio( 1/*window.devicePixelRatio*/ ); // For some reason, device pixel ratio messes up the GL_POINT size on android?
   renderer.setSize( window.innerWidth, window.innerHeight );
   renderer.autoClear = false;
