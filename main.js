@@ -1,6 +1,7 @@
 var query = parseParams();
 
 var paused = false;
+var controller;
 var numParticles = query.n ? parseInt(query.n,10) : 64;
 var numBodies = numParticles/2;
 //var numBodies = numParticles;
@@ -104,6 +105,7 @@ function init() {
 
   // Set up renderer
   renderer = new THREE.WebGLRenderer();
+
   renderer.setPixelRatio( 1/*window.devicePixelRatio*/ ); // For some reason, device pixel ratio messes up the rendertargets on mobile
   renderer.setSize( window.innerWidth, window.innerHeight );
   renderer.autoClear = false;
@@ -203,8 +205,6 @@ function init() {
   // main 3D scene
   scene = new THREE.Scene();
   light = new THREE.DirectionalLight();
-  var helper = new THREE.DirectionalLightHelper( light, 1 );
-  scene.add( helper );
   light.castShadow = true;
   light.shadow.mapSize.width = light.shadow.mapSize.height = 512*2;
   var d = 0.5;
@@ -215,12 +215,12 @@ function init() {
   light.shadow.camera.far = 100;
   light.position.set(1,1,1);
   scene.add(light);
-  var ambientLight = new THREE.AmbientLight( 0x111111 );
+  ambientLight = new THREE.AmbientLight( 0x222222 );
   scene.add( ambientLight );
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
   camera.position.set(1.1,0.7,0.8);
   initDebugGrid();
-  var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x111111 } );
+  var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x000000 } );
   groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000 ), groundMaterial );
   groundMesh.rotation.x = - Math.PI / 2;
   groundMesh.receiveShadow = true;
@@ -667,7 +667,7 @@ function render() {
   meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
 
   renderer.setRenderTarget(null);
-  renderer.setClearColor(0x222222, 1.0);
+  renderer.setClearColor(ambientLight.color, 1.0);
   renderer.clear();
   renderer.render( scene, camera );
 
@@ -680,6 +680,15 @@ function render() {
 }
 
 function simulate(){
+
+  var time = Date.now()/1000;
+  if( controller && controller.gizmo === 'none') {
+    // Animate sphere
+    interactionSphereMesh.position.x = params3.x = 0.1*Math.sin(time);
+    interactionSphereMesh.position.z = params3.z = 0.1*Math.cos(time);
+    interactionSphereMesh.position.y = params3.y = 0.1*(Math.sin(3*time)+0.8);
+
+  }
 
   var gl = renderer.context;
   var state = renderer.state;
@@ -856,7 +865,7 @@ function simulate(){
 }
 
 function initGUI(){
-  var controller  = {
+  controller  = {
     stiffness: params1.x,
     damping: params1.y,
     deltaTime: params2.x,
@@ -867,7 +876,7 @@ function initGUI(){
     renderParticles: false,
     showBroadphase: false,
     gravity: gravity.y,
-    gizmo: 'sphere'
+    gizmo: 'none'
   };
   function guiChanged() {
     params1.x = controller.stiffness;
@@ -905,7 +914,7 @@ function initGUI(){
   gui.add( controller, "lessObjects" );
   gui.add( controller, "showBroadphase" ).onChange( guiChanged );
   gui.add( controller, "renderParticles" ).onChange( guiChanged );
-  gui.add( controller, 'gizmo', [ 'sphere', 'broadphase' ] ).onChange( guiChanged );
+  gui.add( controller, 'gizmo', [ 'none', 'sphere', 'broadphase' ] ).onChange( guiChanged );
   guiChanged();
 }
 initGUI();
