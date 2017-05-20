@@ -6,8 +6,11 @@ var numParticles = query.n ? parseInt(query.n,10) : 64;
 numParticles = Math.max(64, numParticles);
 var numBodies = numParticles/2;
 //var numBodies = numParticles;
-var gridResolution = new THREE.Vector3(numParticles, numParticles/8, numParticles);
-var gridPosition = new THREE.Vector3(-0.5,0,-0.5);
+var gridResolution = new THREE.Vector3(numParticles/2, numParticles/32, numParticles/2);
+if(numParticles == 64)
+  gridResolution.y = numParticles/8;
+var boxSize = new THREE.Vector3(0.25, 1, 0.25);
+var gridPosition = new THREE.Vector3(-0.25,0,-0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
 var gravity = new THREE.Vector3(0,-0.5,0);
@@ -30,26 +33,24 @@ function getBodyId(particleId){
   return bodyId;
 }
 function getParticleLocalPos(out, particleId, bodyId){
-  //if(bodyId % 2 === 0){
+  if(bodyId < numBodies*numBodies / 2){
     var x = (particleId % 4 - 1.5) * radius * 2.01;
     out.set(x,0,0);
-  /*} else {
+  } else {
     var i = particleId - Math.floor(particleId / 4) * 4;
     var x = ((i % 2)-0.5) * radius * 2.01;
     var y = (Math.floor(i / 2)-0.5) * radius * 2.01;
     out.set(x,y,0);
-  }*/
+  }
 }
 function getBodyMassProperties(out, particleId, bodyId){
-  //if(bodyId % 2 === 0){
-    var mass = 1;
+  var mass = 1;
+  if(bodyId < numBodies*numBodies / 2){
     calculateBoxInvInertia(out, mass, new THREE.Vector3(radius*2*4,radius*2,radius*2));
     out.w = 1 / mass;
-  /*
   } else {
     calculateBoxInvInertia(out, mass, new THREE.Vector3(radius*4,radius*4,radius*2));
   }
-  */
 }
 var gridPotZ;
 var container, stats, controls;
@@ -101,6 +102,7 @@ function getShader(id){
 
 function getDefines(overrides){
   return Object.assign({}, overrides||{}, {
+    boxSize: 'vec3(' + boxSize.x + ', ' + boxSize.y + ', ' + boxSize.z + ')',
     resolution: 'vec2( ' + numParticles.toFixed( 1 ) + ', ' + numParticles.toFixed( 1 ) + " )",
     gridResolution: 'vec3( ' + gridResolution.x.toFixed( 1 ) + ', ' + gridResolution.y.toFixed( 1 ) + ', ' + gridResolution.z.toFixed( 1 ) + " )",
     gridPotZ: 'int(' + gridPotZ + ')',
@@ -176,7 +178,7 @@ function init() {
 
   console.log((numParticles*numParticles) + ' particles');
   console.log((numBodies*numBodies) + ' bodies');
-  console.log('Grid texture is ' + (2*gridResolution.x*gridPotZ) + 'x' + (2*gridResolution.y*gridPotZ));
+  console.log('Grid texture is ' + gridTexture.width + 'x' + gridTexture.height);
 
   function pixelToId(x,y,sx,sy){
     return x*sx + y; // not sure why this is flipped 90 degrees compared to the shader impl?
@@ -191,7 +193,7 @@ function init() {
     out.set( tempVec.x, tempVec.y, tempVec.z, bodyId );
   });
   fillRenderTarget(bodyPosTextureRead, function(out, x, y){
-    out.set( -0.3 + 0.6*Math.random(), 0.1*Math.random(), -0.3 + 0.6*Math.random(), 1 );
+    out.set( -boxSize.x + 2*boxSize.x*Math.random(), 0.1*Math.random(), -boxSize.z + 2*boxSize.z*Math.random(), 1 );
   });
   fillRenderTarget(bodyMassTexture, function(out, x, y){
     var particleId = pixelToId(x,y,numParticles,numParticles);
@@ -214,7 +216,7 @@ function init() {
   scene = new THREE.Scene();
   light = new THREE.DirectionalLight();
   light.castShadow = true;
-  light.shadow.mapSize.width = light.shadow.mapSize.height = 512*2;
+  light.shadow.mapSize.width = light.shadow.mapSize.height = 1024;
   var d = 0.5;
   light.shadow.camera.left = - d;
   light.shadow.camera.right = d;
@@ -274,7 +276,7 @@ function init() {
   // Create an instanced mesh for cylinders
   var cylinderGeometry = new THREE.CylinderBufferGeometry(radius, radius, 2*4*radius, 8);
   cylinderGeometry.rotateZ(Math.PI / 2);// particles are spread along x, not y
-  var bodyInstances = numBodies*numBodies;
+  var bodyInstances = numBodies*numBodies / 2;
   var meshGeometry = new THREE.InstancedBufferGeometry();
   meshGeometry.maxInstancedCount = bodyInstances;
   for(var attributeName in cylinderGeometry.attributes){
@@ -288,6 +290,22 @@ function init() {
   meshGeometry.addAttribute( 'bodyIndex', bodyIndices );
   meshGeometry.boundingSphere = null;
 
+  // Create an instanced mesh for boxes
+  var boxGeometry = new THREE.BoxBufferGeometry(4*radius, 4*radius, 2*radius, 8);
+  var bodyInstances = numBodies*numBodies / 2;
+  var boxMeshGeometry = new THREE.InstancedBufferGeometry();
+  boxMeshGeometry.maxInstancedCount = bodyInstances;
+  for(var attributeName in boxGeometry.attributes){
+    boxMeshGeometry.addAttribute( attributeName, boxGeometry.attributes[attributeName].clone() );
+  }
+  boxMeshGeometry.setIndex( boxGeometry.index.clone() );
+  var bodyIndices2 = new THREE.InstancedBufferAttribute( new Float32Array( bodyInstances * 1 ), 1, 1 );
+  for ( var i = 0, ul = bodyIndices2.count; i < ul; i++ ) {
+    bodyIndices2.setX( i, i + numBodies*numBodies / 2 ); // one index per instance
+  }
+  boxMeshGeometry.addAttribute( 'bodyIndex', bodyIndices2 );
+  boxMeshGeometry.boundingSphere = null;
+
   // Mesh material - extend the phong shader
   var meshUniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
   meshUniforms.bodyQuatTex = { value: null };
@@ -300,7 +318,6 @@ function init() {
     lights: true,
     defines: getDefines()
   });
-  meshMaterial.uniforms.map.value = checkerTexture;
   meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
   meshMesh.frustumCulled = false; // Instances can't be culled like normal meshes
   // Create a depth material for rendering instances to shadow map
@@ -318,6 +335,13 @@ function init() {
   meshMesh.castShadow = true;
   meshMesh.receiveShadow = true;
   scene.add( meshMesh );
+
+  meshMesh2 = new THREE.Mesh( boxMeshGeometry, meshMaterial );
+  meshMesh2.customDepthMaterial = meshMesh.customDepthMaterial;
+  meshMesh2.frustumCulled = false; // Instances can't be culled like normal meshes
+  meshMesh2.castShadow = true;
+  meshMesh2.receiveShadow = true;
+  scene.add( meshMesh2 );
 
   // Body position update
   updateBodyPositionMaterial = new THREE.ShaderMaterial({
@@ -870,10 +894,12 @@ function initGUI(){
     if(controller.interaction === 'broadphase') scene.add(debugGridMesh); else scene.remove(debugGridMesh);
     if(controller.renderParticles){
       scene.remove(meshMesh);
+      scene.remove(meshMesh2);
       scene.add(debugMesh);
     } else {
       scene.remove(debugMesh);
       scene.add(meshMesh);
+      scene.add(meshMesh2);
     }
     if(controller.renderShadows){
       renderer.shadowMap.autoUpdate = true;

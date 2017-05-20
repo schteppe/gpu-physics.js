@@ -286,8 +286,8 @@ void main() {
     }
 
     // Apply force from ground / bounds
-    vec3 boxMin = vec3(-0.3, 0.0, -0.3);
-    vec3 boxMax = vec3(0.3, 1.0, 0.3);
+    vec3 boxMin = vec3(-boxSize.x, 0.0, -boxSize.z);
+    vec3 boxMax = vec3(boxSize.x, boxSize.y*0.5, boxSize.z);
     vec3 dirs[3];
     dirs[0] = vec3(1,0,0);
     dirs[1] = vec3(0,1,0);
@@ -307,16 +307,6 @@ void main() {
             force -= friction * tangentVel;
         }
     }
-
-    /*
-    vec3 y = vec3(0,1,0);
-    float x = dot(y,position) - radius;
-    if(x < boxMin.y){
-        force += -( stiffness * (x - boxMin.y) * y + damping * dot(velocity,y) * y);
-        vec3 tangentVel = (cross(radius*y, bodyAngularVelocity) + velocity - dot(velocity,y) * y);
-        force -= friction * tangentVel;
-    }
-    */
 
     // Sphere interaction
     vec3 r = position - interactionSpherePos;
@@ -394,8 +384,9 @@ void main() {
     }
 
     // Friction against walls
-    vec3 boxMin = vec3(-0.3, 0.0, -0.3);
-    vec3 boxMax = vec3(0.3, 1.0, 0.3);
+    vec3 boxMin = vec3(-boxSize.x, 0.0, -boxSize.z);
+    vec3 boxMax = vec3(boxSize.x, boxSize.y*0.5, boxSize.z);
+
     vec3 dirs[3];
     dirs[0] = vec3(1,0,0);
     dirs[1] = vec3(0,1,0);
@@ -414,14 +405,6 @@ void main() {
             torque += friction * cross(radius * dir, relTangentVel);
         }
     }
-
-    /*
-    vec3 y = vec3(0,1,0);
-    if(dot(y,position) - radius < boxMin.y){
-        vec3 relTangentVel = (velocity - dot(velocity, y) * y) + cross(radius * y, angularVelocity);
-        torque += friction * cross(radius * y, relTangentVel);
-    }
-    */
 
     gl_FragColor = vec4(torque, 0.0);
 }
