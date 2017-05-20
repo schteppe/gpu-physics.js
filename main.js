@@ -9,7 +9,7 @@ var gridResolution = new THREE.Vector3(numParticles, numParticles/8, numParticle
 var gridPosition = new THREE.Vector3(-0.5,0,-0.5);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
 var radius = cellSize.x * 0.5;
-var gravity = new THREE.Vector3(0.0,-0.5,0);
+var gravity = new THREE.Vector3(0,-0.5,0);
 var params1 = new THREE.Vector4(
   1700, // stiffness
   6, // damping
@@ -106,7 +106,7 @@ function init() {
   // Set up renderer
   renderer = new THREE.WebGLRenderer();
 
-  renderer.setPixelRatio( 1/*window.devicePixelRatio*/ ); // For some reason, device pixel ratio messes up the rendertargets on mobile
+  renderer.setPixelRatio( 1/*window.devicePixelRatio*/ ); // For some reason, device pixel ratio messes up the GL_POINT size on android?
   renderer.setSize( window.innerWidth, window.innerHeight );
   renderer.autoClear = false;
   renderer.shadowMap.enabled = true;
@@ -175,21 +175,10 @@ function init() {
     var bodyId =  getBodyId(particleId);
     out.set( tempVec.x, tempVec.y, tempVec.z, bodyId );
   });
-  fillRenderTarget(bodyVelTextureRead, function(out, x, y){
-    out.set( 0, 0, 0, 1 );
-  });
-  fillRenderTarget(bodyAngularVelTextureRead, function(out, x, y){
-    out.set( 0, 0, 0, 0 );
-  });
   fillRenderTarget(bodyPosTextureRead, function(out, x, y){
     out.set( -0.3 + 0.6*Math.random(), 0.1*Math.random(), -0.3 + 0.6*Math.random(), 1 );
-    //out.set( radius + 2*x*radius, radius*1.2 + (y*numParticles+x) * radius*0.4,radius + 2*y*radius,  1 );
-    //out.set( 0, 0, 0, 1 );
-    //out.set( x, y, 0, 1 );
   });
   fillRenderTarget(bodyQuatTextureRead, function(out, x, y){
-    // out.set( 0, 0, 0, 1 );
-    // out.set( 0, 0, Math.sin(Math.PI / 2), Math.cos(Math.PI / 2) );
     var q = new THREE.Quaternion();
     var axis = new THREE.Vector3(
       Math.random()-0.5,
@@ -198,7 +187,6 @@ function init() {
     );
     axis.normalize();
     q.setFromAxisAngle(axis, Math.random() * Math.PI * 2);
-    //q.setFromAxisAngle(new THREE.Vector3(0,1,0), Math.PI / 2);
     out.copy(q);
   });
 
@@ -218,7 +206,7 @@ function init() {
   ambientLight = new THREE.AmbientLight( 0x222222 );
   scene.add( ambientLight );
   camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
-  camera.position.set(1.1,0.7,0.8);
+  camera.position.set(0,0.6,1.4);
   initDebugGrid();
   var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x000000 } );
   groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000 ), groundMaterial );
@@ -291,10 +279,7 @@ function init() {
     vertexShader: meshVertexShader,
     fragmentShader: phongShader.fragmentShader,
     lights: true,
-    defines: getDefines({
-      //USE_MAP: true,
-      //USE_COLOR: true,
-    })
+    defines: getDefines()
   });
   meshMaterial.uniforms.map.value = checkerTexture;
   meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
@@ -308,32 +293,16 @@ function init() {
         {
         }
     ]),
-    vertexShader: meshVertexShader,
+    vertexShader: getShader('renderBodiesDepth'),
     fragmentShader: THREE.ShaderLib.depth.fragmentShader,
     lights: true,
     side: THREE.DoubleSide,
     defines: getDefines({
       DEPTH_PACKING: 3201,
-      //USE_MAP: true,
-      //USE_COLOR: true,
       USE_SHADOWMAP: ''
     }),
     clipping: true
   });
-  /*meshMesh.customDepthMaterial.uniforms.lightPosition = {
-    value: new THREE.Vector3(1, 1, 1)
-  };*/
-  /*meshMesh.customDepthMaterial = new THREE.ShaderMaterial({
-    vertexShader: getShader('renderBodiesDepth'),
-    fragmentShader: THREE.ShaderLib.depth.fragmentShader,
-    defines: getDefines({ DEPTH_PACKING: 3200 }),
-    uniforms: THREE.UniformsUtils.merge([
-        THREE.UniformsLib.shadowmap,
-        {
-            lightPosition: {value: new THREE.Vector3(1, 1, 1)},
-        }
-    ])
-  });*/
   scene.add( meshMesh );
 
   // Body position update
@@ -670,13 +639,6 @@ function render() {
   renderer.setClearColor(ambientLight.color, 1.0);
   renderer.clear();
   renderer.render( scene, camera );
-
-  /*
-  meshMesh.material.uniforms.bodyPosTex.value = null;
-  meshMesh.material.uniforms.bodyQuatTex.value = null;
-  debugMesh.material.uniforms.particleWorldPosTex.value = null;
-  debugMesh.material.uniforms.quatTex.value = null;
-  */
 }
 
 function simulate(){
@@ -684,9 +646,9 @@ function simulate(){
   var time = Date.now()/1000;
   if( controller && controller.gizmo === 'none') {
     // Animate sphere
-    interactionSphereMesh.position.x = params3.x = 0.1*Math.sin(time);
-    interactionSphereMesh.position.z = params3.z = 0.1*Math.cos(time);
-    interactionSphereMesh.position.y = params3.y = 0.1*(Math.sin(3*time)+0.8);
+    interactionSphereMesh.position.x = params3.x = 0.12*Math.sin(1.9*time);
+    interactionSphereMesh.position.z = params3.z = 0.12*Math.cos(2.1*time);
+    interactionSphereMesh.position.y = params3.y = 0.05*(Math.sin(2*time)+0.5);
 
   }
 
