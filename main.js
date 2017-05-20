@@ -4,11 +4,31 @@ var paused = false;
 var controller;
 var numParticles = query.n ? parseInt(query.n,10) : 64;
 numParticles = Math.max(64, numParticles);
+numParticles = Math.min(1024, numParticles);
 var numBodies = numParticles/2;
+var ySpread = 0.1;
 //var numBodies = numParticles;
-var gridResolution = new THREE.Vector3(numParticles/2, numParticles/32, numParticles/2);
-if(numParticles == 64)
-  gridResolution.y = numParticles/8;
+var gridResolution = new THREE.Vector3(numParticles/2, numParticles/2, numParticles/2);
+switch(numParticles){
+  case 64:
+    gridResolution.y = numParticles/8;
+    break;
+  case 128:
+    gridResolution.y = numParticles/16;
+    break;
+  case 256:
+    gridResolution.y = numParticles/32;
+    ySpread = 0.05;
+    break;
+  case 512:
+    gridResolution.y = numParticles/64;
+    ySpread = 0.01;
+    break;
+  case 1024:
+    gridResolution.y = numParticles/64;
+    ySpread = 0.001;
+    break;
+}
 var boxSize = new THREE.Vector3(0.25, 1, 0.25);
 var gridPosition = new THREE.Vector3(-0.25,0,-0.25);
 var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
@@ -116,9 +136,9 @@ function init() {
   container = document.getElementById( 'container' );
   sharedShaderCode = document.getElementById( 'sharedShaderCode' ).textContent;
 
-  // Compute upper closest power of 2 for the grid texture size in z
+  // Compute upper closest power of 2 for the grid texture size in y
   gridPotZ = 1;
-  while(gridPotZ*gridPotZ < gridResolution.z){
+  while(gridPotZ*gridPotZ < gridResolution.y){
     gridPotZ *= 2;
   }
   gridZTiling.set(gridPotZ,gridPotZ);
@@ -172,7 +192,7 @@ function init() {
   particleTorqueTexture = createRenderTarget(numParticles, numParticles);
 
   // Broadphase
-  gridTexture = createRenderTarget(2*gridResolution.x*gridZTiling.x, 2*gridResolution.y*gridZTiling.y);
+  gridTexture = createRenderTarget(2*gridResolution.x*gridZTiling.x, 2*gridResolution.z*gridZTiling.y);
 
   console.log((numParticles*numParticles) + ' particles');
   console.log((numBodies*numBodies) + ' bodies');
@@ -210,7 +230,7 @@ function init() {
     out.set( tempVec.x, tempVec.y, tempVec.z, bodyId );
   });
   fillRenderTarget(bodyPosTextureRead, function(out, x, y){
-    out.set( -boxSize.x + 2*boxSize.x*Math.random(), 0.1*Math.random(), -boxSize.z + 2*boxSize.z*Math.random(), 1 );
+    out.set( -boxSize.x + 2*boxSize.x*Math.random(), ySpread*Math.random(), -boxSize.z + 2*boxSize.z*Math.random(), 1 );
   });
   fillRenderTarget(bodyMassTexture, function(out, x, y){
     var particleId = pixelToId(x,y,numParticles,numParticles);
@@ -703,7 +723,7 @@ function simulate(){
   if( controller && controller.interaction === 'none') {
     // Animate sphere
     interactionSphereMesh.position.x = params3.x = 0.12*Math.sin(2*1.9*time);
-    interactionSphereMesh.position.y = params3.y = 0.05*(Math.sin(2*2*time)+0.5);
+    interactionSphereMesh.position.y = params3.y = 0.05*(Math.cos(2*2*time)+0.5);
     interactionSphereMesh.position.z = params3.z = 0.12*Math.cos(2*2.1*time);
 
   }

@@ -59,10 +59,10 @@ vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize){
 vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
     gridPos = clamp(gridPos, vec3(0), gridRes-vec3(1)); // Keep within limits
 
-    vec2 gridUV = 2.0 * gridPos.xy / gridTextureResolution;
+    vec2 gridUV = 2.0 * gridPos.xz / gridTextureResolution;
 
     // move to correct z square
-    vec2 zPos = vec2( mod(gridPos.z, gridZTiling.x), floor(gridPos.z / gridZTiling.y) );
+    vec2 zPos = vec2( mod(gridPos.y, gridZTiling.x), floor(gridPos.y / gridZTiling.y) );
     zPos /= gridZTiling;
     gridUV += zPos;
 
