@@ -1,7 +1,7 @@
-GPU Rigid Bodies in Three.js
-============================
+GPU physics simulation in WebGL
+===============================
 
-[Launch demo](https://schteppe.github.io/threejs-gpu-physics/)
+[Launch demo](https://schteppe.github.io/gpu-physics/)
 
 ![Demo](gpu-physics.jpg)
 
