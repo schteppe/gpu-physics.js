@@ -80,7 +80,7 @@ function World(parameters){
         },
         maxParticles: {
             get: function(){
-                return this.particleTexture.width * this.particleTexture.height;
+                return this.textures.particlePosLocal.width * this.textures.particlePosLocal.height;
             }
         },
         maxBodies: {
@@ -93,6 +93,9 @@ function World(parameters){
         },
         bodyQuaternionTexture: {
             get: function(){ return renderer.properties.get(this.textures.bodyQuatRead.texture).__webglTexture; }
+        },
+        particlePositionTexture: {
+            get: function(){ return renderer.properties.get(this.textures.particlePosLocal.texture).__webglTexture; }
         },
     });
 
@@ -217,9 +220,9 @@ Object.assign( World.prototype, {
         var data = tex.image.data;
         var w = tex.image.width;
         var h = tex.image.height;
-        var x = idToX(this.particleCount, w, h);
-        var y = idToY(this.particleCount, w, h);
-        var p = 4 * (y * w + x);
+        var px = idToX(this.particleCount, w, h);
+        var py = idToY(this.particleCount, w, h);
+        var p = 4 * (py * w + px);
         data[p + 0] = x;
         data[p + 1] = y;
         data[p + 2] = z;

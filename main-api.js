@@ -38,6 +38,7 @@ function init(){
     groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2, 2 ), groundMaterial );
     groundMesh.rotation.x = - Math.PI / 2;
     groundMesh.receiveShadow = true;
+    groundMesh.material.map = texture;
     scene.add( groundMesh );
 
     // Add controls
@@ -49,10 +50,15 @@ function init(){
     // Physics
     world = new World({
         context: renderer.context,
-        canvas: renderer.domElement
+        canvas: renderer.domElement,
+        maxBodies: 64,
+        maxParticles: 64
     });
     for(var i=0; i<world.maxBodies; i++){
         world.addBody(i/world.maxBodies,i/world.maxBodies,i/world.maxBodies, 0,0,0,1);
+    }
+    for(var i=0; i<world.maxParticles; i++){
+        world.addParticle(0, i/world.maxParticles,i/world.maxParticles,i/world.maxParticles);
     }
 }
 
@@ -88,9 +94,11 @@ function render() {
     */
 
     // Use the native webgl texture in three.js
-    renderer.properties.get(texture).__webglTexture = world.bodyPositionTexture;
-    groundMesh.material.map = texture;
+    var properties = renderer.properties.get(texture);
+    properties.__webglTexture = world.particlePositionTexture;
+    properties.__webglInit = true;
+
     renderer.render( scene, camera );
-    groundMesh.material.map = null;
+
     renderer.resetGLState();
 }
