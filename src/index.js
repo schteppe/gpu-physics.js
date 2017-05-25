@@ -33,6 +33,8 @@ function World(parameters){
         0.1, // drag
         0 // unused
     );
+    this.time = 0;
+    this.fixedTime = 0;
     var params3 = this.params3 = new THREE.Vector4();
     this.broadphase = new Broadphase();
     this.gravity = new THREE.Vector3(0,-2,0);
@@ -42,7 +44,8 @@ function World(parameters){
     this.dataTextures = {};
     this.scenes = {};
     var renderer = new THREE.WebGLRenderer({
-        context: parameters.context
+        context: parameters.context,
+        canvas: parameters.canvas
     });
     this.renderer = renderer;
     renderer.setPixelRatio( 1/*window.devicePixelRatio*/ ); // For some reason, device pixel ratio messes up the GL_POINT size on android?
@@ -86,6 +89,7 @@ function World(parameters){
         },
     });
 
+    renderer.resetGLState();
     this.initTextures(
         parameters.maxBodies || 32,
         parameters.maxParticles || 128
@@ -166,6 +170,7 @@ Object.assign( World.prototype, {
         this.updateBodyPosition();
         this.updateBodyQuaternion();
         this.fixedTime += this.fixedTimeStep;
+        this.renderer.resetGLState();
     },
     setGravity: function(x,y,z){
         this.gravity.set(x,y,z);
@@ -368,7 +373,7 @@ Object.assign( World.prototype, {
     },
 
     updateGrid: function(){
-
+        var gridTexture = this.textures.grid;
         var mat = this.materials.mapParticle;
         var setGridStencilMaterial = this.materials.setGridStencil;
         var sceneMap = this.scenes.mapParticlesToGrid;
@@ -400,7 +405,7 @@ Object.assign( World.prototype, {
             // Scene for rendering the stencil buffer - one GL_POINT for each grid cell that we render 4 times
             var sceneStencil = this.scenes.stencil = new THREE.Scene();
             var onePointPerTexelGeometry = new THREE.Geometry();
-            var gridTexture = this.textures.grid;
+            gridTexture = this.textures.grid;
             for(var i=0; i<gridTexture.width/2; i++){
                 for(var j=0; j<gridTexture.height/2; j++){
                     onePointPerTexelGeometry.vertices.push(
@@ -412,9 +417,9 @@ Object.assign( World.prototype, {
                     );
                 }
             }
-            var setGridStencilMaterial = this.materials.setGridStencil = new THREE.PointsMaterial({ size: 1, sizeAttenuation: false, color: 0xffffff });
-            var setGridStencilMesh = new THREE.Points( onePointPerTexelGeometry, setGridStencilMaterial );
-            sceneStencil.add( setGridStencilMesh );
+            setGridStencilMaterial = this.materials.setGridStencil = new THREE.PointsMaterial({ size: 1, sizeAttenuation: false, color: 0xffffff });
+            this.setGridStencilMesh = new THREE.Points( onePointPerTexelGeometry, setGridStencilMaterial );
+            sceneStencil.add( this.setGridStencilMesh );
         }
 
         // Set up the grid texture for stencil routing.
@@ -443,8 +448,8 @@ Object.assign( World.prototype, {
                     continue; // No need to set 0 stencil value, it's already cleared
                 }
                 buffers.stencil.setFunc( gl.ALWAYS, stencilValue, 0xffffffff );
-                setGridStencilMesh.position.set((x+2)/gridSizeX,(y+2)/gridSizeY,0);
-                renderer.render( sceneStencil, this.fullscreenCamera, gridTexture, false );
+                this.setGridStencilMesh.position.set((x+2)/gridSizeX,(y+2)/gridSizeY,0);
+                renderer.render( this.scenes.stencil, this.fullscreenCamera, gridTexture, false );
             }
         }
         buffers.color.setLocked( false );
@@ -590,59 +595,140 @@ Object.assign( World.prototype, {
     updateBodyTorque: function(){
         var renderer = this.renderer;
 
+        // Add torque to body material
+        var addTorqueToBodyMaterial = this.materials.addTorqueToBody;
+        if(!addTorqueToBodyMaterial){
+            addTorqueToBodyMaterial = this.materials.addTorqueToBody = new THREE.ShaderMaterial({
+                uniforms: {
+                    relativeParticlePosTex: { value: null },
+                    particleForceTex: { value: null },
+                    particleTorqueTex: { value: null },
+                    globalForce:  { value: new THREE.Vector3(0,0,0) },
+                },
+                vertexShader: getShader( 'addParticleTorqueToBodyVert' ),
+                fragmentShader: getShader( 'addParticleForceToBodyFrag' ), // reuse
+                defines: this.getDefines(),
+                blending: THREE.AdditiveBlending,
+                transparent: true
+            });
+        }
+
         // Add torque to bodies
         renderer.clearTarget(this.textures.bodyTorque, true, true, true ); // clear the color only?
-        var addTorqueToBodyMaterial = this.mapParticleToBodyMesh.material = this.materials.addForceToBody;
+        this.mapParticleToBodyMesh.material = addTorqueToBodyMaterial;
         addTorqueToBodyMaterial.uniforms.relativeParticlePosTex.value = this.textures.particlePosRelative.texture;
         addTorqueToBodyMaterial.uniforms.particleForceTex.value = this.textures.particleForce.texture;
         addTorqueToBodyMaterial.uniforms.particleTorqueTex.value = this.textures.particleTorque.texture;
         renderer.render( this.scenes.mapParticlesToBodies, this.fullscreenCamera, this.textures.bodyTorque, false );
     },
 
-    updateBodyVelocity: function(){
-        // Update body velocity
+    getUpdateVelocityMaterial: function(){
+        // Update body velocity - should work for both linear and angular
         var updateBodyVelocityMaterial = this.materials.updateBodyVelocity;
+        if(!updateBodyVelocityMaterial){
+            updateBodyVelocityMaterial = this.materials.updateBodyVelocity = new THREE.ShaderMaterial({
+                uniforms: {
+                    linearAngular:  { type: 'f', value: 0.0 },
+                    bodyQuatTex:  { value: null },
+                    bodyForceTex:  { value: null },
+                    bodyVelTex:  { value: null },
+                    bodyMassTex:  { value: null },
+                    params2: { value: this.params2 },
+                    maxVelocity: { value: new THREE.Vector3(100,100,100) }
+                },
+                vertexShader: getShader( 'vertexShader' ),
+                fragmentShader: getShader( 'updateBodyVelocityFrag' ),
+                defines: this.getDefines()
+            });
+        }
+        return updateBodyVelocityMaterial;
+    },
+
+    updateBodyVelocity: function(){
+        var renderer = this.renderer;
+
+        var updateBodyVelocityMaterial = this.getUpdateVelocityMaterial();
+
+        // Update body velocity
         this.fullscreenQuad.material = updateBodyVelocityMaterial;
         updateBodyVelocityMaterial.uniforms.bodyMassTex.value = this.textures.bodyMass.texture;
         updateBodyVelocityMaterial.uniforms.linearAngular.value = 0;
         updateBodyVelocityMaterial.uniforms.bodyVelTex.value = this.textures.bodyVelRead.texture;
         updateBodyVelocityMaterial.uniforms.bodyForceTex.value = this.textures.bodyForce.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyVelWrite, false );
-        this.swapTextures('bodyVelTextureWrite', 'bodyVelTextureRead');
+        this.swapTextures('bodyVelWrite', 'bodyVelRead');
     },
 
     updateBodyAngularVelocity: function(){
+        var renderer = this.renderer;
         // Update body angular velocity
+        var updateBodyVelocityMaterial = this.getUpdateVelocityMaterial();
         this.fullscreenQuad.material = updateBodyVelocityMaterial;
-        updateBodyVelocityMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
-        updateBodyVelocityMaterial.uniforms.bodyMassTex.value = bodyMassTexture.texture;
+        updateBodyVelocityMaterial.uniforms.bodyQuatTex.value = this.textures.bodyQuatRead.texture;
+        updateBodyVelocityMaterial.uniforms.bodyMassTex.value = this.textures.bodyMass.texture;
         updateBodyVelocityMaterial.uniforms.linearAngular.value = 1;
-        updateBodyVelocityMaterial.uniforms.bodyVelTex.value = bodyAngularVelTextureRead.texture;
-        updateBodyVelocityMaterial.uniforms.bodyForceTex.value = bodyTorqueTexture.texture;
-        renderer.render( this.scenes.fullscreen, this.fullscreenCamera, bodyAngularVelTextureWrite, false );
-        this.swapTextures('bodyAngularVelTextureWrite', 'bodyAngularVelTextureRead');
+        updateBodyVelocityMaterial.uniforms.bodyVelTex.value = this.textures.bodyAngularVelRead.texture;
+        updateBodyVelocityMaterial.uniforms.bodyForceTex.value = this.textures.bodyTorque.texture;
+        renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyAngularVelWrite, false );
+        this.swapTextures('bodyAngularVelWrite', 'bodyAngularVelRead');
     },
 
     updateBodyPosition: function(){
+        var renderer = this.renderer;
+
+        // Body position update
+        var updateBodyPositionMaterial = this.materials.updateBodyPosition;
+        if(!updateBodyPositionMaterial){
+            updateBodyPositionMaterial = this.materials.updateBodyPosition = new THREE.ShaderMaterial({
+                uniforms: {
+                    bodyPosTex:  { value: null },
+                    bodyVelTex:  { value: null },
+                    params2: { value: this.params2 }
+                },
+                vertexShader: getShader( 'vertexShader' ),
+                fragmentShader: getShader( 'updateBodyPositionFrag' ),
+                defines: this.getDefines()
+            });
+        }
+
         // Update body positions
         this.fullscreenQuad.material = updateBodyPositionMaterial;
-        updateBodyPositionMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
-        updateBodyPositionMaterial.uniforms.bodyVelTex.value = bodyVelTextureRead.texture;
-        renderer.render( this.scenes.fullscreen, this.fullscreenCamera, bodyPosTextureWrite, false );
-        this.swapTextures('bodyPosTextureWrite', 'bodyPosTextureRead');
+        updateBodyPositionMaterial.uniforms.bodyPosTex.value = this.textures.bodyPosRead.texture;
+        updateBodyPositionMaterial.uniforms.bodyVelTex.value = this.textures.bodyVelRead.texture;
+        renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyPosWrite, false );
+        this.swapTextures('bodyPosWrite', 'bodyPosRead');
     },
 
     updateBodyQuaternion: function(){
+        var renderer = this.renderer;
+
+        // Update body quaternions
+        var updateBodyQuaternionMaterial = this.materials.updateBodyQuaternion;
+        if(!updateBodyQuaternionMaterial){
+            updateBodyQuaternionMaterial = this.materials.updateBodyQuaternion = new THREE.ShaderMaterial({
+                uniforms: {
+                    bodyQuatTex: { value: null },
+                    bodyAngularVelTex: { value: null },
+                    params2: { value: this.params2 }
+                },
+                vertexShader: getShader( 'vertexShader' ),
+                fragmentShader: getShader( 'updateBodyQuaternionFrag' ),
+                defines: this.getDefines()
+            });
+        }
+
         // Update body quaternions
         this.fullscreenQuad.material = updateBodyQuaternionMaterial;
-        updateBodyQuaternionMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
-        updateBodyQuaternionMaterial.uniforms.bodyAngularVelTex.value = bodyAngularVelTextureRead.texture;
-        renderer.render( this.scenes.fullscreen, this.fullscreenCamera, bodyQuatTextureWrite, false );
+        updateBodyQuaternionMaterial.uniforms.bodyQuatTex.value = this.textures.bodyQuatRead.texture;
+        updateBodyQuaternionMaterial.uniforms.bodyAngularVelTex.value = this.textures.bodyAngularVelRead.texture;
+        renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyQuatWrite, false );
         this.swapTextures('bodyQuatWrite', 'bodyQuatRead');
     },
 
     swapTextures: function(a,b){
         var textures = this.textures;
+        if(!textures[a]) throw new Error("missing texture " + a);
+        if(!textures[b]) throw new Error("missing texture " + b);
         var tmp = textures[a];
         textures[a] = textures[b];
         textures[b] = tmp;
