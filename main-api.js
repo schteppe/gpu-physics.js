@@ -1,9 +1,10 @@
-var scene, light, camera, controls, renderer;
+var scene, ambientLight, light, camera, controls, renderer;
 var world;
 var particlePositionTexture = new THREE.Texture();
 var bodyPositionTexture = new THREE.Texture();
 var bodyQuaternionTexture = new THREE.Texture();
 var bodyMassTexture = new THREE.Texture();
+var debugMesh;
 
 init();
 animate();
@@ -31,14 +32,14 @@ function init(){
     light.position.set(1,1,1);
     scene.add(light);
 
-    var ambientLight = new THREE.AmbientLight( 0x222222 );
+    ambientLight = new THREE.AmbientLight( 0x222222 );
     scene.add( ambientLight );
 
     camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
-    camera.position.set(0,0.6,1.4);
+    camera.position.set(11,12,10);
 
     var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x000000 } );
-    groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 0.5, 0.5 ), groundMaterial );
+    groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 20, 20 ), groundMaterial );
     groundMesh.rotation.x = - Math.PI / 2;
     groundMesh.receiveShadow = true;
     scene.add( groundMesh );
@@ -57,11 +58,53 @@ function init(){
         maxParticles: 64
     });
     for(var i=0; i<world.maxBodies; i++){
-        var bodyId = world.addBody(Math.random(),Math.random(),Math.random(), 0,0,0,1);
+        var bodyId = world.addBody(10*Math.random(),10*Math.random(),10*Math.random(), 0,0,0,1);
     }
     for(var i=0; i<world.maxParticles; i++){
         world.addParticle(Math.floor(Math.random()*world.maxBodies), 0,0,0);
     }
+
+    // Create an instanced mesh for debug spheres
+    var sphereGeometry = new THREE.SphereBufferGeometry(world.size, 8, 8);
+    var instances = world.maxParticles;
+    var debugGeometry = new THREE.InstancedBufferGeometry();
+    debugGeometry.maxInstancedCount = instances;
+    for(var attributeName in sphereGeometry.attributes){
+        debugGeometry.addAttribute( attributeName, sphereGeometry.attributes[attributeName].clone() );
+    }
+    debugGeometry.setIndex( sphereGeometry.index.clone() );
+    var particleIndices = new THREE.InstancedBufferAttribute( new Float32Array( instances * 1 ), 1, 1 );
+    for ( var i = 0, ul = particleIndices.count; i < ul; i++ ) {
+        particleIndices.setX( i, i );
+    }
+    debugGeometry.addAttribute( 'particleIndex', particleIndices );
+    debugGeometry.boundingSphere = null;
+
+    // Particle spheres material / debug material - extend the phong shader in three.js
+    var phongShader = THREE.ShaderLib.phong;
+    var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
+    uniforms.particleWorldPosTex = { value: null };
+    uniforms.quatTex = { value: null };
+    var debugMaterial = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: getShader('renderParticlesVertex'),
+        fragmentShader: phongShader.fragmentShader,
+        lights: true,
+        defines: Object.assign({
+            USE_MAP: true
+        }, world.defines)
+    });
+    debugMesh = new THREE.Mesh( debugGeometry, debugMaterial );
+    debugMesh.frustumCulled = false;
+    var checkerTexture = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255]), 2, 1, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
+    checkerTexture.needsUpdate = true;
+    debugMaterial.uniforms.map.value = checkerTexture;
+    scene.add(debugMesh);
+}
+
+function getShader(id){
+  var code = document.getElementById( id ).textContent;
+  return sharedShaderCode.innerText + code;
 }
 
 function onWindowResize() {
@@ -93,26 +136,35 @@ function updateTexture(threeTexture, webglTexture){
 function render() {
     controls.update();
 
-    /*
-    // Render main scene
-    updateDebugGrid();
-
-    debugMesh.material.uniforms.particleWorldPosTex.value = particlePosWorldTexture.texture;
-    debugMesh.material.uniforms.quatTex.value = bodyQuatTextureRead.texture;
-
-    meshMesh.material.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
-    meshMesh.material.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
-
-    meshMesh.customDepthMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
-    meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
-    */
     updateTexture(particlePositionTexture, world.particlePositionTexture);
     updateTexture(bodyPositionTexture, world.bodyPositionTexture);
     updateTexture(bodyQuaternionTexture, world.bodyQuaternionTexture);
     updateTexture(bodyMassTexture, world.bodyMassTexture);
-    groundMesh.material.map = bodyPositionTexture;
+
+    /*
+    // Render main scene
+    updateDebugGrid();
+    */
+    /*
+    meshMesh.material.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
+    meshMesh.material.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
+
+    meshMesh.customDepthMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
+    meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;*/
+
+
+    renderer.setRenderTarget(null);
+    renderer.setClearColor(ambientLight.color, 1.0);
+    renderer.clear();
+
+    groundMesh.material.map = particlePositionTexture;
+    debugMesh.material.uniforms.particleWorldPosTex.value = particlePositionTexture;
+    debugMesh.material.uniforms.quatTex.value = bodyQuaternionTexture;
 
     renderer.render( scene, camera );
+
+    debugMesh.material.uniforms.particleWorldPosTex.value = null;
+    debugMesh.material.uniforms.quatTex.value = null;
 
     renderer.resetGLState();
 }

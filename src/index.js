@@ -33,9 +33,9 @@ function World(parameters){
         0.1, // drag
         0 // unused
     );
+    var params3 = this.params3 = new THREE.Vector4();
     this.time = 0;
     this.fixedTime = 0;
-    var params3 = this.params3 = new THREE.Vector4();
     this.broadphase = new Broadphase();
     this.gravity = new THREE.Vector3(0,-2,0);
     this.boxSize = new THREE.Vector3(1,1,1);
@@ -100,6 +100,9 @@ function World(parameters){
         particlePositionTexture: {
             get: function(){ return renderer.properties.get(this.textures.particlePosWorld.texture).__webglTexture; }
         },
+        defines: {
+            get: function(){ return this.getDefines(); }
+        },
     });
 
     renderer.resetGLState();
@@ -146,6 +149,12 @@ function idToX(id,sx,sy){
 }
 function idToY(id,sx,sy){
     return id % sy;
+}
+function idToDataIndex(id, w, h){
+    var px = idToX(id, w, h);
+    var py = idToY(id, w, h);
+    var p = 4 * (py * w + px);
+    return p;
 }
 
 Object.assign( World.prototype, {
@@ -196,9 +205,7 @@ Object.assign( World.prototype, {
         var data = tex.image.data;
         var w = tex.image.width;
         var h = tex.image.height;
-        var px = idToX(this.bodyCount, w, h);
-        var py = idToY(this.bodyCount, w, h);
-        var p = 4 * (py * w + px);
+        var p = idToDataIndex(this.bodyCount, w, h);
         data[p + 0] = x;
         data[p + 1] = y;
         data[p + 2] = z;
@@ -229,9 +236,7 @@ Object.assign( World.prototype, {
         var data = tex.image.data;
         var w = tex.image.width;
         var h = tex.image.height;
-        var px = idToX(this.particleCount, w, h);
-        var py = idToY(this.particleCount, w, h);
-        var p = 4 * (py * w + px);
+        var p = idToDataIndex(this.particleCount, w, h);
         data[p + 0] = x;
         data[p + 1] = y;
         data[p + 2] = z;
@@ -240,7 +245,12 @@ Object.assign( World.prototype, {
         return this.particleCount++;
     },
     getBodyId: function(particleId){
-        return 0; // TODO
+        var tex = this.dataTextures.particleLocalPositions;
+        var data = tex.image.data;
+        var w = tex.image.width;
+        var h = tex.image.height;
+        var p = idToDataIndex(particleId, w, h);
+        return this.dataTextures.particleLocalPositions.image.data[p+3];
     },
     initTextures: function(maxBodies, maxParticles){
         var type = ( /(iPad|iPhone|iPod)/g.test( navigator.userAgent ) ) ? THREE.HalfFloatType : THREE.FloatType;
@@ -284,9 +294,9 @@ Object.assign( World.prototype, {
     flushData: function(){
         if(this.time > 0) return; // Only want to flush initial data
         this.flushDataToRenderTarget(this.textures.bodyPosWrite, this.dataTextures.bodyPositions);
-        this.flushDataToRenderTarget(this.textures.bodyPosRead, this.dataTextures.bodyPositions);
         this.flushDataToRenderTarget(this.textures.bodyQuatWrite, this.dataTextures.bodyQuaternions);
-        this.flushDataToRenderTarget(this.textures.bodyQuatRead, this.dataTextures.bodyQuaternions);
+        this.swapTextures('bodyPosWrite','bodyPosRead');
+        this.swapTextures('bodyQuatWrite','bodyQuatRead');
         this.flushDataToRenderTarget(this.textures.particlePosLocal, this.dataTextures.particleLocalPositions);
         this.flushDataToRenderTarget(this.textures.bodyMass, this.dataTextures.bodyMass);
     },
@@ -410,7 +420,7 @@ Object.assign( World.prototype, {
             var positions = new Float32Array( 3 * size * size );
             var particleIndices = new Float32Array( size * size );
             for(var i=0; i<size*size; i++){
-                particleIndices[i] = i;
+                particleIndices[i] = i; // Need to do this because there's no way to get the vertex index in webgl1 shaders...
             }
             mapParticleGeometry.addAttribute( 'position', new THREE.BufferAttribute( positions, 3 ) );
             mapParticleGeometry.addAttribute( 'particleIndex', new THREE.BufferAttribute( particleIndices, 1 ) );
@@ -593,7 +603,7 @@ Object.assign( World.prototype, {
             var numParticles = this.textures.particlePosLocal.width;
             var bodyIndices = new Float32Array( numParticles * numParticles );
             var particleIndices = new Float32Array( numParticles * numParticles );
-            for(var i=0; i<numParticles*numParticles; i++){
+            for(var i=0; i<numParticles * numParticles; i++){
                 var particleId = i;
                 particleIndices[i] = particleId;
                 bodyIndices[i] = this.getBodyId(particleId);
