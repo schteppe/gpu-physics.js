@@ -1,6 +1,8 @@
 var scene, light, camera, controls, renderer;
 var world;
-var texture = new THREE.Texture();
+var particlePositionTexture = new THREE.Texture();
+var bodyPositionTexture = new THREE.Texture();
+var bodyQuaternionTexture = new THREE.Texture();
 
 init();
 animate();
@@ -38,7 +40,6 @@ function init(){
     groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2, 2 ), groundMaterial );
     groundMesh.rotation.x = - Math.PI / 2;
     groundMesh.receiveShadow = true;
-    groundMesh.material.map = texture;
     scene.add( groundMesh );
 
     // Add controls
@@ -58,7 +59,7 @@ function init(){
         world.addBody(i/world.maxBodies,i/world.maxBodies,i/world.maxBodies, 0,0,0,1);
     }
     for(var i=0; i<world.maxParticles; i++){
-        world.addParticle(0, i/world.maxParticles,i/world.maxParticles,i/world.maxParticles);
+        world.addParticle(Math.floor(Math.random()*world.maxBodies), 0,0,0);
     }
 }
 
@@ -73,7 +74,15 @@ function animate( time ) {
     requestAnimationFrame( animate );
     var deltaTime = prevTime === undefined ? 0 : (time - prevTime) / 1000;
     world.step( deltaTime );
+    prevTime = time;
     render();
+}
+
+// Use the native webgl texture in three.js
+function updateTexture(threeTexture, webglTexture){
+    var properties = renderer.properties.get(threeTexture);
+    properties.__webglTexture = webglTexture;
+    properties.__webglInit = true;
 }
 
 function render() {
@@ -92,11 +101,10 @@ function render() {
     meshMesh.customDepthMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
     meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
     */
-
-    // Use the native webgl texture in three.js
-    var properties = renderer.properties.get(texture);
-    properties.__webglTexture = world.particlePositionTexture;
-    properties.__webglInit = true;
+    updateTexture(particlePositionTexture, world.particlePositionTexture);
+    updateTexture(bodyPositionTexture, world.bodyPositionTexture);
+    updateTexture(bodyQuaternionTexture, world.bodyQuaternionTexture);
+    groundMesh.material.map = particlePositionTexture;
 
     renderer.render( scene, camera );
 

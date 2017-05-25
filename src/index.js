@@ -95,7 +95,7 @@ function World(parameters){
             get: function(){ return renderer.properties.get(this.textures.bodyQuatRead.texture).__webglTexture; }
         },
         particlePositionTexture: {
-            get: function(){ return renderer.properties.get(this.textures.particlePosLocal.texture).__webglTexture; }
+            get: function(){ return renderer.properties.get(this.textures.particlePosWorld.texture).__webglTexture; }
         },
     });
 
@@ -168,7 +168,6 @@ Object.assign( World.prototype, {
     },
     internalStep: function(){
         this.flushData();
-        /*
         this.updateWorldParticlePositions();
         this.updateRelativeParticlePositions();
         this.updateParticleVelocity();
@@ -181,7 +180,6 @@ Object.assign( World.prototype, {
         this.updateBodyAngularVelocity();
         this.updateBodyPosition();
         this.updateBodyQuaternion();
-        */
         this.fixedTime += this.fixedTimeStep;
         this.renderer.resetGLState();
     },
@@ -285,8 +283,10 @@ Object.assign( World.prototype, {
         var texturedMaterial = this.materials.textured;
         texturedMaterial.uniforms.texture.value = dataTexture;
         texturedMaterial.uniforms.res.value.set(renderTarget.width,renderTarget.height);
+        this.fullscreenQuad.material = texturedMaterial;
         this.renderer.render( this.scenes.fullscreen, this.fullscreenCamera, renderTarget, true );
         texturedMaterial.uniforms.texture.value = null;
+        this.fullscreenQuad.material = null;
     },
     updateBodyPositions: function(){
         // Create material?
@@ -310,6 +310,7 @@ Object.assign( World.prototype, {
         uniforms.bodyPosTex.value = this.textures.bodyPosRead.texture;
         uniforms.bodyVelTex.value = this.textures.bodyVelRead.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyPosWrite, false );
+        this.fullscreenQuad.material = null;
         this.swapTextures('bodyPosRead', 'bodyPosWrite');
     },
     updateWorldParticlePositions: function(){
@@ -337,9 +338,11 @@ Object.assign( World.prototype, {
         mat.uniforms.bodyPosTex.value = this.textures.bodyPosRead.texture;
         mat.uniforms.bodyQuatTex.value = this.textures.bodyQuatRead.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particlePosWorld, false );
+        this.fullscreenQuad.material = null;
         mat.uniforms.localParticlePosTex.value = null;
         mat.uniforms.bodyPosTex.value = null;
         mat.uniforms.bodyQuatTex.value = null;
+        this.fullscreenQuad.material = null;
     },
 
     updateRelativeParticlePositions: function(){
@@ -363,6 +366,7 @@ Object.assign( World.prototype, {
         mat.uniforms.bodyPosTex.value = this.textures.bodyPosRead.texture;
         mat.uniforms.bodyQuatTex.value = this.textures.bodyQuatRead.texture;
         this.renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particlePosRelative, false );
+        this.fullscreenQuad.material = null;
         mat.uniforms.localParticlePosTex.value = null;
         mat.uniforms.bodyPosTex.value = null;
         mat.uniforms.bodyQuatTex.value = null;
@@ -391,6 +395,10 @@ Object.assign( World.prototype, {
         mat.uniforms.bodyVelTex.value = this.textures.bodyVelRead.texture;
         mat.uniforms.bodyAngularVelTex.value = this.textures.bodyAngularVelRead.texture;
         this.renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particleVel, false );
+        this.fullscreenQuad.material = null;
+        mat.uniforms.relativeParticlePosTex.value = null;
+        mat.uniforms.bodyVelTex.value = null;
+        mat.uniforms.bodyAngularVelTex.value = null;
     },
 
     updateGrid: function(){
@@ -484,6 +492,7 @@ Object.assign( World.prototype, {
         this.mapParticleToCellMesh.material = mat;
         mat.uniforms.posTex.value = this.textures.particlePosWorld.texture;
         renderer.render( sceneMap, this.fullscreenCamera, this.textures.grid, false );
+        mat.uniforms.posTex.value = null;
         buffers.stencil.setTest( false );
     },
 
@@ -522,6 +531,10 @@ Object.assign( World.prototype, {
         forceMaterial.uniforms.velTex.value = this.textures.particleVel.texture;
         forceMaterial.uniforms.bodyAngularVelTex.value = this.textures.bodyAngularVelRead.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particleForce, false );
+        this.fullscreenQuad.material = null;
+        forceMaterial.uniforms.posTex.value = null;
+        forceMaterial.uniforms.velTex.value = null;
+        forceMaterial.uniforms.bodyAngularVelTex.value = null;
     },
 
     // Update particle torques / collision reaction
@@ -558,6 +571,10 @@ Object.assign( World.prototype, {
         updateTorqueMaterial.uniforms.velTex.value = this.textures.particleVel.texture;
         updateTorqueMaterial.uniforms.bodyAngularVelTex.value = this.textures.bodyAngularVelRead.texture; // Angular velocity for indivitual particles and bodies are the same
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particleTorque, false );
+        this.fullscreenQuad.material = null;
+        updateTorqueMaterial.uniforms.posTex.value = null;
+        updateTorqueMaterial.uniforms.velTex.value = null;
+        updateTorqueMaterial.uniforms.bodyAngularVelTex.value = null; // Angular velocity for indivitual particles and bodies are the same
     },
 
     updateBodyForce: function(){
@@ -611,6 +628,8 @@ Object.assign( World.prototype, {
         addForceToBodyMaterial.uniforms.relativeParticlePosTex.value = this.textures.particlePosRelative.texture;
         addForceToBodyMaterial.uniforms.particleForceTex.value = this.textures.particleForce.texture;
         renderer.render( sceneMapParticlesToBodies, this.fullscreenCamera, this.textures.bodyForce, false );
+        addForceToBodyMaterial.uniforms.relativeParticlePosTex.value = null;
+        addForceToBodyMaterial.uniforms.particleForceTex.value = null;
     },
 
     updateBodyTorque: function(){
@@ -641,6 +660,9 @@ Object.assign( World.prototype, {
         addTorqueToBodyMaterial.uniforms.particleForceTex.value = this.textures.particleForce.texture;
         addTorqueToBodyMaterial.uniforms.particleTorqueTex.value = this.textures.particleTorque.texture;
         renderer.render( this.scenes.mapParticlesToBodies, this.fullscreenCamera, this.textures.bodyTorque, false );
+        addTorqueToBodyMaterial.uniforms.relativeParticlePosTex.value = null;
+        addTorqueToBodyMaterial.uniforms.particleForceTex.value = null;
+        addTorqueToBodyMaterial.uniforms.particleTorqueTex.value = null;
     },
 
     getUpdateVelocityMaterial: function(){
@@ -677,6 +699,10 @@ Object.assign( World.prototype, {
         updateBodyVelocityMaterial.uniforms.bodyVelTex.value = this.textures.bodyVelRead.texture;
         updateBodyVelocityMaterial.uniforms.bodyForceTex.value = this.textures.bodyForce.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyVelWrite, false );
+        this.fullscreenQuad.material = null;
+        updateBodyVelocityMaterial.uniforms.bodyMassTex.value = null;
+        updateBodyVelocityMaterial.uniforms.bodyVelTex.value = null;
+        updateBodyVelocityMaterial.uniforms.bodyForceTex.value = null;
         this.swapTextures('bodyVelWrite', 'bodyVelRead');
     },
 
@@ -691,6 +717,11 @@ Object.assign( World.prototype, {
         updateBodyVelocityMaterial.uniforms.bodyVelTex.value = this.textures.bodyAngularVelRead.texture;
         updateBodyVelocityMaterial.uniforms.bodyForceTex.value = this.textures.bodyTorque.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyAngularVelWrite, false );
+        this.fullscreenQuad.material = null;
+        updateBodyVelocityMaterial.uniforms.bodyQuatTex.value = null;
+        updateBodyVelocityMaterial.uniforms.bodyMassTex.value = null;
+        updateBodyVelocityMaterial.uniforms.bodyVelTex.value = null;
+        updateBodyVelocityMaterial.uniforms.bodyForceTex.value = null;
         this.swapTextures('bodyAngularVelWrite', 'bodyAngularVelRead');
     },
 
@@ -717,6 +748,9 @@ Object.assign( World.prototype, {
         updateBodyPositionMaterial.uniforms.bodyPosTex.value = this.textures.bodyPosRead.texture;
         updateBodyPositionMaterial.uniforms.bodyVelTex.value = this.textures.bodyVelRead.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyPosWrite, false );
+        this.fullscreenQuad.material = null;
+        updateBodyPositionMaterial.uniforms.bodyPosTex.value = null;
+        updateBodyPositionMaterial.uniforms.bodyVelTex.value = null;
         this.swapTextures('bodyPosWrite', 'bodyPosRead');
     },
 
@@ -743,6 +777,9 @@ Object.assign( World.prototype, {
         updateBodyQuaternionMaterial.uniforms.bodyQuatTex.value = this.textures.bodyQuatRead.texture;
         updateBodyQuaternionMaterial.uniforms.bodyAngularVelTex.value = this.textures.bodyAngularVelRead.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyQuatWrite, false );
+        this.fullscreenQuad.material = null;
+        updateBodyQuaternionMaterial.uniforms.bodyQuatTex.value = null;
+        updateBodyQuaternionMaterial.uniforms.bodyAngularVelTex.value = null;
         this.swapTextures('bodyQuatWrite', 'bodyQuatRead');
     },
 
