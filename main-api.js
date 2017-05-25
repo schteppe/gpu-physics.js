@@ -51,6 +51,9 @@ function init(){
         context: renderer.context,
         canvas: renderer.domElement
     });
+    for(var i=0; i<world.maxBodies; i++){
+        world.addBody(i/world.maxBodies,i/world.maxBodies,i/world.maxBodies, 0,0,0,1);
+    }
 }
 
 function onWindowResize() {
@@ -87,7 +90,7 @@ function render() {
     // Use the native webgl texture in three.js
     renderer.properties.get(texture).__webglTexture = world.bodyPositionTexture;
     groundMesh.material.map = texture;
-
     renderer.render( scene, camera );
+    groundMesh.material.map = null;
     renderer.resetGLState();
 }

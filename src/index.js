@@ -50,7 +50,8 @@ function World(parameters){
     this.renderer = renderer;
     renderer.setPixelRatio( 1 );
     renderer.autoClear = false;
-
+    this.bodyCount = 0;
+    this.particleCount = 0;
     Object.defineProperties( this, {
         // Size of a cell side, and diameter of a particle
         size: {
@@ -84,7 +85,7 @@ function World(parameters){
         },
         maxBodies: {
             get: function(){
-                return this.bodyTexture.width * this.bodyTexture.height;
+                return this.textures.bodyPosRead.width * this.textures.bodyPosRead.height;
             }
         },
         bodyPositionTexture: {
@@ -97,8 +98,8 @@ function World(parameters){
 
     renderer.resetGLState();
     this.initTextures(
-        parameters.maxBodies || 32,
-        parameters.maxParticles || 128
+        parameters.maxBodies || 8,
+        parameters.maxParticles || 8
     );
 
     // Fullscreen render pass helpers
@@ -135,7 +136,7 @@ function pixelToId(x,y,sx,sy){
     return x * sx + y;
 }
 function idToX(id,sx,sy){
-    return Math.floor(id / sx) * sy;
+    return Math.floor(id / sx);
 }
 function idToY(id,sx,sy){
     return id % sy;
@@ -164,7 +165,8 @@ Object.assign( World.prototype, {
     },
     internalStep: function(){
         this.flushData();
-        /*this.updateWorldParticlePositions();
+        /*
+        this.updateWorldParticlePositions();
         this.updateRelativeParticlePositions();
         this.updateParticleVelocity();
         this.updateGrid();
@@ -175,7 +177,8 @@ Object.assign( World.prototype, {
         this.updateBodyVelocity();
         this.updateBodyAngularVelocity();
         this.updateBodyPosition();
-        this.updateBodyQuaternion();*/
+        this.updateBodyQuaternion();
+        */
         this.fixedTime += this.fixedTimeStep;
         this.renderer.resetGLState();
     },
@@ -186,19 +189,19 @@ Object.assign( World.prototype, {
         // Position
         var tex = this.dataTextures.bodyPositions;
         tex.needsUpdate = true;
-        var data = tex.data;
-        var w = tex.width;
-        var h = tex.height;
-        var x = idToX(this.bodyCount, w, h);
-        var y = idToY(this.bodyCount, w, h);
-        var p = 4 * (y * w + x);
+        var data = tex.image.data;
+        var w = tex.image.width;
+        var h = tex.image.height;
+        var px = idToX(this.bodyCount, w, h);
+        var py = idToY(this.bodyCount, w, h);
+        var p = 4 * (py * w + px);
         data[p + 0] = x;
         data[p + 1] = y;
         data[p + 2] = z;
         data[p + 3] = 1;
 
         // Quaternion
-        data = this.dataTextures.bodyQuaternions.data;
+        data = this.dataTextures.bodyQuaternions.image.data;
         this.dataTextures.bodyQuaternions.needsUpdate = true;
         data[p + 0] = qx;
         data[p + 1] = qy;
@@ -211,9 +214,9 @@ Object.assign( World.prototype, {
         // Position
         var tex = this.dataTextures.particleLocalPositions;
         tex.needsUpdate = true;
-        var data = tex.data;
-        var w = tex.width;
-        var h = tex.height;
+        var data = tex.image.data;
+        var w = tex.image.width;
+        var h = tex.image.height;
         var x = idToX(this.particleCount, w, h);
         var y = idToY(this.particleCount, w, h);
         var p = 4 * (y * w + x);
@@ -258,28 +261,22 @@ Object.assign( World.prototype, {
             grid: createRenderTarget(2*this.broadphase.resolution.x*this.broadphase.gridZTiling.x, 2*this.broadphase.resolution.z*this.broadphase.gridZTiling.y, type),
         });
 
-        var posData = new Float32Array(4*bodyTextureSize*bodyTextureSize);
-        for(var i=0; i<posData.length; i+=4){
-            posData[i+0] = 1;
-            posData[i+1] = 0;
-            posData[i+2] = 0;
-            posData[i+3] = 1;
-        }
         Object.assign(this.dataTextures, {
-            bodyPositions: new THREE.DataTexture( posData, bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
+            bodyPositions: new THREE.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
             bodyQuaternions: new THREE.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
             particleLocalPositions: new THREE.DataTexture( new Float32Array(4*particleTextureSize*particleTextureSize), particleTextureSize, particleTextureSize, THREE.RGBAFormat, type ),
             bodyMass: new THREE.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
         });
-        this.dataTextures.bodyPositions.needsUpdate = true;
     },
     // Render data to rendertargets, if the data is dirty
     flushData: function(){
-        this.flushDataToRenderTarget(this.textures.particlePosLocal, this.dataTextures.particleLocalPositions);
-        this.flushDataToRenderTarget(this.textures.bodyPosRead, this.dataTextures.bodyPositions);
+        if(this.time > 0) return; // Only want to flush initial data
         this.flushDataToRenderTarget(this.textures.bodyPosWrite, this.dataTextures.bodyPositions);
-        this.flushDataToRenderTarget(this.textures.bodyMass, this.dataTextures.bodyMass);
+        this.flushDataToRenderTarget(this.textures.bodyPosRead, this.dataTextures.bodyPositions);
+        this.flushDataToRenderTarget(this.textures.bodyQuatWrite, this.dataTextures.bodyQuaternions);
         this.flushDataToRenderTarget(this.textures.bodyQuatRead, this.dataTextures.bodyQuaternions);
+        this.flushDataToRenderTarget(this.textures.particlePosLocal, this.dataTextures.particleLocalPositions);
+        this.flushDataToRenderTarget(this.textures.bodyMass, this.dataTextures.bodyMass);
     },
     flushDataToRenderTarget: function(renderTarget, dataTexture){
         var texturedMaterial = this.materials.textured;
@@ -337,6 +334,9 @@ Object.assign( World.prototype, {
         mat.uniforms.bodyPosTex.value = this.textures.bodyPosRead.texture;
         mat.uniforms.bodyQuatTex.value = this.textures.bodyQuatRead.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particlePosWorld, false );
+        mat.uniforms.localParticlePosTex.value = null;
+        mat.uniforms.bodyPosTex.value = null;
+        mat.uniforms.bodyQuatTex.value = null;
     },
 
     updateRelativeParticlePositions: function(){
@@ -360,6 +360,9 @@ Object.assign( World.prototype, {
         mat.uniforms.bodyPosTex.value = this.textures.bodyPosRead.texture;
         mat.uniforms.bodyQuatTex.value = this.textures.bodyQuatRead.texture;
         this.renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particlePosRelative, false );
+        mat.uniforms.localParticlePosTex.value = null;
+        mat.uniforms.bodyPosTex.value = null;
+        mat.uniforms.bodyQuatTex.value = null;
     },
 
     updateParticleVelocity: function(){
