@@ -48,7 +48,7 @@ function World(parameters){
         canvas: parameters.canvas
     });
     this.renderer = renderer;
-    renderer.setPixelRatio( 1/*window.devicePixelRatio*/ ); // For some reason, device pixel ratio messes up the GL_POINT size on android?
+    renderer.setPixelRatio( 1 );
     renderer.autoClear = false;
 
     Object.defineProperties( this, {
@@ -86,6 +86,12 @@ function World(parameters){
             get: function(){
                 return this.bodyTexture.width * this.bodyTexture.height;
             }
+        },
+        bodyPositionTexture: {
+            get: function(){ return renderer.properties.get(this.textures.bodyPosRead.texture).__webglTexture; }
+        },
+        bodyQuaternionTexture: {
+            get: function(){ return renderer.properties.get(this.textures.bodyQuatRead.texture).__webglTexture; }
         },
     });
 
@@ -157,7 +163,8 @@ Object.assign( World.prototype, {
         this.time += deltaTime;
     },
     internalStep: function(){
-        this.updateWorldParticlePositions();
+        this.flushData();
+        /*this.updateWorldParticlePositions();
         this.updateRelativeParticlePositions();
         this.updateParticleVelocity();
         this.updateGrid();
@@ -168,7 +175,7 @@ Object.assign( World.prototype, {
         this.updateBodyVelocity();
         this.updateBodyAngularVelocity();
         this.updateBodyPosition();
-        this.updateBodyQuaternion();
+        this.updateBodyQuaternion();*/
         this.fixedTime += this.fixedTimeStep;
         this.renderer.resetGLState();
     },
@@ -251,22 +258,30 @@ Object.assign( World.prototype, {
             grid: createRenderTarget(2*this.broadphase.resolution.x*this.broadphase.gridZTiling.x, 2*this.broadphase.resolution.z*this.broadphase.gridZTiling.y, type),
         });
 
+        var posData = new Float32Array(4*bodyTextureSize*bodyTextureSize);
+        for(var i=0; i<posData.length; i+=4){
+            posData[i+0] = 1;
+            posData[i+1] = 0;
+            posData[i+2] = 0;
+            posData[i+3] = 1;
+        }
         Object.assign(this.dataTextures, {
-            bodyPositions: new THREE.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
+            bodyPositions: new THREE.DataTexture( posData, bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
             bodyQuaternions: new THREE.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
             particleLocalPositions: new THREE.DataTexture( new Float32Array(4*particleTextureSize*particleTextureSize), particleTextureSize, particleTextureSize, THREE.RGBAFormat, type ),
             bodyMass: new THREE.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
         });
+        this.dataTextures.bodyPositions.needsUpdate = true;
     },
     // Render data to rendertargets, if the data is dirty
     flushData: function(){
-        this.flushDataToRenderTarget(this.particlePosLocal, this.dataTextures.particleLocalPositions);
-        this.flushDataToRenderTarget(this.bodyPosRead, this.dataTextures.bodyPositions);
-        this.flushDataToRenderTarget(this.bodyMass, this.dataTextures.bodyMass);
-        this.flushDataToRenderTarget(this.bodyQuatRead, this.dataTextures.bodyQuaternions);
+        this.flushDataToRenderTarget(this.textures.particlePosLocal, this.dataTextures.particleLocalPositions);
+        this.flushDataToRenderTarget(this.textures.bodyPosRead, this.dataTextures.bodyPositions);
+        this.flushDataToRenderTarget(this.textures.bodyPosWrite, this.dataTextures.bodyPositions);
+        this.flushDataToRenderTarget(this.textures.bodyMass, this.dataTextures.bodyMass);
+        this.flushDataToRenderTarget(this.textures.bodyQuatRead, this.dataTextures.bodyQuaternions);
     },
     flushDataToRenderTarget: function(renderTarget, dataTexture){
-        if(!dataTexture.needsUpdate) return;
         var texturedMaterial = this.materials.textured;
         texturedMaterial.uniforms.texture.value = dataTexture;
         texturedMaterial.uniforms.res.value.set(renderTarget.width,renderTarget.height);

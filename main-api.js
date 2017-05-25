@@ -1,5 +1,6 @@
 var scene, light, camera, controls, renderer;
 var world;
+var texture = new THREE.Texture();
 
 init();
 animate();
@@ -34,7 +35,7 @@ function init(){
     camera.position.set(0,0.6,1.4);
 
     var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x000000 } );
-    groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000 ), groundMaterial );
+    groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2, 2 ), groundMaterial );
     groundMesh.rotation.x = - Math.PI / 2;
     groundMesh.receiveShadow = true;
     scene.add( groundMesh );
@@ -81,11 +82,11 @@ function render() {
 
     meshMesh.customDepthMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
     meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
-
-    renderer.setRenderTarget(null);
-    renderer.setClearColor(ambientLight.color, 1.0);
-    renderer.clear();
     */
+
+    // Use the native webgl texture in three.js
+    renderer.properties.get(texture).__webglTexture = world.bodyPositionTexture;
+    groundMesh.material.map = texture;
 
     renderer.render( scene, camera );
     renderer.resetGLState();
