@@ -91,6 +91,9 @@ function World(parameters){
         bodyPositionTexture: {
             get: function(){ return renderer.properties.get(this.textures.bodyPosRead.texture).__webglTexture; }
         },
+        bodyMassTexture: {
+            get: function(){ return renderer.properties.get(this.textures.bodyMass.texture).__webglTexture; }
+        },
         bodyQuaternionTexture: {
             get: function(){ return renderer.properties.get(this.textures.bodyQuatRead.texture).__webglTexture; }
         },
@@ -209,6 +212,14 @@ Object.assign( World.prototype, {
         data[p + 2] = qz;
         data[p + 3] = qw;
 
+        // Mass
+        data = this.dataTextures.bodyMass.image.data;
+        this.dataTextures.bodyMass.needsUpdate = true;
+        data[p + 0] = 0.1;
+        data[p + 1] = 0.1;
+        data[p + 2] = 0.1;
+        data[p + 3] = 1;
+
         return this.bodyCount++;
     },
     addParticle: function(bodyId, x, y, z){
@@ -287,31 +298,6 @@ Object.assign( World.prototype, {
         this.renderer.render( this.scenes.fullscreen, this.fullscreenCamera, renderTarget, true );
         texturedMaterial.uniforms.texture.value = null;
         this.fullscreenQuad.material = null;
-    },
-    updateBodyPositions: function(){
-        // Create material?
-        var mat = this.materials.updateBodyPositions;
-        if(!mat){
-            mat  = this.materials.updateBodyPositions = new THREE.ShaderMaterial({
-                uniforms: {
-                    bodyPosTex:  { value: null },
-                    bodyVelTex:  { value: null },
-                    params2: { value: this.params2 }
-                },
-                vertexShader: getShader( 'vertexShader' ),
-                fragmentShader: getShader( 'updateBodyPositionFrag' ),
-                defines: this.getDefines()
-            });
-        }
-        var uniforms = mat.uniforms;
-
-        // Update body positions
-        this.fullscreenQuad.material = mat;
-        uniforms.bodyPosTex.value = this.textures.bodyPosRead.texture;
-        uniforms.bodyVelTex.value = this.textures.bodyVelRead.texture;
-        renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyPosWrite, false );
-        this.fullscreenQuad.material = null;
-        this.swapTextures('bodyPosRead', 'bodyPosWrite');
     },
     updateWorldParticlePositions: function(){
         var mat = this.materials.localParticlePositionToWorld;
@@ -571,10 +557,10 @@ Object.assign( World.prototype, {
         updateTorqueMaterial.uniforms.velTex.value = this.textures.particleVel.texture;
         updateTorqueMaterial.uniforms.bodyAngularVelTex.value = this.textures.bodyAngularVelRead.texture; // Angular velocity for indivitual particles and bodies are the same
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particleTorque, false );
-        this.fullscreenQuad.material = null;
         updateTorqueMaterial.uniforms.posTex.value = null;
         updateTorqueMaterial.uniforms.velTex.value = null;
         updateTorqueMaterial.uniforms.bodyAngularVelTex.value = null; // Angular velocity for indivitual particles and bodies are the same
+        this.fullscreenQuad.material = null;
     },
 
     updateBodyForce: function(){
@@ -630,6 +616,7 @@ Object.assign( World.prototype, {
         renderer.render( sceneMapParticlesToBodies, this.fullscreenCamera, this.textures.bodyForce, false );
         addForceToBodyMaterial.uniforms.relativeParticlePosTex.value = null;
         addForceToBodyMaterial.uniforms.particleForceTex.value = null;
+        this.mapParticleToBodyMesh.material = null;
     },
 
     updateBodyTorque: function(){
@@ -663,6 +650,7 @@ Object.assign( World.prototype, {
         addTorqueToBodyMaterial.uniforms.relativeParticlePosTex.value = null;
         addTorqueToBodyMaterial.uniforms.particleForceTex.value = null;
         addTorqueToBodyMaterial.uniforms.particleTorqueTex.value = null;
+        this.mapParticleToBodyMesh.material = null;
     },
 
     getUpdateVelocityMaterial: function(){
@@ -748,9 +736,9 @@ Object.assign( World.prototype, {
         updateBodyPositionMaterial.uniforms.bodyPosTex.value = this.textures.bodyPosRead.texture;
         updateBodyPositionMaterial.uniforms.bodyVelTex.value = this.textures.bodyVelRead.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyPosWrite, false );
-        this.fullscreenQuad.material = null;
         updateBodyPositionMaterial.uniforms.bodyPosTex.value = null;
         updateBodyPositionMaterial.uniforms.bodyVelTex.value = null;
+        this.fullscreenQuad.material = null;
         this.swapTextures('bodyPosWrite', 'bodyPosRead');
     },
 

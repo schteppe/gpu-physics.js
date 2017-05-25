@@ -3,6 +3,7 @@ var world;
 var particlePositionTexture = new THREE.Texture();
 var bodyPositionTexture = new THREE.Texture();
 var bodyQuaternionTexture = new THREE.Texture();
+var bodyMassTexture = new THREE.Texture();
 
 init();
 animate();
@@ -37,7 +38,7 @@ function init(){
     camera.position.set(0,0.6,1.4);
 
     var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x000000 } );
-    groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2, 2 ), groundMaterial );
+    groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 0.5, 0.5 ), groundMaterial );
     groundMesh.rotation.x = - Math.PI / 2;
     groundMesh.receiveShadow = true;
     scene.add( groundMesh );
@@ -56,7 +57,7 @@ function init(){
         maxParticles: 64
     });
     for(var i=0; i<world.maxBodies; i++){
-        world.addBody(i/world.maxBodies,i/world.maxBodies,i/world.maxBodies, 0,0,0,1);
+        var bodyId = world.addBody(Math.random(),Math.random(),Math.random(), 0,0,0,1);
     }
     for(var i=0; i<world.maxParticles; i++){
         world.addParticle(Math.floor(Math.random()*world.maxBodies), 0,0,0);
@@ -69,13 +70,17 @@ function onWindowResize() {
   renderer.setSize( window.innerWidth, window.innerHeight );
 }
 
-var prevTime;
 function animate( time ) {
     requestAnimationFrame( animate );
+    updatePhysics( time );
+    render();
+}
+
+var prevTime;
+function updatePhysics(time){
     var deltaTime = prevTime === undefined ? 0 : (time - prevTime) / 1000;
     world.step( deltaTime );
     prevTime = time;
-    render();
 }
 
 // Use the native webgl texture in three.js
@@ -104,7 +109,8 @@ function render() {
     updateTexture(particlePositionTexture, world.particlePositionTexture);
     updateTexture(bodyPositionTexture, world.bodyPositionTexture);
     updateTexture(bodyQuaternionTexture, world.bodyQuaternionTexture);
-    groundMesh.material.map = particlePositionTexture;
+    updateTexture(bodyMassTexture, world.bodyMassTexture);
+    groundMesh.material.map = bodyPositionTexture;
 
     renderer.render( scene, camera );
 
