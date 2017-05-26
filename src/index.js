@@ -22,15 +22,15 @@ Object.assign(Broadphase.prototype, {
 function World(parameters){
     parameters = parameters || {};
     var params1 = this.params1 = new THREE.Vector4(
-        1700, // stiffness
-        6, // damping
-        parameters.radius || 0.5, // radius
+        parameters.stiffness !== undefined ? parameters.stiffness : 1700,
+        parameters.damping !== undefined ? parameters.damping : 6,
+        parameters.radius !== undefined ? parameters.radius : 0.5,
         0 // unused
     );
     var params2 = this.params2 = new THREE.Vector4(
-        1/120, // time step
-        2, // friction damping
-        0.1, // drag
+        parameters.fixedTimeStep !== undefined ? parameters.fixedTimeStep : 1/120,
+        parameters.friction !== undefined ? parameters.friction : 2,
+        parameters.drag !== undefined ? parameters.drag : 0.1,
         0 // unused
     );
     var params3 = this.params3 = new THREE.Vector4();
@@ -54,7 +54,7 @@ function World(parameters){
     this.particleCount = 0;
     Object.defineProperties( this, {
         // Size of a cell side, and diameter of a particle
-        size: {
+        radius: {
             get: function(){ return params1.z; },
             set: function(s){ params1.z = s; }
         },
@@ -99,6 +99,9 @@ function World(parameters){
         },
         particlePositionTexture: {
             get: function(){ return renderer.properties.get(this.textures.particlePosWorld.texture).__webglTexture; }
+        },
+        particleForceTexture: {
+            get: function(){ return renderer.properties.get(this.textures.particleForce.texture).__webglTexture; }
         },
         defines: {
             get: function(){ return this.getDefines(); }
@@ -179,6 +182,7 @@ Object.assign( World.prototype, {
         this.time += deltaTime;
     },
     internalStep: function(){
+        this.renderer.resetGLState();
         this.flushData();
         this.updateWorldParticlePositions();
         this.updateRelativeParticlePositions();
@@ -193,12 +197,11 @@ Object.assign( World.prototype, {
         this.updateBodyPosition();
         this.updateBodyQuaternion();
         this.fixedTime += this.fixedTimeStep;
-        this.renderer.resetGLState();
     },
     setGravity: function(x,y,z){
         this.gravity.set(x,y,z);
     },
-    addBody: function(x, y, z, qx, qy, qz, qw){
+    addBody: function(x, y, z, qx, qy, qz, qw, mass, inertiaX, inertiaY, inertiaZ){
         // Position
         var tex = this.dataTextures.bodyPositions;
         tex.needsUpdate = true;
@@ -222,10 +225,10 @@ Object.assign( World.prototype, {
         // Mass
         data = this.dataTextures.bodyMass.image.data;
         this.dataTextures.bodyMass.needsUpdate = true;
-        data[p + 0] = 0.1;
-        data[p + 1] = 0.1;
-        data[p + 2] = 0.1;
-        data[p + 3] = 1;
+        data[p + 0] = 1/inertiaX;
+        data[p + 1] = 1/inertiaY;
+        data[p + 2] = 1/inertiaZ;
+        data[p + 3] = 1/mass;
 
         return this.bodyCount++;
     },
@@ -295,8 +298,8 @@ Object.assign( World.prototype, {
         if(this.time > 0) return; // Only want to flush initial data
         this.flushDataToRenderTarget(this.textures.bodyPosWrite, this.dataTextures.bodyPositions);
         this.flushDataToRenderTarget(this.textures.bodyQuatWrite, this.dataTextures.bodyQuaternions);
-        this.swapTextures('bodyPosWrite','bodyPosRead');
-        this.swapTextures('bodyQuatWrite','bodyQuatRead');
+        this.flushDataToRenderTarget(this.textures.bodyPosRead, this.dataTextures.bodyPositions);
+        this.flushDataToRenderTarget(this.textures.bodyQuatRead, this.dataTextures.bodyQuaternions);
         this.flushDataToRenderTarget(this.textures.particlePosLocal, this.dataTextures.particleLocalPositions);
         this.flushDataToRenderTarget(this.textures.bodyMass, this.dataTextures.bodyMass);
     },
@@ -305,6 +308,7 @@ Object.assign( World.prototype, {
         texturedMaterial.uniforms.texture.value = dataTexture;
         texturedMaterial.uniforms.res.value.set(renderTarget.width,renderTarget.height);
         this.fullscreenQuad.material = texturedMaterial;
+        this.renderer.setClearColor( 0x000000, 1.0 );
         this.renderer.render( this.scenes.fullscreen, this.fullscreenCamera, renderTarget, true );
         texturedMaterial.uniforms.texture.value = null;
         this.fullscreenQuad.material = null;
@@ -334,7 +338,6 @@ Object.assign( World.prototype, {
         mat.uniforms.bodyPosTex.value = this.textures.bodyPosRead.texture;
         mat.uniforms.bodyQuatTex.value = this.textures.bodyQuatRead.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particlePosWorld, false );
-        this.fullscreenQuad.material = null;
         mat.uniforms.localParticlePosTex.value = null;
         mat.uniforms.bodyPosTex.value = null;
         mat.uniforms.bodyQuatTex.value = null;
@@ -623,7 +626,7 @@ Object.assign( World.prototype, {
         this.mapParticleToBodyMesh.material = this.materials.addForceToBody;
         addForceToBodyMaterial.uniforms.relativeParticlePosTex.value = this.textures.particlePosRelative.texture;
         addForceToBodyMaterial.uniforms.particleForceTex.value = this.textures.particleForce.texture;
-        renderer.render( sceneMapParticlesToBodies, this.fullscreenCamera, this.textures.bodyForce, false );
+        renderer.render( this.scenes.mapParticlesToBodies, this.fullscreenCamera, this.textures.bodyForce, false );
         addForceToBodyMaterial.uniforms.relativeParticlePosTex.value = null;
         addForceToBodyMaterial.uniforms.particleForceTex.value = null;
         this.mapParticleToBodyMesh.material = null;
@@ -651,6 +654,7 @@ Object.assign( World.prototype, {
         }
 
         // Add torque to bodies
+        renderer.setClearColor( 0x000000, 1.0 );
         renderer.clearTarget(this.textures.bodyTorque, true, true, true ); // clear the color only?
         this.mapParticleToBodyMesh.material = addTorqueToBodyMaterial;
         addTorqueToBodyMaterial.uniforms.relativeParticlePosTex.value = this.textures.particlePosRelative.texture;
@@ -775,9 +779,10 @@ Object.assign( World.prototype, {
         updateBodyQuaternionMaterial.uniforms.bodyQuatTex.value = this.textures.bodyQuatRead.texture;
         updateBodyQuaternionMaterial.uniforms.bodyAngularVelTex.value = this.textures.bodyAngularVelRead.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.bodyQuatWrite, false );
-        this.fullscreenQuad.material = null;
         updateBodyQuaternionMaterial.uniforms.bodyQuatTex.value = null;
         updateBodyQuaternionMaterial.uniforms.bodyAngularVelTex.value = null;
+        this.fullscreenQuad.material = null;
+
         this.swapTextures('bodyQuatWrite', 'bodyQuatRead');
     },
 
