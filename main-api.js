@@ -2,13 +2,6 @@
 
 var scene, ambientLight, light, camera, controls, renderer;
 var world;
-var particlePositionTexture = new THREE.Texture();
-var bodyPositionTexture = new THREE.Texture();
-var bodyQuaternionTexture = new THREE.Texture();
-var bodyMassTexture = new THREE.Texture();
-var particleForceTexture = new THREE.Texture();
-var bodyForceTexture = new THREE.Texture();
-var gridTexture = new THREE.Texture();
 var debugMesh;
 
 var numParticles = 32;
@@ -170,13 +163,6 @@ function updatePhysics(time){
     prevTime = time;
 }
 
-// Use the native webgl texture in three.js
-function updateTexture(threeTexture, webglTexture){
-    var properties = renderer.properties.get(threeTexture);
-    properties.__webglTexture = webglTexture;
-    properties.__webglInit = true;
-}
-
 function initDebugGrid(){
   var w = world.broadphase.resolution.x * world.radius * 2;
   var h = world.broadphase.resolution.y * world.radius * 2;
@@ -198,14 +184,6 @@ function updateDebugGrid(){
 function render() {
     controls.update();
 
-    updateTexture(particlePositionTexture, world.particlePositionTexture);
-    updateTexture(bodyPositionTexture, world.bodyPositionTexture);
-    updateTexture(bodyQuaternionTexture, world.bodyQuaternionTexture);
-    updateTexture(bodyMassTexture, world.bodyMassTexture);
-    updateTexture(particleForceTexture, world.particleForceTexture);
-    updateTexture(bodyForceTexture, world.bodyForceTexture);
-    updateTexture(gridTexture, world.gridTexture);
-
     // Render main scene
     updateDebugGrid();
 
@@ -219,9 +197,9 @@ function render() {
 
     renderer.setClearColor(ambientLight.color, 1.0);
 
-    groundMesh.material.map = particleForceTexture;
-    debugMesh.material.uniforms.particleWorldPosTex.value = particlePositionTexture;
-    debugMesh.material.uniforms.quatTex.value = bodyQuaternionTexture;
+    groundMesh.material.map = world.particleForceTexture;
+    debugMesh.material.uniforms.particleWorldPosTex.value = world.particlePositionTexture;
+    debugMesh.material.uniforms.quatTex.value = world.bodyQuaternionTexture;
 
     renderer.clear();
     renderer.render( scene, camera );

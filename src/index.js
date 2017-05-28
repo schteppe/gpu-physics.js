@@ -91,25 +91,25 @@ function World(parameters){
             }
         },
         bodyPositionTexture: {
-            get: function(){ return renderer.properties.get(this.textures.bodyPosRead.texture).__webglTexture; }
+            get: function(){ return this.textures.bodyPosRead.texture; }
         },
         bodyMassTexture: {
-            get: function(){ return renderer.properties.get(this.textures.bodyMass.texture).__webglTexture; }
+            get: function(){ return this.textures.bodyMass.texture; }
         },
         bodyQuaternionTexture: {
-            get: function(){ return renderer.properties.get(this.textures.bodyQuatRead.texture).__webglTexture; }
+            get: function(){ return this.textures.bodyQuatRead.texture; }
         },
         particlePositionTexture: {
-            get: function(){ return renderer.properties.get(this.textures.particlePosWorld.texture).__webglTexture; }
+            get: function(){ return this.textures.particlePosWorld.texture; }
         },
         particleForceTexture: {
-            get: function(){ return renderer.properties.get(this.textures.particleForce.texture).__webglTexture; }
+            get: function(){ return this.textures.particleForce.texture; }
         },
         bodyForceTexture: {
-            get: function(){ return renderer.properties.get(this.textures.bodyForce.texture).__webglTexture; }
+            get: function(){ return this.textures.bodyForce.texture; }
         },
         gridTexture: {
-            get: function(){ return renderer.properties.get(this.textures.grid.texture).__webglTexture; }
+            get: function(){ return this.textures.grid.texture; }
         },
         defines: {
             get: function(){ return this.getDefines(); }
