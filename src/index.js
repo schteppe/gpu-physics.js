@@ -50,8 +50,7 @@ function World(parameters){
     this.textures = {};
     this.dataTextures = {};
     this.scenes = {};
-    var renderer = parameters.renderer;
-    this.renderer = renderer;
+    this.renderer = parameters.renderer;
     this.bodyCount = 0;
     this.particleCount = 0;
     Object.defineProperties( this, {
@@ -809,6 +808,23 @@ Object.assign( World.prototype, {
         var tmp = textures[a];
         textures[a] = textures[b];
         textures[b] = tmp;
+    },
+
+    setSphereRadius: function(sphereIndex, radius){
+        if(sphereIndex !== 0) throw new Error("Multiple spheres not supported yet");
+        this.params3.w = radius;
+    },
+
+    getSphereRadius: function(sphereIndex){
+        if(sphereIndex !== 0) throw new Error("Multiple spheres not supported yet");
+        return this.params3.w;
+    },
+
+    setSpherePosition: function(sphereIndex, x, y, z){
+        if(sphereIndex !== 0) throw new Error("Multiple spheres not supported yet");
+        this.params3.x = x;
+        this.params3.y = y;
+        this.params3.z = z;
     }
 });
 

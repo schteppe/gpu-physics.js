@@ -79,6 +79,9 @@ function init(){
         gridResolution: gridResolution
     });
 
+    world.setSphereRadius(0, 0.1);
+    world.setSpherePosition(0, 0,0,0);
+
     // Add bodies
     for(var bodyId=0; bodyId<world.maxBodies; bodyId++){
         var x = -boxSize.x + 2*boxSize.x*Math.random();
@@ -232,14 +235,23 @@ function init(){
     scene.add( meshMesh2 );
 
     // interaction
+    interactionSphereMesh = new THREE.Mesh(new THREE.SphereBufferGeometry(world.getSphereRadius(0),16,16), new THREE.MeshPhongMaterial({ color: 0xffffff }));
+    scene.add(interactionSphereMesh);
     gizmo = new THREE.TransformControls( camera, renderer.domElement );
     gizmo.addEventListener( 'change', function(){
-        if(this.object === debugGridMesh){
+        if(this.object === interactionSphereMesh){
+            world.setSpherePosition(
+                0,
+                interactionSphereMesh.position.x,
+                interactionSphereMesh.position.y,
+                interactionSphereMesh.position.z
+            );
+        } else if(this.object === debugGridMesh){
             world.broadphase.position.copy(debugGridMesh.position);
         }
     });
     scene.add(gizmo);
-    gizmo.attach(debugGridMesh);
+    gizmo.attach(interactionSphereMesh);
 }
 
 function getShader(id){

@@ -281,14 +281,13 @@ void main() {
             force -= friction * tangentVel;
         }
     }
-/*
+
     // Sphere interaction
     vec3 r = position - interactionSpherePos;
     float len = length(r);
     if(len > 0.0 && len < interactionSphereRadius+radius){
         force += particleForce(stiffness, damping, friction, radius + interactionSphereRadius, position, interactionSpherePos, velocity, vec3(0));
     }
-*/
 
     gl_FragColor = vec4(force, 1.0);
 }
