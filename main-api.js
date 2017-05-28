@@ -25,6 +25,11 @@ function init(){
     container.appendChild( renderer.domElement );
     window.addEventListener( 'resize', onWindowResize, false );
 
+    stats = new Stats();
+    stats.domElement.style.position = 'absolute';
+    stats.domElement.style.top = '0px';
+    container.appendChild( stats.domElement );
+
     scene = new THREE.Scene();
 
     light = new THREE.DirectionalLight();
@@ -156,80 +161,75 @@ function init(){
 
     initDebugGrid();
 
-  // Create an instanced mesh for cylinders
-  var cylinderGeometry = new THREE.CylinderBufferGeometry(radius, radius, 2*4*radius, 8);
-  cylinderGeometry.rotateZ(Math.PI / 2);// particles are spread along x, not y
-  var bodyInstances = numBodies*numBodies / 2;
-  var meshGeometry = new THREE.InstancedBufferGeometry();
-  meshGeometry.maxInstancedCount = bodyInstances;
-  for(var attributeName in cylinderGeometry.attributes){
-    meshGeometry.addAttribute( attributeName, cylinderGeometry.attributes[attributeName].clone() );
-  }
-  meshGeometry.setIndex( cylinderGeometry.index.clone() );
-  var bodyIndices = new THREE.InstancedBufferAttribute( new Float32Array( bodyInstances * 1 ), 1, 1 );
-  for ( var i = 0, ul = bodyIndices.count; i < ul; i++ ) {
-    bodyIndices.setX( i, i ); // one index per instance
-  }
-  meshGeometry.addAttribute( 'bodyIndex', bodyIndices );
-  meshGeometry.boundingSphere = null;
+    // Create an instanced mesh for cylinders
+    var cylinderGeometry = new THREE.CylinderBufferGeometry(radius, radius, 2*4*radius, 8);
+    cylinderGeometry.rotateZ(Math.PI / 2);// particles are spread along x, not y
+    var bodyInstances = numBodies*numBodies / 2;
+    var meshGeometry = new THREE.InstancedBufferGeometry();
+    meshGeometry.maxInstancedCount = bodyInstances;
+    for(var attributeName in cylinderGeometry.attributes){
+        meshGeometry.addAttribute( attributeName, cylinderGeometry.attributes[attributeName].clone() );
+    }
+    meshGeometry.setIndex( cylinderGeometry.index.clone() );
+    var bodyIndices = new THREE.InstancedBufferAttribute( new Float32Array( bodyInstances * 1 ), 1, 1 );
+    for ( var i = 0, ul = bodyIndices.count; i < ul; i++ ) {
+        bodyIndices.setX( i, i ); // one index per instance
+    }
+    meshGeometry.addAttribute( 'bodyIndex', bodyIndices );
+    meshGeometry.boundingSphere = null;
 
-  // Create an instanced mesh for boxes
-  var boxGeometry = new THREE.BoxBufferGeometry(4*radius, 4*radius, 2*radius, 8);
-  var bodyInstances = numBodies*numBodies / 2;
-  var boxMeshGeometry = new THREE.InstancedBufferGeometry();
-  boxMeshGeometry.maxInstancedCount = bodyInstances;
-  for(var attributeName in boxGeometry.attributes){
-    boxMeshGeometry.addAttribute( attributeName, boxGeometry.attributes[attributeName].clone() );
-  }
-  boxMeshGeometry.setIndex( boxGeometry.index.clone() );
-  var bodyIndices2 = new THREE.InstancedBufferAttribute( new Float32Array( bodyInstances * 1 ), 1, 1 );
-  for ( var i = 0, ul = bodyIndices2.count; i < ul; i++ ) {
-    bodyIndices2.setX( i, i + numBodies*numBodies / 2 ); // one index per instance
-  }
-  boxMeshGeometry.addAttribute( 'bodyIndex', bodyIndices2 );
-  boxMeshGeometry.boundingSphere = null;
+    // Create an instanced mesh for boxes
+    var boxGeometry = new THREE.BoxBufferGeometry(4*radius, 4*radius, 2*radius, 8);
+    var bodyInstances = numBodies*numBodies / 2;
+    var boxMeshGeometry = new THREE.InstancedBufferGeometry();
+    boxMeshGeometry.maxInstancedCount = bodyInstances;
+    for(var attributeName in boxGeometry.attributes){
+        boxMeshGeometry.addAttribute( attributeName, boxGeometry.attributes[attributeName].clone() );
+    }
+    boxMeshGeometry.setIndex( boxGeometry.index.clone() );
+    var bodyIndices2 = new THREE.InstancedBufferAttribute( new Float32Array( bodyInstances * 1 ), 1, 1 );
+    for ( var i = 0, ul = bodyIndices2.count; i < ul; i++ ) {
+        bodyIndices2.setX( i, i + numBodies*numBodies / 2 ); // one index per instance
+    }
+    boxMeshGeometry.addAttribute( 'bodyIndex', bodyIndices2 );
+    boxMeshGeometry.boundingSphere = null;
 
-  // Mesh material - extend the phong shader
-  var meshUniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
-  meshUniforms.bodyQuatTex = { value: null };
-  meshUniforms.bodyPosTex = { value: null };
-  meshVertexShader = getShader('renderBodiesVertex');
-  var meshMaterial = new THREE.ShaderMaterial({
-    uniforms: meshUniforms,
-    vertexShader: meshVertexShader,
-    fragmentShader: phongShader.fragmentShader,
-    lights: true,
-    defines: Object.assign({},world.defines)
-  });
-  meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
-  meshMesh.frustumCulled = false; // Instances can't be culled like normal meshes
-  // Create a depth material for rendering instances to shadow map
-  meshMesh.customDepthMaterial = new THREE.ShaderMaterial({
-    uniforms: THREE.UniformsUtils.merge([
-        THREE.ShaderLib.depth.uniforms,
-        meshUniforms
-    ]),
-    vertexShader: getShader('renderBodiesDepth'),
-    fragmentShader: THREE.ShaderLib.depth.fragmentShader,
-    defines: Object.assign({},world.defines,{
-      DEPTH_PACKING: 3201
-    })
-  });
-  meshMesh.castShadow = true;
-  meshMesh.receiveShadow = true;
-  scene.add( meshMesh );
+    // Mesh material - extend the phong shader
+    var meshUniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
+    meshUniforms.bodyQuatTex = { value: null };
+    meshUniforms.bodyPosTex = { value: null };
+    meshVertexShader = getShader('renderBodiesVertex');
+    var meshMaterial = new THREE.ShaderMaterial({
+        uniforms: meshUniforms,
+        vertexShader: meshVertexShader,
+        fragmentShader: phongShader.fragmentShader,
+        lights: true,
+        defines: Object.assign({},world.defines)
+    });
+    meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
+    meshMesh.frustumCulled = false; // Instances can't be culled like normal meshes
+    // Create a depth material for rendering instances to shadow map
+    meshMesh.customDepthMaterial = new THREE.ShaderMaterial({
+        uniforms: THREE.UniformsUtils.merge([
+            THREE.ShaderLib.depth.uniforms,
+            meshUniforms
+        ]),
+        vertexShader: getShader('renderBodiesDepth'),
+        fragmentShader: THREE.ShaderLib.depth.fragmentShader,
+        defines: Object.assign({},world.defines,{
+        DEPTH_PACKING: 3201
+        })
+    });
+    meshMesh.castShadow = true;
+    meshMesh.receiveShadow = true;
+    scene.add( meshMesh );
 
-  meshMesh2 = new THREE.Mesh( boxMeshGeometry, meshMaterial );
-  meshMesh2.customDepthMaterial = meshMesh.customDepthMaterial;
-  meshMesh2.frustumCulled = false; // Instances can't be culled like normal meshes
-  meshMesh2.castShadow = true;
-  meshMesh2.receiveShadow = true;
-  scene.add( meshMesh2 );
-
-
-
-
-
+    meshMesh2 = new THREE.Mesh( boxMeshGeometry, meshMaterial );
+    meshMesh2.customDepthMaterial = meshMesh.customDepthMaterial;
+    meshMesh2.frustumCulled = false; // Instances can't be culled like normal meshes
+    meshMesh2.castShadow = true;
+    meshMesh2.receiveShadow = true;
+    scene.add( meshMesh2 );
 
     // interaction
     gizmo = new THREE.TransformControls( camera, renderer.domElement );
@@ -244,7 +244,7 @@ function init(){
 
 function getShader(id){
   var code = document.getElementById( id ).textContent;
-  return sharedShaderCode.innerText + code;
+  return sharedShaderCode.innerText + code; // TODO: dont share shader code with the lib!
 }
 
 function onWindowResize() {
@@ -257,6 +257,7 @@ function animate( time ) {
     requestAnimationFrame( animate );
     updatePhysics( time );
     render();
+    stats.update();
 }
 
 var prevTime;
