@@ -2,7 +2,7 @@
 
 var scene, ambientLight, light, camera, controls, renderer;
 var world;
-var debugMesh;
+var debugMesh, debugGridMesh;
 
 var numParticles = 32;
 var numBodies = numParticles;
@@ -45,7 +45,7 @@ function init(){
     camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
     camera.position.set(0,0.6,1.4);
 
-    var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x000000 } );
+    var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff } );
     groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2, 2 ), groundMaterial );
     groundMesh.rotation.x = - Math.PI / 2;
     groundMesh.receiveShadow = true;
@@ -117,6 +117,8 @@ function init(){
     debugGeometry.addAttribute( 'particleIndex', particleIndices );
     debugGeometry.boundingSphere = null;
 
+    THREE.ShaderChunk.gpgpuphysics = ""; // test
+
     // Particle spheres material / debug material - extend the phong shader in three.js
     var phongShader = THREE.ShaderLib.phong;
     var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
@@ -139,6 +141,16 @@ function init(){
     scene.add(debugMesh);
 
     initDebugGrid();
+
+    // interaction
+    gizmo = new THREE.TransformControls( camera, renderer.domElement );
+    gizmo.addEventListener( 'change', function(){
+        if(this.object === debugGridMesh){
+            world.broadphase.position.copy(debugGridMesh.position);
+        }
+    });
+    scene.add(gizmo);
+    gizmo.attach(debugGridMesh);
 }
 
 function getShader(id){

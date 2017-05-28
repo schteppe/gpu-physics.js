@@ -653,6 +653,7 @@ void main() {
     Copy of THREE.ShaderLib.phong + modifications to render instances
 -->
 <script id="renderParticlesVertex" type="x-shader/x-vertex">
+#include <gpgpuphysics>
 uniform sampler2D particleWorldPosTex;
 uniform sampler2D quatTex;
 attribute float particleIndex;
