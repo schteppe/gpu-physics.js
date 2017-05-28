@@ -50,8 +50,8 @@ function init(){
     camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
     camera.position.set(0,0.6,1.4);
 
-    var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff } );
-    groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2, 2 ), groundMaterial );
+    var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x000000 } );
+    groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000 ), groundMaterial );
     groundMesh.rotation.x = - Math.PI / 2;
     groundMesh.receiveShadow = true;
     scene.add( groundMesh );
@@ -157,7 +157,7 @@ function init(){
     var checkerTexture = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255]), 2, 1, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
     checkerTexture.needsUpdate = true;
     debugMaterial.uniforms.map.value = checkerTexture;
-    scene.add(debugMesh);
+    //scene.add(debugMesh);
 
     initDebugGrid();
 
@@ -217,7 +217,7 @@ function init(){
         vertexShader: getShader('renderBodiesDepth'),
         fragmentShader: THREE.ShaderLib.depth.fragmentShader,
         defines: Object.assign({},world.defines,{
-        DEPTH_PACKING: 3201
+            DEPTH_PACKING: 3201
         })
     });
     meshMesh.castShadow = true;
@@ -294,12 +294,12 @@ function render() {
     meshMesh.material.uniforms.bodyPosTex.value = world.bodyPositionTexture;
     meshMesh.material.uniforms.bodyQuatTex.value = world.bodyQuaternionTexture;
 
-    /*meshMesh.customDepthMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
-    meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;*/
+    meshMesh.customDepthMaterial.uniforms.bodyPosTex.value = world.bodyPositionTexture;
+    meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = world.bodyQuaternionTexture;
 
     renderer.setClearColor(ambientLight.color, 1.0);
 
-    groundMesh.material.map = world.particleForceTexture;
+    //groundMesh.material.map = world.particleForceTexture;
     debugMesh.material.uniforms.particleWorldPosTex.value = world.particlePositionTexture;
     debugMesh.material.uniforms.quatTex.value = world.bodyQuaternionTexture;
 
