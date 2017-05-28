@@ -7,25 +7,26 @@ var bodyPositionTexture = new THREE.Texture();
 var bodyQuaternionTexture = new THREE.Texture();
 var bodyMassTexture = new THREE.Texture();
 var particleForceTexture = new THREE.Texture();
+var bodyForceTexture = new THREE.Texture();
+var gridTexture = new THREE.Texture();
 var debugMesh;
 
-var numParticles = 128;
-var numBodies = numParticles/2;
+var numParticles = 32;
+var numBodies = numParticles;
 var ySpread = 0.1;
 var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
-
+var radius = 1/numParticles * 0.5;
 var boxSize = new THREE.Vector3(0.25, 1, 0.25);
 var gridPosition = new THREE.Vector3(-0.25,0,-0.25);
-var cellSize = new THREE.Vector3(1/numParticles,1/numParticles,1/numParticles);
-var radius = cellSize.x * 0.5;
-var gravity = new THREE.Vector3(0,-0.5,0);
+var gravity = new THREE.Vector3(0,-1,0);
 
 init();
 animate();
 
 function init(){
     renderer = new THREE.WebGLRenderer();
-    renderer.setPixelRatio( window.devicePixelRatio );
+    renderer.setPixelRatio( 1 );
+    renderer.autoClear = false;
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.shadowMap.enabled = true;
     var container = document.getElementById( 'container' );
@@ -66,18 +67,20 @@ function init(){
 
     // Physics
     world = new World({
-        context: renderer.context,
-        canvas: renderer.domElement,
+        gravity: gravity,
+        renderer: renderer,
         maxBodies: numBodies * numBodies,
         maxParticles: numParticles * numParticles,
         radius: radius,
         stiffness: 1700,
         damping: 6,
-        fixedTimeStep: 0.1/120,
+        fixedTimeStep: 1/120,
         friction: 2,
-        drag: 0.1
+        drag: 0.3,
+        boxSize: boxSize,
+        gridPosition: gridPosition,
+        gridResolution: gridResolution
     });
-    world.boxSize.copy(boxSize);
     // Add bodies
     for(var bodyId=0; bodyId<world.maxBodies; bodyId++){
         var x = -boxSize.x + 2*boxSize.x*Math.random();
@@ -94,24 +97,13 @@ function init(){
         q.setFromAxisAngle(axis, Math.random() * Math.PI * 2);
         var invMassProps = new THREE.Vector3();
         var mass = 1;
-        if(bodyId < world.maxBodies / 2){
-            calculateBoxInvInertia(invMassProps, mass, new THREE.Vector3(radius*2*4,radius*2,radius*2));
-        } else {
-            calculateBoxInvInertia(invMassProps, mass, new THREE.Vector3(radius*4,radius*4,radius*2));
-        }
+        calculateBoxInvInertia(invMassProps, mass, new THREE.Vector3(radius*2,radius*2,radius*2));
         world.addBody(x,y,z, q.x, q.y, q.z, q.w, mass, 1/invMassProps.x, 1/invMassProps.y, 1/invMassProps.z);
     }
     // Add particles to bodies
     for(var particleId=0; particleId<world.maxParticles; ++particleId){
-        var bodyId = Math.floor(particleId / 4);
+        var bodyId = particleId;//Math.floor(particleId / 4);
         var x=0, y=0; z=0;
-        if(bodyId < world.maxBodies / 2){
-            x = (particleId % 4 - 1.5) * radius * 2.01;
-        } else {
-            var i = particleId - Math.floor(particleId / 4) * 4;
-            x = ((i % 2)-0.5) * radius * 2.01;
-            y = (Math.floor(i / 2)-0.5) * radius * 2.01;
-        }
         world.addParticle(bodyId, x,y,z);
     }
     // Create an instanced mesh for debug spheres
@@ -150,6 +142,8 @@ function init(){
     checkerTexture.needsUpdate = true;
     debugMaterial.uniforms.map.value = checkerTexture;
     scene.add(debugMesh);
+
+    initDebugGrid();
 }
 
 function getShader(id){
@@ -183,6 +177,24 @@ function updateTexture(threeTexture, webglTexture){
     properties.__webglInit = true;
 }
 
+function initDebugGrid(){
+  var w = world.broadphase.resolution.x * world.radius * 2;
+  var h = world.broadphase.resolution.y * world.radius * 2;
+  var d = world.broadphase.resolution.z * world.radius * 2;
+  var boxGeom = new THREE.BoxGeometry( w, h, d );
+  var wireframeMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
+  debugGridMesh = new THREE.Object3D();
+  var mesh = new THREE.Mesh(boxGeom,wireframeMaterial);
+  debugGridMesh.add(mesh);
+  debugGridMesh.position.copy(world.broadphase.position);
+  mesh.position.set(w/2, h/2, d/2);
+  scene.add(debugGridMesh);
+}
+
+function updateDebugGrid(){
+  debugGridMesh.position.copy(world.broadphase.position);
+}
+
 function render() {
     controls.update();
 
@@ -191,19 +203,19 @@ function render() {
     updateTexture(bodyQuaternionTexture, world.bodyQuaternionTexture);
     updateTexture(bodyMassTexture, world.bodyMassTexture);
     updateTexture(particleForceTexture, world.particleForceTexture);
+    updateTexture(bodyForceTexture, world.bodyForceTexture);
+    updateTexture(gridTexture, world.gridTexture);
 
     /*
     // Render main scene
     updateDebugGrid();
-    */
-    /*
+
     meshMesh.material.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
     meshMesh.material.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
 
     meshMesh.customDepthMaterial.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
-    meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;*/
-
-    renderer.resetGLState();
+    meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
+    */
 
     renderer.setClearColor(ambientLight.color, 1.0);
 

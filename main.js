@@ -72,6 +72,7 @@ function getBodyMassProperties(out, particleId, bodyId){
   } else {
     calculateBoxInvInertia(out, mass, new THREE.Vector3(radius*4,radius*4,radius*2));
   }
+  if(bodyId===0)console.log(out)
 }
 var gridPotZ;
 var gridZTiling = new THREE.Vector2();
