@@ -206,10 +206,10 @@ function render() {
     updateTexture(bodyForceTexture, world.bodyForceTexture);
     updateTexture(gridTexture, world.gridTexture);
 
-    /*
     // Render main scene
     updateDebugGrid();
 
+    /*
     meshMesh.material.uniforms.bodyPosTex.value = bodyPosTextureRead.texture;
     meshMesh.material.uniforms.bodyQuatTex.value = bodyQuatTextureRead.texture;
 
@@ -223,6 +223,7 @@ function render() {
     debugMesh.material.uniforms.particleWorldPosTex.value = particlePositionTexture;
     debugMesh.material.uniforms.quatTex.value = bodyQuaternionTexture;
 
+    renderer.clear();
     renderer.render( scene, camera );
 
     debugMesh.material.uniforms.particleWorldPosTex.value = null;

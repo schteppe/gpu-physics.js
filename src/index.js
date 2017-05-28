@@ -183,7 +183,6 @@ Object.assign( World.prototype, {
             gridTextureResolution: 'vec2(' + gridTexture.width + ', ' + gridTexture.height + ')',
             bodyTextureResolution: 'vec2( ' + numBodies.toFixed( 1 ) + ', ' + numBodies.toFixed( 1 ) + " )",
         });
-        console.log(defines)
         return defines;
     },
     step: function(deltaTime){
@@ -191,6 +190,7 @@ Object.assign( World.prototype, {
         this.time += deltaTime;
     },
     internalStep: function(){
+        this.setClearColor();
         this.flushData();
         this.updateWorldParticlePositions();
         this.updateRelativeParticlePositions();
@@ -204,10 +204,9 @@ Object.assign( World.prototype, {
         this.updateBodyAngularVelocity();
         this.updateBodyPosition();
         this.updateBodyQuaternion();
+        this.unsetClearColor();
+        this.renderer.setRenderTarget(null);
         this.fixedTime += this.fixedTimeStep;
-    },
-    setGravity: function(x,y,z){
-        this.gravity.set(x,y,z);
     },
     addBody: function(x, y, z, qx, qy, qz, qw, mass, inertiaX, inertiaY, inertiaZ){
         // Position
@@ -316,7 +315,6 @@ Object.assign( World.prototype, {
         texturedMaterial.uniforms.texture.value = dataTexture;
         texturedMaterial.uniforms.res.value.set(renderTarget.width,renderTarget.height);
         this.fullscreenQuad.material = texturedMaterial;
-        this.setClearColor();
         this.renderer.render( this.scenes.fullscreen, this.fullscreenCamera, renderTarget, true );
         texturedMaterial.uniforms.texture.value = null;
         this.fullscreenQuad.material = null;
@@ -462,7 +460,6 @@ Object.assign( World.prototype, {
         var renderer = this.renderer;
         var buffers = renderer.state.buffers;
         var gl = renderer.context;
-        this.setClearColor();
         renderer.clearTarget( gridTexture, true, false, true );
         buffers.depth.setTest( false );
         buffers.depth.setMask( false ); // dont draw depth
@@ -628,7 +625,6 @@ Object.assign( World.prototype, {
         // Add force to bodies
         buffers.depth.setTest( false );
         buffers.stencil.setTest( false );
-        this.setClearColor();
         renderer.clearTarget(this.textures.bodyForce, true, true, true ); // clear the color only?
         this.mapParticleToBodyMesh.material = this.materials.addForceToBody;
         addForceToBodyMaterial.uniforms.relativeParticlePosTex.value = this.textures.particlePosRelative.texture;
@@ -640,8 +636,12 @@ Object.assign( World.prototype, {
     },
 
     setClearColor: function(){
-        this.renderer.setClearColor( 0x000001, 0.0 );
+        this.oldClearColor = this.renderer.getClearColor().getHex();
+        this.oldClearAlpha = this.renderer.getClearAlpha();
         this.renderer.setClearColor( 0x000000, 1.0 );
+    },
+    unsetClearColor: function(){
+        this.renderer.setClearColor( this.oldClearColor, this.oldClearAlpha );
     },
 
     updateBodyTorque: function(){
@@ -666,7 +666,6 @@ Object.assign( World.prototype, {
         }
 
         // Add torque to bodies
-        this.setClearColor();
         renderer.clearTarget(this.textures.bodyTorque, true, true, true ); // clear the color only?
         this.mapParticleToBodyMesh.material = addTorqueToBodyMaterial;
         addTorqueToBodyMaterial.uniforms.relativeParticlePosTex.value = this.textures.particlePosRelative.texture;
