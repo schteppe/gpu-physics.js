@@ -19,7 +19,6 @@ animate();
 function init(){
     renderer = new THREE.WebGLRenderer();
     renderer.setPixelRatio( 1 );
-    renderer.autoClear = false;
     renderer.setSize( window.innerWidth, window.innerHeight );
     renderer.shadowMap.enabled = true;
     var container = document.getElementById( 'container' );
@@ -74,6 +73,7 @@ function init(){
         gridPosition: gridPosition,
         gridResolution: gridResolution
     });
+
     // Add bodies
     for(var bodyId=0; bodyId<world.maxBodies; bodyId++){
         var x = -boxSize.x + 2*boxSize.x*Math.random();
@@ -93,12 +93,14 @@ function init(){
         calculateBoxInvInertia(invMassProps, mass, new THREE.Vector3(radius*2,radius*2,radius*2));
         world.addBody(x,y,z, q.x, q.y, q.z, q.w, mass, 1/invMassProps.x, 1/invMassProps.y, 1/invMassProps.z);
     }
+
     // Add particles to bodies
     for(var particleId=0; particleId<world.maxParticles; ++particleId){
         var bodyId = particleId;//Math.floor(particleId / 4);
         var x=0, y=0; z=0;
         world.addParticle(bodyId, x,y,z);
     }
+
     // Create an instanced mesh for debug spheres
     var sphereGeometry = new THREE.SphereBufferGeometry(world.radius, 8, 8);
     var instances = world.maxParticles;

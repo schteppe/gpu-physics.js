@@ -190,7 +190,7 @@ Object.assign( World.prototype, {
         this.time += deltaTime;
     },
     internalStep: function(){
-        this.setClearColor();
+        this.saveRendererState();
         this.flushData();
         this.updateWorldParticlePositions();
         this.updateRelativeParticlePositions();
@@ -204,8 +204,7 @@ Object.assign( World.prototype, {
         this.updateBodyAngularVelocity();
         this.updateBodyPosition();
         this.updateBodyQuaternion();
-        this.unsetClearColor();
-        this.renderer.setRenderTarget(null);
+        this.restoreRendererState();
         this.fixedTime += this.fixedTimeStep;
     },
     addBody: function(x, y, z, qx, qy, qz, qw, mass, inertiaX, inertiaY, inertiaZ){
@@ -635,12 +634,18 @@ Object.assign( World.prototype, {
         this.mapParticleToBodyMesh.material = null;
     },
 
-    setClearColor: function(){
+    saveRendererState: function(){
+        this.oldAutoClear = this.renderer.autoClear;
+        this.renderer.autoClear = false;
+
         this.oldClearColor = this.renderer.getClearColor().getHex();
         this.oldClearAlpha = this.renderer.getClearAlpha();
         this.renderer.setClearColor( 0x000000, 1.0 );
     },
-    unsetClearColor: function(){
+
+    restoreRendererState: function(){
+        this.renderer.autoClear = this.oldAutoClear;
+        this.renderer.setRenderTarget( null );
         this.renderer.setClearColor( this.oldClearColor, this.oldClearAlpha );
     },
 
