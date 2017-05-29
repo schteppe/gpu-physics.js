@@ -115,10 +115,7 @@ function World(parameters){
         },
         gridTexture: {
             get: function(){ return this.textures.grid.texture; }
-        },
-        defines: {
-            get: function(){ return this.getDefines(); }
-        },
+        }
     });
 
     this.initTextures(
