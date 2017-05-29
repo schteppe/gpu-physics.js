@@ -4,41 +4,43 @@ var scene, ambientLight, light, camera, controls, renderer;
 var world;
 var debugMesh, debugGridMesh;
 var controller;
-
-var ySpread = 0.1;
-var query = parseParams();
-var numParticles = query.n ? parseInt(query.n,10) : 64;
-var gridResolution = new THREE.Vector3();
-switch(numParticles){
-    case 64:
-        gridResolution.set(numParticles/2, numParticles/8, numParticles/2);
-        break;
-    case 128:
-        gridResolution.set(numParticles/2, numParticles/16, numParticles/2);
-        break;
-    case 256:
-        gridResolution.set(numParticles/2, numParticles/32, numParticles/2);
-        ySpread = 0.05;
-        break;
-    case 512:
-        gridResolution.set(numParticles/2, numParticles/64, numParticles/2);
-        ySpread = 0.01;
-        break;
-    case 1024:
-        gridResolution.set(numParticles/2, numParticles/64, numParticles/2);
-        ySpread = 0.001;
-        break;
-    default:
-        throw new Error("Invalid value of parameter 'n'.");
-}
-var numBodies = numParticles / 2;
-var radius = 1/numParticles * 0.5;
-var boxSize = new THREE.Vector3(0.25, 1, 0.25);
+var boxSize;
+var numParticles;
 
 init();
 animate();
 
 function init(){
+    var ySpread = 0.1;
+    var query = parseParams();
+    numParticles = query.n ? parseInt(query.n,10) : 64;
+    var gridResolution = new THREE.Vector3();
+    switch(numParticles){
+        case 64:
+            gridResolution.set(numParticles/2, numParticles/8, numParticles/2);
+            break;
+        case 128:
+            gridResolution.set(numParticles/2, numParticles/16, numParticles/2);
+            break;
+        case 256:
+            gridResolution.set(numParticles/2, numParticles/32, numParticles/2);
+            ySpread = 0.05;
+            break;
+        case 512:
+            gridResolution.set(numParticles/2, numParticles/64, numParticles/2);
+            ySpread = 0.01;
+            break;
+        case 1024:
+            gridResolution.set(numParticles/2, numParticles/64, numParticles/2);
+            ySpread = 0.001;
+            break;
+        default:
+            throw new Error("Invalid value of parameter 'n'.");
+    }
+    var numBodies = numParticles / 2;
+    var radius = 1/numParticles * 0.5;
+    boxSize = new THREE.Vector3(0.25, 1, 0.25);
+
     renderer = new THREE.WebGLRenderer();
     renderer.setPixelRatio( 1 );
     renderer.setSize( window.innerWidth, window.innerHeight );
@@ -119,14 +121,14 @@ function init(){
         axis.normalize();
         q.setFromAxisAngle(axis, Math.random() * Math.PI * 2);
 
-        var invMassProps = new THREE.Vector3();
+        var inertia = new THREE.Vector3();
         var mass = 1;
         if(bodyId < world.maxBodies / 2){
-            calculateBoxInvInertia(invMassProps, mass, new THREE.Vector3(radius*2*4,radius*2,radius*2));
+            calculateBoxInertia(inertia, mass, new THREE.Vector3(radius*2*4,radius*2,radius*2));
         } else {
-            calculateBoxInvInertia(invMassProps, mass, new THREE.Vector3(radius*4,radius*4,radius*2));
+            calculateBoxInertia(inertia, mass, new THREE.Vector3(radius*4,radius*4,radius*2));
         }
-        world.addBody(x,y,z, q.x, q.y, q.z, q.w, mass, 1/invMassProps.x, 1/invMassProps.y, 1/invMassProps.z);
+        world.addBody(x,y,z, q.x, q.y, q.z, q.w, mass, inertia.x, inertia.y, inertia.z);
     }
 
     // Add particles to bodies
@@ -358,12 +360,12 @@ function render() {
     debugMesh.material.uniforms.quatTex.value = null;
 }
 
-function calculateBoxInvInertia(out, mass, extents){
+function calculateBoxInertia(out, mass, extents){
   var c = 1 / 12 * mass;
   out.set(
-    1 / (c * ( 2 * extents.y * 2 * extents.y + 2 * extents.z * 2 * extents.z )),
-    1 / (c * ( 2 * extents.x * 2 * extents.x + 2 * extents.z * 2 * extents.z )),
-    1 / (c * ( 2 * extents.y * 2 * extents.y + 2 * extents.x * 2 * extents.x ))
+    c * ( 2 * extents.y * 2 * extents.y + 2 * extents.z * 2 * extents.z ),
+    c * ( 2 * extents.x * 2 * extents.x + 2 * extents.z * 2 * extents.z ),
+    c * ( 2 * extents.y * 2 * extents.y + 2 * extents.x * 2 * extents.x )
   );
 }
 
@@ -378,30 +380,32 @@ function initGUI(){
     interaction: 'none',
     sphereRadius: world.getSphereRadius(0)
   };
+
   function guiChanged() {
     world.gravity.y = controller.gravity;
-    if(controller.interaction === 'broadphase') scene.add(debugGridMesh); else scene.remove(debugGridMesh);
     if(controller.renderParticles){
-      scene.remove(meshMesh);
-      scene.remove(meshMesh2);
+      scene.remove(meshMesh, meshMesh2);
       scene.add(debugMesh);
     } else {
       scene.remove(debugMesh);
-      scene.add(meshMesh);
-      scene.add(meshMesh2);
+      scene.add(meshMesh, meshMesh2);
     }
-    if(controller.renderShadows){
-      renderer.shadowMap.autoUpdate = true;
-    } else {
+
+    // Shadow rendering
+    renderer.shadowMap.autoUpdate = controller.renderShadows;
+    if(!controller.renderShadows){
       renderer.clearTarget(light.shadow.map);
-      renderer.shadowMap.autoUpdate = false;
     }
+
+    // Interaction
     gizmo.detach(gizmo.object);
+    scene.remove(debugGridMesh);
     switch(controller.interaction){
       case 'sphere':
         gizmo.attach(interactionSphereMesh);
         break;
       case 'broadphase':
+        scene.add(debugGridMesh);
         gizmo.attach(debugGridMesh);
         break;
     }
@@ -409,6 +413,7 @@ function initGUI(){
     interactionSphereMesh.scale.set(r,r,r);
     world.setSphereRadius(0,r);
   }
+
   gui = new dat.GUI();
   gui.add( world, "stiffness", 0, 5000, 0.1 );
   gui.add( world, "damping", 0, 100, 0.1 );
