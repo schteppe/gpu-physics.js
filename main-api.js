@@ -70,6 +70,7 @@ function init(){
 
     ambientLight = new THREE.AmbientLight( 0x222222 );
     scene.add( ambientLight );
+    renderer.setClearColor(ambientLight.color, 1.0);
 
     camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.01, 100 );
     camera.position.set(0,0.6,1.4);
@@ -347,13 +348,9 @@ function render() {
     meshMesh.customDepthMaterial.uniforms.bodyPosTex.value = world.bodyPositionTexture;
     meshMesh.customDepthMaterial.uniforms.bodyQuatTex.value = world.bodyQuaternionTexture;
 
-    renderer.setClearColor(ambientLight.color, 1.0);
-
-    //groundMesh.material.map = world.particleForceTexture;
     debugMesh.material.uniforms.particleWorldPosTex.value = world.particlePositionTexture;
     debugMesh.material.uniforms.quatTex.value = world.bodyQuaternionTexture;
 
-    renderer.clear();
     renderer.render( scene, camera );
 
     debugMesh.material.uniforms.particleWorldPosTex.value = null;
