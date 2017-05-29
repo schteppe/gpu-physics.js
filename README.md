@@ -1,7 +1,9 @@
 GPU physics simulation in WebGL
 ===============================
 
-[Launch demo](https://schteppe.github.io/gpu-physics.js/)
+[Launch demo](https://schteppe.github.io/gpu-physics.js/) or [watch the video](https://www.youtube.com/watch?v=PfCZEQxTvqA).
+
+NOTE: Works only on desktops with good GPUs.
 
 ![Demo](gpu-physics.jpg)
 
