@@ -3,11 +3,36 @@
 var scene, ambientLight, light, camera, controls, renderer;
 var world;
 var debugMesh, debugGridMesh;
+var controller;
 
-var numParticles = 32;
-var numBodies = numParticles / 2;
 var ySpread = 0.1;
-var gridResolution = new THREE.Vector3(numParticles/2, numParticles/8, numParticles/2);
+
+var query = parseParams();
+var numParticles = query.n ? parseInt(query.n,10) : 128;
+var gridResolution = new THREE.Vector3();
+switch(numParticles){
+    case 64:
+        gridResolution.set(numParticles/2, numParticles/8, numParticles/2);
+        break;
+    case 128:
+        gridResolution.set(numParticles/2, numParticles/16, numParticles/2);
+        break;
+    case 256:
+        gridResolution.set(numParticles/2, numParticles/32, numParticles/2);
+        ySpread = 0.05;
+        break;
+    case 512:
+        gridResolution.set(numParticles/2, numParticles/64, numParticles/2);
+        ySpread = 0.01;
+        break;
+    case 1024:
+        gridResolution.set(numParticles/2, numParticles/64, numParticles/2);
+        ySpread = 0.001;
+        break;
+    default:
+        throw new Error("Invalid value of parameter 'n'.");
+}
+var numBodies = numParticles / 2;
 var radius = 1/numParticles * 0.5;
 var boxSize = new THREE.Vector3(0.25, 1, 0.25);
 var gridPosition = new THREE.Vector3(-0.25,0,-0.25);
@@ -235,7 +260,7 @@ function init(){
     scene.add( meshMesh2 );
 
     // interaction
-    interactionSphereMesh = new THREE.Mesh(new THREE.SphereBufferGeometry(world.getSphereRadius(0),16,16), new THREE.MeshPhongMaterial({ color: 0xffffff }));
+    interactionSphereMesh = new THREE.Mesh(new THREE.SphereBufferGeometry(1,16,16), new THREE.MeshPhongMaterial({ color: 0xffffff }));
     scene.add(interactionSphereMesh);
     gizmo = new THREE.TransformControls( camera, renderer.domElement );
     gizmo.addEventListener( 'change', function(){
@@ -252,6 +277,8 @@ function init(){
     });
     scene.add(gizmo);
     gizmo.attach(interactionSphereMesh);
+
+    initGUI();
 }
 
 function getShader(id){
@@ -275,7 +302,19 @@ function animate( time ) {
 var prevTime;
 function updatePhysics(time){
     var deltaTime = prevTime === undefined ? 0 : (time - prevTime) / 1000;
-    world.step( deltaTime );
+    if(!controller.paused){
+        if( controller.interaction === 'none') {
+            // Animate sphere
+            var timeSeconds = time / 1000;
+            var introSweepPos = Math.max(0, 1-timeSeconds);
+            var x = 0.12*Math.sin(2*1.9*timeSeconds);
+            var y = 0.05*(Math.cos(2*2*timeSeconds)+0.5) + introSweepPos;
+            var z = 0.12*Math.cos(2*2.1*timeSeconds) + introSweepPos;
+            interactionSphereMesh.position.set( x, y, z );
+            world.setSpherePosition( 0, x, y, z );
+        }
+        world.step( deltaTime );
+    }
     prevTime = time;
 }
 
@@ -329,6 +368,105 @@ function calculateBoxInvInertia(out, mass, extents){
     1 / (c * ( 2 * extents.x * 2 * extents.x + 2 * extents.z * 2 * extents.z )),
     1 / (c * ( 2 * extents.y * 2 * extents.y + 2 * extents.x * 2 * extents.x ))
   );
+}
+
+function initGUI(){
+  controller  = {
+    stiffness: world.stiffness,
+    damping: world.damping,
+    deltaTime: world.fixedTimeStep,
+    friction: world.friction,
+    drag: world.drag,
+    moreObjects: function(){ location.href = "?n=" + (numParticles*2); },
+    lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
+    paused: false,
+    renderParticles: false,
+    renderShadows: true,
+    gravity: world.gravity.y,
+    interaction: 'none',
+    sphereRadius: world.getSphereRadius(0)
+  };
+  function guiChanged() {
+    world.stiffness = controller.stiffness;
+    world.damping = controller.damping;
+    world.deltaTime = controller.deltaTime;
+    world.friction = controller.friction;
+    world.drag = controller.drag;
+    world.gravity.y = controller.gravity;
+    if(controller.interaction === 'broadphase') scene.add(debugGridMesh); else scene.remove(debugGridMesh);
+    if(controller.renderParticles){
+      scene.remove(meshMesh);
+      scene.remove(meshMesh2);
+      scene.add(debugMesh);
+    } else {
+      scene.remove(debugMesh);
+      scene.add(meshMesh);
+      scene.add(meshMesh2);
+    }
+    if(controller.renderShadows){
+      renderer.shadowMap.autoUpdate = true;
+    } else {
+      renderer.clearTarget(light.shadow.map);
+      renderer.shadowMap.autoUpdate = false;
+    }
+    gizmo.detach(gizmo.object);
+    switch(controller.interaction){
+      case 'sphere':
+        gizmo.attach(interactionSphereMesh);
+        break;
+      case 'broadphase':
+        gizmo.attach(debugGridMesh);
+        break;
+    }
+    var r = controller.sphereRadius;
+    interactionSphereMesh.scale.set(r,r,r);
+    world.setSphereRadius(0,r);
+  }
+  gui = new dat.GUI();
+  gui.add( controller, "stiffness", 0, 5000, 0.1 ).onChange( guiChanged );
+  gui.add( controller, "damping", 0, 100, 0.1 ).onChange( guiChanged );
+  gui.add( controller, "drag", 0, 1, 0.01 ).onChange( guiChanged );
+  gui.add( controller, "friction", 0, 10, 0.001 ).onChange( guiChanged );
+  gui.add( controller, "deltaTime", 0, 0.1, 0.001 ).onChange( guiChanged );
+  gui.add( controller, "paused" ).onChange( guiChanged );
+  gui.add( controller, "gravity", -1, 1, 0.1 ).onChange( guiChanged );
+  gui.add( controller, "moreObjects" );
+  gui.add( controller, "lessObjects" );
+  gui.add( controller, "renderParticles" ).onChange( guiChanged );
+  gui.add( controller, "renderShadows" ).onChange( guiChanged );
+  gui.add( controller, 'interaction', [ 'none', 'sphere', 'broadphase' ] ).onChange( guiChanged );
+  gui.add( controller, 'sphereRadius', boxSize.x/10, boxSize.x/2 ).onChange( guiChanged );
+  guiChanged();
+
+  var raycaster = new THREE.Raycaster();
+  var mouse = new THREE.Vector2();
+  document.addEventListener('click', function( event ) {
+      mouse.x = ( event.clientX / renderer.domElement.clientWidth ) * 2 - 1;
+      mouse.y = - ( event.clientY / renderer.domElement.clientHeight ) * 2 + 1;
+      raycaster.setFromCamera( mouse, camera );
+      var intersects = raycaster.intersectObjects( [interactionSphereMesh] );
+      if ( intersects.length > 0 ) {
+          controller.interaction = 'sphere';
+          gui.updateDisplay();
+          guiChanged();
+      }
+  });
+}
+
+function parseParams(){
+  return location.search
+    .substr(1)
+    .split("&")
+    .map(function(pair){
+      var a = pair.split("=");
+      var o = {};
+      o[a[0]] = a[1];
+      return o;
+    })
+    .reduce(function(a,b){
+      for(var key in b) a[key] = b[key];
+      return a;
+    });
 }
 
 })();
