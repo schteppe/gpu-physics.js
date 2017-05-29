@@ -185,7 +185,6 @@ function init(){
     var checkerTexture = new THREE.DataTexture(new Uint8Array([255,0,0,255, 255,255,255,255]), 2, 1, THREE.RGBAFormat, THREE.UnsignedByteType, THREE.UVMapping);
     checkerTexture.needsUpdate = true;
     debugMaterial.uniforms.map.value = checkerTexture;
-    //scene.add(debugMesh);
 
     initDebugGrid();
 
