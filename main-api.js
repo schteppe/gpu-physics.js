@@ -72,7 +72,7 @@ function init(){
     ambientLight = new THREE.AmbientLight( 0x222222 );
     scene.add( ambientLight );
 
-    camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.1, 1000 );
+    camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.01, 100 );
     camera.position.set(0,0.6,1.4);
 
     var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x000000 } );
@@ -104,7 +104,7 @@ function init(){
         gridResolution: gridResolution
     });
 
-    world.setSphereRadius(0, 0.1);
+    world.setSphereRadius(0, 0.05);
     world.setSpherePosition(0, 0,0,0);
 
     // Add bodies
@@ -277,6 +277,8 @@ function init(){
     });
     scene.add(gizmo);
     gizmo.attach(interactionSphereMesh);
+    interactionSphereMesh.castShadow = true;
+    interactionSphereMesh.receiveShadow = true;
 
     initGUI();
 }
@@ -305,11 +307,10 @@ function updatePhysics(time){
     if(!controller.paused){
         if( controller.interaction === 'none') {
             // Animate sphere
-            var timeSeconds = time / 1000;
-            var introSweepPos = Math.max(0, 1-timeSeconds);
-            var x = 0.12*Math.sin(2*1.9*timeSeconds);
-            var y = 0.05*(Math.cos(2*2*timeSeconds)+0.5) + introSweepPos;
-            var z = 0.12*Math.cos(2*2.1*timeSeconds) + introSweepPos;
+            var introSweepPos = Math.max(0, 1 - world.fixedTime);
+            var x = 0.12*Math.sin(2 * 1.9 * world.fixedTime);
+            var y = 0.05*(Math.cos(2 * 2 * world.fixedTime)+0.5) + introSweepPos;
+            var z = 0.12*Math.cos(2 * 2.1 * world.fixedTime) + introSweepPos;
             interactionSphereMesh.position.set( x, y, z );
             world.setSpherePosition( 0, x, y, z );
         }
