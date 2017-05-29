@@ -284,11 +284,6 @@ function init(){
     initGUI();
 }
 
-function getShader(id){
-  var code = document.getElementById( id ).textContent;
-  return sharedShaderCode.innerText + code; // TODO: dont share shader code with the lib!
-}
-
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -374,11 +369,6 @@ function calculateBoxInvInertia(out, mass, extents){
 
 function initGUI(){
   controller  = {
-    stiffness: world.stiffness,
-    damping: world.damping,
-    deltaTime: world.fixedTimeStep,
-    friction: world.friction,
-    drag: world.drag,
     moreObjects: function(){ location.href = "?n=" + (numParticles*2); },
     lessObjects: function(){ location.href = "?n=" + Math.max(2,numParticles/2); },
     paused: false,
@@ -389,11 +379,6 @@ function initGUI(){
     sphereRadius: world.getSphereRadius(0)
   };
   function guiChanged() {
-    world.stiffness = controller.stiffness;
-    world.damping = controller.damping;
-    world.deltaTime = controller.deltaTime;
-    world.friction = controller.friction;
-    world.drag = controller.drag;
     world.gravity.y = controller.gravity;
     if(controller.interaction === 'broadphase') scene.add(debugGridMesh); else scene.remove(debugGridMesh);
     if(controller.renderParticles){
@@ -425,11 +410,11 @@ function initGUI(){
     world.setSphereRadius(0,r);
   }
   gui = new dat.GUI();
-  gui.add( controller, "stiffness", 0, 5000, 0.1 ).onChange( guiChanged );
-  gui.add( controller, "damping", 0, 100, 0.1 ).onChange( guiChanged );
-  gui.add( controller, "drag", 0, 1, 0.01 ).onChange( guiChanged );
-  gui.add( controller, "friction", 0, 10, 0.001 ).onChange( guiChanged );
-  gui.add( controller, "deltaTime", 0, 0.1, 0.001 ).onChange( guiChanged );
+  gui.add( world, "stiffness", 0, 5000, 0.1 );
+  gui.add( world, "damping", 0, 100, 0.1 );
+  gui.add( world, "drag", 0, 1, 0.01 );
+  gui.add( world, "friction", 0, 10, 0.001 );
+  gui.add( world, "fixedTimeStep", 0, 0.1, 0.001 );
   gui.add( controller, "paused" ).onChange( guiChanged );
   gui.add( controller, "gravity", -1, 1, 0.1 ).onChange( guiChanged );
   gui.add( controller, "moreObjects" );
