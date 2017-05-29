@@ -6,9 +6,8 @@ var debugMesh, debugGridMesh;
 var controller;
 
 var ySpread = 0.1;
-
 var query = parseParams();
-var numParticles = query.n ? parseInt(query.n,10) : 128;
+var numParticles = query.n ? parseInt(query.n,10) : 64;
 var gridResolution = new THREE.Vector3();
 switch(numParticles){
     case 64:
@@ -35,8 +34,6 @@ switch(numParticles){
 var numBodies = numParticles / 2;
 var radius = 1/numParticles * 0.5;
 var boxSize = new THREE.Vector3(0.25, 1, 0.25);
-var gridPosition = new THREE.Vector3(-0.25,0,-0.25);
-var gravity = new THREE.Vector3(0,-1,0);
 
 init();
 animate();
@@ -89,7 +86,7 @@ function init(){
 
     // Physics
     world = new World({
-        gravity: gravity,
+        gravity: new THREE.Vector3(0,-1,0),
         renderer: renderer,
         maxBodies: numBodies * numBodies,
         maxParticles: numParticles * numParticles,
@@ -100,7 +97,7 @@ function init(){
         friction: 2,
         drag: 0.3,
         boxSize: boxSize,
-        gridPosition: gridPosition,
+        gridPosition: new THREE.Vector3(-boxSize.x,0,-boxSize.z),
         gridResolution: gridResolution
     });
 
@@ -164,8 +161,6 @@ function init(){
     debugGeometry.addAttribute( 'particleIndex', particleIndices );
     debugGeometry.boundingSphere = null;
 
-    THREE.ShaderChunk.gpgpuphysics = ""; // test
-
     // Particle spheres material / debug material - extend the phong shader in three.js
     var phongShader = THREE.ShaderLib.phong;
     var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
@@ -173,12 +168,14 @@ function init(){
     uniforms.quatTex = { value: null };
     var debugMaterial = new THREE.ShaderMaterial({
         uniforms: uniforms,
-        vertexShader: getShader('renderParticlesVertex'),
+        vertexShader: sharedShaderCode2.innerText + renderParticlesVertex.innerText,
         fragmentShader: phongShader.fragmentShader,
         lights: true,
-        defines: Object.assign({
-            USE_MAP: true
-        }, world.defines)
+        defines: {
+            USE_MAP: true,
+            bodyTextureResolution: 'vec2(' + world.bodyTextureSize.toFixed(1) + ',' + world.bodyTextureSize.toFixed(1) + ')',
+            resolution: 'vec2(' + world.particleTextureSize.toFixed(1) + ',' + world.particleTextureSize.toFixed(1) + ')'
+        }
     });
     debugMesh = new THREE.Mesh( debugGeometry, debugMaterial );
     debugMesh.frustumCulled = false;
@@ -226,13 +223,15 @@ function init(){
     var meshUniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
     meshUniforms.bodyQuatTex = { value: null };
     meshUniforms.bodyPosTex = { value: null };
-    meshVertexShader = getShader('renderBodiesVertex');
     var meshMaterial = new THREE.ShaderMaterial({
         uniforms: meshUniforms,
-        vertexShader: meshVertexShader,
+        vertexShader: sharedShaderCode2.innerText + renderBodiesVertex.innerText,
         fragmentShader: phongShader.fragmentShader,
         lights: true,
-        defines: Object.assign({},world.defines)
+        defines: {
+            bodyTextureResolution: 'vec2(' + world.bodyTextureSize.toFixed(1) + ',' + world.bodyTextureSize.toFixed(1) + ')',
+            resolution: 'vec2(' + world.particleTextureSize.toFixed(1) + ',' + world.particleTextureSize.toFixed(1) + ')'
+        }
     });
     meshMesh = new THREE.Mesh( meshGeometry, meshMaterial );
     meshMesh.frustumCulled = false; // Instances can't be culled like normal meshes
@@ -242,11 +241,13 @@ function init(){
             THREE.ShaderLib.depth.uniforms,
             meshUniforms
         ]),
-        vertexShader: getShader('renderBodiesDepth'),
+        vertexShader: sharedShaderCode2.innerText + renderBodiesDepth.innerText,
         fragmentShader: THREE.ShaderLib.depth.fragmentShader,
-        defines: Object.assign({},world.defines,{
-            DEPTH_PACKING: 3201
-        })
+        defines: {
+            DEPTH_PACKING: 3201,
+            bodyTextureResolution: 'vec2(' + world.bodyTextureSize.toFixed(1) + ',' + world.bodyTextureSize.toFixed(1) + ')',
+            resolution: 'vec2(' + world.particleTextureSize.toFixed(1) + ',' + world.particleTextureSize.toFixed(1) + ')'
+        }
     });
     meshMesh.castShadow = true;
     meshMesh.receiveShadow = true;

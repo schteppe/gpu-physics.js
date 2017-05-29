@@ -98,14 +98,20 @@ function World(parameters){
         bodyQuaternionTexture: {
             get: function(){ return this.textures.bodyQuatRead.texture; }
         },
+        bodyForceTexture: {
+            get: function(){ return this.textures.bodyForce.texture; }
+        },
+        bodyTextureSize: {
+            get: function(){ return this.textures.bodyPosRead.width; }
+        },
         particlePositionTexture: {
             get: function(){ return this.textures.particlePosWorld.texture; }
         },
         particleForceTexture: {
             get: function(){ return this.textures.particleForce.texture; }
         },
-        bodyForceTexture: {
-            get: function(){ return this.textures.bodyForce.texture; }
+        particleTextureSize: {
+            get: function(){ return this.textures.particlePosWorld.width; }
         },
         gridTexture: {
             get: function(){ return this.textures.grid.texture; }

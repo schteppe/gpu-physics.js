@@ -44,8 +44,28 @@
     <b>gpu physics</b> by <a href="http://twitter.com/schteppe">@schteppe</a> | <a href="https://www.youtube.com/watch?v=PfCZEQxTvqA">video</a> | <a href="https://github.com/schteppe/gpu-physics.js">github</a>
 </div>
 
+<script id="sharedShaderCode2" type="x-shader/x-fragment">
+// Convert a particle (or body) index to an UV-coordinate
+vec2 indexToUV(float index, vec2 res){
+    vec2 uv = vec2(mod(index/res.x,1.0), floor( index/res.y ) / res.x);
+    return uv;
+}
+// Rotate a vector by a quaternion
+vec3 vec3_applyQuat(vec3 v, vec4 q){
+    float ix =  q.w * v.x + q.y * v.z - q.z * v.y;
+    float iy =  q.w * v.y + q.z * v.x - q.x * v.z;
+    float iz =  q.w * v.z + q.x * v.y - q.y * v.x;
+    float iw = -q.x * v.x - q.y * v.y - q.z * v.z;
+
+    return vec3(
+        ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y,
+        iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z,
+        iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x
+    );
+}
+</script>
+
 <script id="sharedShaderCode" type="x-shader/x-fragment">
-precision highp float;
 int uvToIndex(vec2 uv, vec2 size) {
     ivec2 coord = ivec2(floor(uv*size+0.5));
     return coord.x + int(size.x) * coord.y;
@@ -652,7 +672,6 @@ void main() {
     Copy of THREE.ShaderLib.phong + modifications to render instances
 -->
 <script id="renderParticlesVertex" type="x-shader/x-vertex">
-#include <gpgpuphysics>
 uniform sampler2D particleWorldPosTex;
 uniform sampler2D quatTex;
 attribute float particleIndex;
