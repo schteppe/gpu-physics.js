@@ -732,17 +732,17 @@ Object.assign( World.prototype, {
         data[p + 2] = qz;
         data[p + 3] = qw;
 
-        // Mass
+        /*// Mass
         data = this.dataTextures.bodyMass.image.data;
         this.dataTextures.bodyMass.needsUpdate = true;
         data[p + 0] = 1/inertiaX;
         data[p + 1] = 1/inertiaY;
         data[p + 2] = 1/inertiaZ;
-        data[p + 3] = 1/mass;
+        data[p + 3] = 1/mass;*/
 
         return this.bodyCount++;
     },
-    addParticle: function(bodyId, x, y, z){
+    addParticle: function(bodyId, x, y, z, density){
         // Position
         var tex = this.dataTextures.particleLocalPositions;
         tex.needsUpdate = true;
@@ -754,6 +754,24 @@ Object.assign( World.prototype, {
         data[p + 1] = y;
         data[p + 2] = z;
         data[p + 3] = bodyId;
+
+        var r = this.radius;
+        density = density === undefined ? 500000 : density;
+        var mass = density * 4 * Math.PI * r * r * r / 3;
+        var inertia = 2 * mass * r * r / 5;
+
+        // Add body mass
+        tex = this.dataTextures.bodyMass;
+        w = tex.image.width;
+        h = tex.image.height;
+        var bp = idToDataIndex(bodyId, w, h);
+        data = this.dataTextures.bodyMass.image.data;
+        this.dataTextures.bodyMass.needsUpdate = true;
+        data[bp + 0] += ( inertia + mass * x * x ) * 2;
+        data[bp + 1] += ( inertia + mass * y * y ) * 2;
+        data[bp + 2] += ( inertia + mass * z * z ) * 2;
+        data[bp + 3] += mass;
+
         //TODO: update point cloud mapping particles -> bodies?
         return this.particleCount++;
     },
@@ -811,6 +829,14 @@ Object.assign( World.prototype, {
         this.flushDataToRenderTarget(this.textures.bodyQuatWrite, this.dataTextures.bodyQuaternions);
         this.flushDataToRenderTarget(this.textures.bodyQuatRead, this.dataTextures.bodyQuaternions);
         this.flushDataToRenderTarget(this.textures.particlePosLocal, this.dataTextures.particleLocalPositions);
+
+        var data = this.dataTextures.bodyMass.image.data;
+        for(var i=0; i<data.length; i+=4){
+            data[i+0] = 1 / data[i+0];
+            data[i+1] = 1 / data[i+1];
+            data[i+2] = 1 / data[i+2];
+            data[i+3] = 1 / data[i+3];
+        }
         this.flushDataToRenderTarget(this.textures.bodyMass, this.dataTextures.bodyMass);
     },
     flushDataToRenderTarget: function(renderTarget, dataTexture){
