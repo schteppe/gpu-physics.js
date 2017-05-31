@@ -13,9 +13,9 @@
 
     <style>
         body {
-            color: #ffffff;
+            color: #000000;
             font-family: "Lucida Grande", sans-serif;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: normal;
             text-align: center;
             background-color: #000000;
@@ -25,13 +25,13 @@
 
         #info {
             position: absolute;
-            top: 0px;
+            bottom: 0px;
             width: 100%;
             padding: 5px;
         }
 
         a {
-            color: #ffffff;
+            color: #000000;
             font-weight: bold;
             text-decoration: none;
         }
@@ -45,51 +45,15 @@
 </div>
 
 <script id="sharedShaderCode" type="x-shader/x-fragment">
-precision highp float;
-int uvToIndex(vec2 uv, vec2 size) {
-    ivec2 coord = ivec2(floor(uv*size+0.5));
-    return coord.x + int(size.x) * coord.y;
-}
+// Convert an index to an UV-coordinate
 vec2 indexToUV(float index, vec2 res){
     vec2 uv = vec2(mod(index/res.x,1.0), floor( index/res.y ) / res.x);
     return uv;
 }
-// Get grid position as a vec3: (xIndex, yIndex, zIndex)
-vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize){
-    return floor((particlePos - gridPos)/cellSize);
-}
-// Convert grid position to UV coord in the grid texture
-vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
-    gridPos = clamp(gridPos, vec3(0), gridRes-vec3(1)); // Keep within limits
-
-    vec2 gridUV = 2.0 * gridPos.xz / gridTextureResolution;
-
-    // move to correct z square
-    vec2 zPos = vec2( mod(gridPos.y, gridZTiling.x), floor(gridPos.y / gridZTiling.y) );
-    zPos /= gridZTiling;
-    gridUV += zPos;
-
-    // Choose sub pixel
-    float fSubIndex = float(subIndex);
-    gridUV += vec2( mod(fSubIndex,2.0), floor(fSubIndex/2.0) ) / gridTextureResolution;
-
-    return gridUV;
-}
-// Integrate a quaternion using an angular velocity and deltatime
-vec4 quat_integrate(vec4 q, vec3 w, float dt){
-    float half_dt = dt * 0.5;
-
-    q.x += half_dt * (w.x * q.w + w.y * q.z - w.z * q.y); // TODO: vectorize
-    q.y += half_dt * (w.y * q.w + w.z * q.x - w.x * q.z);
-    q.z += half_dt * (w.z * q.w + w.x * q.y - w.y * q.x);
-    q.w += half_dt * (- w.x * q.x - w.y * q.y - w.z * q.z);
-
-    return normalize(q);
-}
 
 // Rotate a vector by a quaternion
 vec3 vec3_applyQuat(vec3 v, vec4 q){
-    float ix =  q.w * v.x + q.y * v.z - q.z * v.y; // TODO: vectorize
+    float ix =  q.w * v.x + q.y * v.z - q.z * v.y;
     float iy =  q.w * v.y + q.z * v.x - q.x * v.z;
     float iz =  q.w * v.z + q.x * v.y - q.y * v.x;
     float iw = -q.x * v.x - q.y * v.y - q.z * v.z;
@@ -100,459 +64,7 @@ vec3 vec3_applyQuat(vec3 v, vec4 q){
         iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x
     );
 }
-
-mat3 transpose2( const in mat3 v ) {
-    mat3 tmp;
-    tmp[0] = vec3(v[0].x, v[1].x, v[2].x);
-    tmp[1] = vec3(v[0].y, v[1].y, v[2].y);
-    tmp[2] = vec3(v[0].z, v[1].z, v[2].z);
-    return tmp;
-}
-
-mat3 quat2mat(vec4 q){
-    float x = q.x;
-    float y = q.y;
-    float z = q.z;
-    float w = q.w;
-
-    float x2 = x + x;
-    float y2 = y + y;
-    float z2 = z + z;
-
-    float xx = x * x2;
-    float xy = x * y2;
-    float xz = x * z2;
-    float yy = y * y2;
-    float yz = y * z2;
-    float zz = z * z2;
-    float wx = w * x2;
-    float wy = w * y2;
-    float wz = w * z2;
-
-    return mat3(
-        1.0 - ( yy + zz ),  xy - wz,            xz + wy,
-        xy + wz,            1.0 - ( xx + zz ),  yz - wx,
-        xz - wy,            yz + wx,            1.0 - ( xx + yy )
-    );
-}
-
-mat3 invInertiaWorld(vec4 q, vec3 invInertia){
-    mat3 R = quat2mat(q);
-    mat3 I = mat3(
-        invInertia.x, 0, 0,
-        0, invInertia.y, 0,
-        0, 0, invInertia.z
-    );
-    return transpose2(R) * I * R;
-}
-
 </script>
-<script id="vertexShader" type="x-shader/x-vertex">
-void main() {
-    gl_Position = vec4( position, 1.0 );
-}
-</script>
-<script id="testFrag" type="x-shader/x-fragment">
-uniform sampler2D texture;
-uniform vec2 res;
-void main() {
-    vec2 uv = gl_FragCoord.xy / res;
-    gl_FragColor = texture2D( texture, uv );
-}
-</script>
-<script id="mapParticleToCellVert" type="x-shader/x-vertex">
-uniform sampler2D posTex;
-uniform vec3 cellSize;
-uniform vec3 gridPos;
-attribute float particleIndex;
-varying float vParticleIndex;
-void main() {
-    vParticleIndex = particleIndex;
-    vec2 particleUV = indexToUV(particleIndex, resolution);
-    vec3 particlePos = texture2D( posTex, particleUV ).xyz;
-    // Get particle cell position
-    vec3 cellPos = worldPosToGridPos(particlePos, gridPos, cellSize);
-    vec2 gridUV = gridPosToGridUV(cellPos, 0, gridResolution);
-    gridUV += vec2(1) / gridTextureResolution;// center to cell
-    gl_PointSize = 2.0; // Cover 4 pixels in the grid texture
-    gl_Position = vec4(2.0*(gridUV-0.5), 0, 1);
-}
-</script>
-<script id="mapParticleToCellFrag" type="x-shader/x-fragment">
-varying float vParticleIndex;
-void main() {
-    gl_FragColor = vec4( vParticleIndex+1.0, 0, 0, 1 ); // indices are stored incremented by 1
-}
-</script>
-<script id="updateForceFrag" type="x-shader/x-fragment">
-uniform vec4 params1;
-#define stiffness params1.x
-#define damping params1.y
-#define radius params1.z
-uniform vec4 params2;
-#define friction params2.y
-
-uniform vec4 params3;
-#define interactionSpherePos params3.xyz
-#define interactionSphereRadius params3.w
-
-uniform vec3 cellSize;
-uniform vec3 gridPos;
-
-uniform sampler2D posTex;
-uniform sampler2D velTex;
-uniform sampler2D bodyAngularVelTex;
-uniform sampler2D gridTex;
-
-vec3 particleForce(float STIFFNESS, float DAMPING, float DAMPING_T, float distance, vec3 xi, vec3 xj, vec3 vi, vec3 vj){
-    vec3 rij = xj - xi;
-    vec3 rij_unit = normalize(rij);
-    vec3 vij = vj - vi;
-    vec3 vij_t = vij - dot(vij, rij_unit) * rij_unit;
-    vec3 springForce = - STIFFNESS * (distance - length(rij)) * rij_unit; // TODO: Should be max 2*radius?
-    vec3 dampingForce = DAMPING * dot(vij,rij_unit) * rij_unit;
-    vec3 tangentForce = DAMPING_T * vij_t;
-    return springForce + dampingForce + tangentForce;
-}
-
-void main() {
-    vec2 uv = gl_FragCoord.xy / resolution;
-    int particleIndex = uvToIndex(uv, resolution);
-
-    // Get id and position of current
-    vec4 positionAndBodyId = texture2D(posTex, uv);
-    vec3 position = positionAndBodyId.xyz;
-    float bodyId = positionAndBodyId.w;
-    vec3 velocity = texture2D(velTex, uv).xyz;
-    vec3 particleGridPos = worldPosToGridPos(position, gridPos, cellSize);
-    vec3 bodyAngularVelocity = texture2D(bodyAngularVelTex, indexToUV(bodyId,bodyTextureResolution)).xyz;
-
-    vec3 force = vec3(0);
-    ivec3 iGridRes = ivec3(gridResolution);
-
-    // Neighbor collisions
-    for(int i=-1; i<2; i++){
-        for(int j=-1; j<2; j++){
-            for(int k=-1; k<2; k++){
-                vec3 neighborCellGridPos = particleGridPos + vec3(i,j,k);
-                ivec3 iNeighborCellGridPos = ivec3(particleGridPos) + ivec3(i,j,k);
-                for(int l=0; l<4; l++){
-                    vec2 neighborCellTexUV = gridPosToGridUV(neighborCellGridPos, l, gridResolution);
-                    neighborCellTexUV += vec2(0.5) / (2.0 * gridTextureResolution); // center to "cell pixel"
-                    int neighborIndex = int(floor(texture2D(gridTex, neighborCellTexUV).x-1.0 + 0.5)); // indices are stored incremented by 1
-                    vec2 neighborUV = indexToUV(float(neighborIndex), resolution);
-                    vec4 neighborPositionAndBodyId = texture2D(posTex, neighborUV);
-                    vec3 neighborPosition = neighborPositionAndBodyId.xyz;
-                    float neighborBodyId = neighborPositionAndBodyId.w;
-                    vec3 neighborAngularVelocity = texture2D(bodyAngularVelTex, indexToUV(neighborBodyId,bodyTextureResolution)).xyz;
-                    vec3 neighborVelocity = texture2D(velTex, neighborUV).xyz;
-                    if(neighborIndex >=0 && neighborIndex != particleIndex && iNeighborCellGridPos.x>=0 && iNeighborCellGridPos.y>=0 && iNeighborCellGridPos.z>=0 && iNeighborCellGridPos.x<iGridRes.x && iNeighborCellGridPos.y<iGridRes.y && iNeighborCellGridPos.z<iGridRes.z){ // Not self!
-                        // Apply contact force from neighbor
-                        vec3 r = position - neighborPosition;
-                        float len = length(r);
-                        if(len > 0.0 && len < radius * 2.0){
-                            force += particleForce(stiffness, damping, friction, 2.0 * radius, position, neighborPosition, velocity, neighborVelocity);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Apply force from ground / bounds
-    vec3 boxMin = vec3(-boxSize.x, 0.0, -boxSize.z);
-    vec3 boxMax = vec3(boxSize.x, boxSize.y*0.5, boxSize.z);
-    vec3 dirs[3];
-    dirs[0] = vec3(1,0,0);
-    dirs[1] = vec3(0,1,0);
-    dirs[2] = vec3(0,0,1);
-    for(int i=0; i<3; i++){
-        vec3 dir = dirs[i];
-        vec3 tangentVel = (cross(radius * dir, bodyAngularVelocity) + velocity - dot(velocity,dir) * dir);
-        float x = dot(dir,position) - radius;
-        if(x < boxMin[i]){
-            force += -( stiffness * (x - boxMin[i]) * dir + damping * dot(velocity,dir) * dir);
-            force -= friction * tangentVel;
-        }
-        x = dot(dir,position) + radius;
-        if(x > boxMax[i]){
-            dir = -dir;
-            force -= -( stiffness * (x - boxMax[i]) * dir - damping * dot(velocity,dir) * dir);
-            force -= friction * tangentVel;
-        }
-    }
-
-    // Sphere interaction
-    vec3 r = position - interactionSpherePos;
-    float len = length(r);
-    if(len > 0.0 && len < interactionSphereRadius+radius){
-        force += particleForce(stiffness, damping, friction, radius + interactionSphereRadius, position, interactionSpherePos, velocity, vec3(0));
-    }
-
-    gl_FragColor = vec4(force, 1.0);
-}
-</script>
-
-<script id="updateTorqueFrag" type="x-shader/x-fragment">
-uniform vec4 params1;
-#define stiffness params1.x
-#define damping params1.y
-#define radius params1.z
-uniform vec4 params2;
-#define friction params2.y
-
-uniform vec3 cellSize;
-uniform vec3 gridPos;
-
-uniform sampler2D posTex;
-uniform sampler2D velTex;
-uniform sampler2D bodyAngularVelTex;
-uniform sampler2D gridTex;
-
-void main() {
-    vec2 uv = gl_FragCoord.xy / resolution;
-    int particleIndex = uvToIndex(uv, resolution);
-
-    // Get id and position of current
-    vec4 positionAndBodyId = texture2D(posTex, uv);
-    vec3 position = positionAndBodyId.xyz;
-    float bodyId = positionAndBodyId.w;
-    vec3 velocity = texture2D(velTex, uv).xyz;
-    vec3 angularVelocity = texture2D(bodyAngularVelTex, indexToUV(bodyId, bodyTextureResolution)).xyz;
-    vec3 particleGridPos = worldPosToGridPos(position, gridPos, cellSize);
-    ivec3 iGridRes = ivec3(gridResolution);
-
-    vec3 torque = vec3(0);
-
-    // Neighbor friction
-    for(int i=-1; i<2; i++){
-        for(int j=-1; j<2; j++){
-            for(int k=-1; k<2; k++){
-                vec3 neighborCellGridPos = particleGridPos + vec3(i,j,k);
-                ivec3 iNeighborCellGridPos = ivec3(particleGridPos) + ivec3(i,j,k);
-                for(int l=0; l<4; l++){
-                    vec2 neighborCellTexUV = gridPosToGridUV(neighborCellGridPos, l, gridResolution);
-                    neighborCellTexUV += vec2(0.5) / (2.0 * gridTextureResolution); // center to "cell pixel"
-                    int neighborIndex = int(floor(texture2D(gridTex, neighborCellTexUV).x-1.0 + 0.5)); // indices are stored incremented by 1
-                    vec2 neighborUV = indexToUV(float(neighborIndex), resolution);
-                    vec3 neighborPosition = texture2D(posTex, neighborUV).xyz;
-                    vec3 neighborVelocity = texture2D(velTex, neighborUV).xyz;
-                    vec3 neighborAngularVelocity = texture2D(bodyAngularVelTex, neighborUV).xyz;
-                    if(neighborIndex >=0 && neighborIndex != particleIndex && iNeighborCellGridPos.x>=0 && iNeighborCellGridPos.y>=0 && iNeighborCellGridPos.z>=0 && iNeighborCellGridPos.x<iGridRes.x && iNeighborCellGridPos.y<iGridRes.y && iNeighborCellGridPos.z<iGridRes.z){ // Not self!
-                        // Apply contact torque from neighbor
-                        vec3 r = position - neighborPosition;
-                        float len = length(r);
-                        if(len > 0.0 && len < radius * 2.0){
-                            vec3 dir = normalize(r);
-                            vec3 relVel = velocity - neighborVelocity;
-                            vec3 relAngularVel = angularVelocity - neighborAngularVelocity;
-
-                            vec3 relTangentVel = (relVel - dot(relVel, dir) * dir) + cross(radius*dir, relAngularVel);
-                            torque += friction * cross(radius*dir, relTangentVel);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Friction against walls
-    vec3 boxMin = vec3(-boxSize.x, 0.0, -boxSize.z);
-    vec3 boxMax = vec3(boxSize.x, boxSize.y*0.5, boxSize.z);
-
-    vec3 dirs[3];
-    dirs[0] = vec3(1,0,0);
-    dirs[1] = vec3(0,1,0);
-    dirs[2] = vec3(0,0,1);
-    for(int i=0; i<3; i++){
-        vec3 dir = dirs[i];
-        vec3 relVel = velocity;
-        vec3 relAngularVel = angularVelocity;
-        if(dot(dir,position) - radius < boxMin[i]){
-            vec3 relTangentVel = (relVel - dot(relVel, dir) * dir) + cross(radius * dir, relAngularVel);
-            torque += friction * cross(radius * dir, relTangentVel);
-        }
-        if(dot(dir,position) + radius > boxMax[i]){
-            dir = -dir;
-            vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius * dir, relAngularVel);
-            torque += friction * cross(radius * dir, relTangentVel);
-        }
-    }
-
-    gl_FragColor = vec4(torque, 0.0);
-}
-</script>
-
-<script id="updateBodyVelocityFrag" type="x-shader/x-fragment">
-// Should be possible to use for both angular and linear velocity
-uniform sampler2D bodyQuatTex;
-uniform sampler2D bodyVelTex;
-uniform sampler2D bodyForceTex;
-uniform sampler2D bodyMassTex;
-uniform float linearAngular;
-uniform vec3 maxVelocity;
-uniform vec4 params2;
-#define deltaTime params2.x
-#define drag params2.z
-
-void main() {
-    vec2 uv = gl_FragCoord.xy / bodyTextureResolution;
-    vec4 velocity = texture2D(bodyVelTex, uv);
-    vec4 force = texture2D(bodyForceTex, uv);
-    vec4 quat = texture2D(bodyQuatTex, uv);
-    vec4 massProps = texture2D(bodyMassTex, uv);
-    vec3 newVelocity = velocity.xyz;
-    if( linearAngular < 0.5 ){
-        float invMass = massProps.w;
-        newVelocity += force.xyz * deltaTime * invMass;
-    } else {
-        vec3 invInertia = massProps.xyz;
-        newVelocity += force.xyz * deltaTime * invInertiaWorld(quat, invInertia);
-    }
-    newVelocity = clamp(newVelocity, -maxVelocity, maxVelocity);
-
-    // Apply damping
-    newVelocity *= pow(1.0 - drag, deltaTime);
-
-    gl_FragColor = vec4(newVelocity, 1.0);
-}
-</script>
-
-<script id="updateBodyPositionFrag" type="x-shader/x-fragment">
-uniform sampler2D bodyPosTex;
-uniform sampler2D bodyVelTex;
-uniform vec4 params2;
-#define deltaTime params2.x
-void main() {
-   vec2 uv = gl_FragCoord.xy / bodyTextureResolution;
-   vec3 position = texture2D(bodyPosTex, uv).xyz;
-   vec3 velocity = texture2D(bodyVelTex, uv).xyz;
-   gl_FragColor = vec4(position + velocity * deltaTime, 1.0);
-}
-</script>
-
-<script id="updateBodyQuaternionFrag" type="x-shader/x-fragment">
-uniform sampler2D bodyQuatTex;
-uniform sampler2D bodyAngularVelTex;
-uniform vec4 params2;
-#define deltaTime params2.x
-
-void main() {
-   vec2 uv = gl_FragCoord.xy / bodyTextureResolution;
-   vec4 quat = texture2D(bodyQuatTex, uv);
-   vec3 angularVel = texture2D(bodyAngularVelTex, uv).xyz;
-   gl_FragColor = quat_integrate(quat, angularVel, deltaTime);
-}
-</script>
-
-<!-- rendered additively with GL_POINTS to a body force texture -->
-<script id="addParticleForceToBodyVert" type="x-shader/x-vertex">
-uniform sampler2D relativeParticlePosTex;
-uniform sampler2D particleForceTex;
-attribute float particleIndex;
-attribute float bodyIndex; // Should this be in a texture?
-varying vec3 vBodyForce;
-void main() {
-    vec2 particleUV = indexToUV( particleIndex, resolution );
-    vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;
-    vBodyForce = particleForce;
-    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
-    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
-    gl_PointSize = 1.0;
-    gl_Position = vec4(2.0 * (bodyUV - 0.5), -particleIndex / (resolution.x*resolution.y), 1); // have to do this to make additive work?
-}
-</script>
-<script id="addParticleTorqueToBodyVert" type="x-shader/x-vertex">
-uniform sampler2D relativeParticlePosTex;
-uniform sampler2D particleForceTex;
-uniform sampler2D particleTorqueTex;
-attribute float particleIndex;
-attribute float bodyIndex;
-varying vec3 vBodyForce;
-void main() {
-    vec2 particleUV = indexToUV( particleIndex, resolution );
-    vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;
-    vec3 particleTorque = texture2D( particleTorqueTex, particleUV ).xyz;
-    vec3 relativeParticlePos = texture2D( relativeParticlePosTex, particleUV ).xyz;
-    vBodyForce = cross(relativeParticlePos, particleForce) + particleTorque;
-    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
-    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
-    gl_PointSize = 1.0;
-    gl_Position = vec4(2.0 * (bodyUV - 0.5), -particleIndex / (resolution.x*resolution.y), 1);
-}
-</script>
-<script id="addParticleForceToBodyFrag" type="x-shader/x-fragment">
-varying vec3 vBodyForce;
-uniform vec3 globalForce;
-void main() {
-   gl_FragColor = vec4(vBodyForce + globalForce, 1.0); // alpha==0 is ok?
-}
-</script>
-
-<!-- transform body-local particle positions to world, relative to the body -->
-<script id="localParticlePositionToRelativeFrag" type="x-shader/x-fragment">
-uniform sampler2D localParticlePosTex;
-uniform sampler2D bodyQuatTex;
-void main() {
-    vec2 uv = gl_FragCoord.xy / resolution;
-    float particleIndex = float(uvToIndex(uv, resolution));
-    vec4 particlePosAndBodyId = texture2D( localParticlePosTex, uv );
-    vec3 particlePos = particlePosAndBodyId.xyz;
-
-    float bodyIndex = particlePosAndBodyId.w;
-    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
-    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
-    vec4 bodyQuat = texture2D( bodyQuatTex, bodyUV );
-
-    vec3 relativeParticlePos = vec3_applyQuat(particlePos, bodyQuat);
-    gl_FragColor = vec4(relativeParticlePos, bodyIndex);
-}
-</script>
-
-<!-- transform body-local particle positions to world -->
-<script id="localParticlePositionToWorldFrag" type="x-shader/x-fragment">
-uniform sampler2D localParticlePosTex;
-uniform sampler2D bodyPosTex;
-uniform sampler2D bodyQuatTex;
-void main() {
-    vec2 uv = gl_FragCoord.xy / resolution;
-    float particleIndex = float(uvToIndex(uv, resolution));
-    vec4 particlePosAndBodyId = texture2D( localParticlePosTex, uv );
-    vec3 particlePos = particlePosAndBodyId.xyz;
-
-    float bodyIndex = particlePosAndBodyId.w;
-    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
-    bodyUV += vec2(0.5) / bodyTextureResolution; // center to pixel
-    vec3 bodyPos = texture2D( bodyPosTex, bodyUV ).xyz;
-    vec4 bodyQuat = texture2D( bodyQuatTex, bodyUV );
-
-    vec3 worldParticlePos = vec3_applyQuat(particlePos, bodyQuat) + bodyPos;
-    gl_FragColor = vec4(worldParticlePos, bodyIndex);
-}
-</script>
-
-
-<!-- transform body velocity to particle velocity -->
-<script id="bodyVelocityToParticleVelocityFrag" type="x-shader/x-fragment">
-uniform sampler2D relativeParticlePosTex;
-uniform sampler2D bodyVelTex;
-uniform sampler2D bodyAngularVelTex;
-void main() {
-    vec2 particleUV = gl_FragCoord.xy / resolution;
-    vec4 particlePosAndBodyId = texture2D( relativeParticlePosTex, particleUV );
-    vec3 relativeParticlePosition = particlePosAndBodyId.xyz;
-    float bodyIndex = particlePosAndBodyId.w;
-    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );
-    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel
-
-    vec3 bodyVelocity = texture2D( bodyVelTex, bodyUV ).xyz;
-    vec3 bodyAngularVelocity = texture2D( bodyAngularVelTex, bodyUV ).xyz;
-    vec3 particleVelocity = bodyVelocity - cross(relativeParticlePosition, bodyAngularVelocity);
-
-    gl_FragColor = vec4(particleVelocity, 1);
-}
-</script>
-
 
 <!--
     Render body instances vertex shader
@@ -615,41 +127,9 @@ void main() {
 }
 </script>
 
-<script id="renderBodiesDepth" type="x-shader/x-vertex">
-uniform sampler2D bodyPosTex;
-uniform sampler2D bodyQuatTex;
-attribute float bodyIndex;
-#include <common>
-#include <uv_pars_vertex>
-#include <displacementmap_pars_vertex>
-#include <morphtarget_pars_vertex>
-#include <skinning_pars_vertex>
-#include <logdepthbuf_pars_vertex>
-#include <clipping_planes_pars_vertex>
-void main() {
-	#include <uv_vertex>
-	#include <skinbase_vertex>
-	#include <begin_vertex>
-
-    vec2 bodyUV = indexToUV(bodyIndex,bodyTextureResolution);
-    vec3 bodyPos = texture2D(bodyPosTex,bodyUV).xyz;
-    vec4 bodyQuat = texture2D(bodyQuatTex,bodyUV).xyzw;
-    transformed.xyz = vec3_applyQuat(transformed.xyz, bodyQuat);
-    transformed.xyz += bodyPos;
-
-	#include <displacementmap_vertex>
-	#include <morphtarget_vertex>
-	#include <skinning_vertex>
-	#include <project_vertex>
-	#include <logdepthbuf_vertex>
-	#include <clipping_planes_vertex>
-}
-</script>
-
-
 <!--
     Render body instances vertex shader
-    Copy of THREE.ShaderLib.phong + modifications to render instances
+    Copy of THREE.ShaderLib.phong + modifications to render body instances with correct transform
 -->
 <script id="renderParticlesVertex" type="x-shader/x-vertex">
 uniform sampler2D particleWorldPosTex;
@@ -710,12 +190,46 @@ void main() {
 }
 </script>
 
+<!--
+    Render depth. This is for rendering shadows.
+-->
+<script id="renderBodiesDepth" type="x-shader/x-vertex">
+uniform sampler2D bodyPosTex;
+uniform sampler2D bodyQuatTex;
+attribute float bodyIndex;
+#include <common>
+#include <uv_pars_vertex>
+#include <displacementmap_pars_vertex>
+#include <morphtarget_pars_vertex>
+#include <skinning_pars_vertex>
+#include <logdepthbuf_pars_vertex>
+#include <clipping_planes_pars_vertex>
+void main() {
+	#include <uv_vertex>
+	#include <skinbase_vertex>
+	#include <begin_vertex>
+
+    vec2 bodyUV = indexToUV(bodyIndex,bodyTextureResolution);
+    vec3 bodyPos = texture2D(bodyPosTex,bodyUV).xyz;
+    vec4 bodyQuat = texture2D(bodyQuatTex,bodyUV).xyzw;
+    transformed.xyz = vec3_applyQuat(transformed.xyz, bodyQuat);
+    transformed.xyz += bodyPos;
+
+	#include <displacementmap_vertex>
+	#include <morphtarget_vertex>
+	#include <skinning_vertex>
+	#include <project_vertex>
+	#include <logdepthbuf_vertex>
+	#include <clipping_planes_vertex>
+}
+</script>
+
 <script src="lib/three.min.js"></script>
 <script src="lib/stats.min.js"></script>
 <script src="lib/dat.gui.min.js"></script>
 <script src="lib/three.orbitcontrols.js"></script>
 <script src="lib/three.transformcontrols.js"></script>
+<script src="src/index.js"></script>
 <script src="main.js"></script>
-
 </body>
 </html>
