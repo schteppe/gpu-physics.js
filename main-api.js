@@ -104,6 +104,7 @@ function init(){
         gridResolution: gridResolution
     });
 
+    // Interaction sphere
     world.setSphereRadius(0, 0.05);
     world.setSpherePosition(0, 0,0,0);
 
