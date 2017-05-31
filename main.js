@@ -54,7 +54,7 @@ function init(){
     stats.domElement.style.top = '0px';
     container.appendChild( stats.domElement );
 
-    scene = new THREE.Scene();
+    scene = window.mainScene = new THREE.Scene();
 
     light = new THREE.DirectionalLight();
     light.castShadow = true;

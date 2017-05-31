@@ -18,6 +18,27 @@ var shaders = {
         "}"
     ].join('\n'),
 
+    setBodyDataVert: [
+        "attribute float bodyIndex;",
+        "attribute vec4 data;",
+        "varying vec4 vData;",
+        "void main() {",
+        "    vec2 uv = indexToUV(bodyIndex, bodyTextureResolution);",
+        "    uv += 0.5 / bodyTextureResolution;",
+        "    if(bodyIndex < 0.0) uv *= 1000.0;",
+        "    gl_PointSize = 1.0;",
+        "    vData = data;",
+        "    gl_Position = vec4(2.0*uv-1.0, 0, 1);",
+        "}"
+    ].join('\n'),
+
+    setBodyDataFrag: [
+        "varying vec4 vData;",
+        "void main() {",
+        "    gl_FragColor = vData;",
+        "}"
+    ].join('\n'),
+
     mapParticleToCellVert:[
         "uniform sampler2D posTex;",
         "uniform vec3 cellSize;",
@@ -840,6 +861,44 @@ Object.assign( World.prototype, {
         this.renderer.render( this.scenes.fullscreen, this.fullscreenCamera, renderTarget, true );
         texturedMaterial.uniforms.texture.value = null;
         this.fullscreenQuad.material = null;
+    },
+    setBodyPositions: function(bodyIds, positions){
+        if(!this.scenes.setBodyData){
+
+            this.materials.setBodyData = new THREE.ShaderMaterial({
+                uniforms: {},
+                vertexShader: getShader( 'setBodyDataVert' ),
+                fragmentShader: getShader( 'setBodyDataFrag' ),
+                defines: this.getDefines()
+            });
+
+            var onePointPerBodyGeometry = this.onePointPerBodyGeometry = new THREE.BufferGeometry();
+            var maxBodies = this.maxBodies;
+            var bodyIndices = new Float32Array( maxBodies * maxBodies );
+            var pixelData = new Float32Array( 4 * maxBodies * maxBodies );
+            onePointPerBodyGeometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array(maxBodies * maxBodies * 3), 3 ) );
+            onePointPerBodyGeometry.addAttribute( 'data', new THREE.BufferAttribute( pixelData, 4 ) );
+            onePointPerBodyGeometry.addAttribute( 'bodyIndex', new THREE.BufferAttribute( bodyIndices, 1 ) );
+            this.setBodyDataMesh = new THREE.Points( onePointPerBodyGeometry, this.materials.setBodyData );
+            this.scenes.setBodyData = new THREE.Scene();
+            this.scenes.setBodyData.add( this.setBodyDataMesh );
+        }
+
+        this.onePointPerBodyGeometry.attributes.bodyIndex.needsUpdate = true;
+        this.onePointPerBodyGeometry.attributes.data.needsUpdate = true;
+        for(var i=0; i<bodyIds.length; i++){
+            this.onePointPerBodyGeometry.attributes.bodyIndex.array[i] = bodyIds[i];
+            this.onePointPerBodyGeometry.attributes.data.array[4*i+0] = positions[i].x;
+            this.onePointPerBodyGeometry.attributes.data.array[4*i+1] = positions[i].y;
+            this.onePointPerBodyGeometry.attributes.data.array[4*i+2] = positions[i].z;
+            this.onePointPerBodyGeometry.attributes.data.array[4*i+3] = 1;
+        }
+        for(var i=bodyIds.length; i<world.maxBodies; i++){
+            this.onePointPerBodyGeometry.attributes.bodyIndex.array[i] = -1;
+        }
+        this.onePointPerBodyGeometry.setDrawRange( 0, bodyIds.length );
+        this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosWrite, false );
+        this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosRead, false );
     },
     updateWorldParticlePositions: function(){
         var mat = this.materials.localParticlePositionToWorld;
