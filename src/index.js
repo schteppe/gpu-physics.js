@@ -277,7 +277,8 @@ var shaders = {
         "#define deltaTime params2.x",
         "void main() {",
         "vec2 uv = gl_FragCoord.xy / bodyTextureResolution;",
-        "vec3 position = texture2D(bodyPosTex, uv).xyz;",
+        "vec4 posTexData = texture2D(bodyPosTex, uv);",
+        "vec3 position = posTexData.xyz;",
         "vec3 velocity = texture2D(bodyVelTex, uv).xyz;",
         "gl_FragColor = vec4(position + velocity * deltaTime, 1.0);",
         "}",
@@ -555,6 +556,7 @@ function World(parameters){
     this.renderer = parameters.renderer;
     this.bodyCount = 0;
     this.particleCount = 0;
+    this.massDirty = true;
     Object.defineProperties( this, {
         // Size of a cell side, and diameter of a particle
         radius: {
@@ -765,6 +767,19 @@ Object.assign( World.prototype, {
         var p = idToDataIndex(particleId, w, h);
         return this.dataTextures.particleLocalPositions.image.data[p+3];
     },
+    setBodyMass: function(bodyId, mass, inertiaX, inertiaY, inertiaZ){
+        var tex = this.dataTextures.bodyMass;
+        var data = tex.image.data;
+        var w = tex.image.width;
+        var h = tex.image.height;
+        var p = idToDataIndex(bodyId, w, h);
+        data[p + 0] = inertiaX > 0 ? 1/inertiaX : 0;
+        data[p + 1] = inertiaY > 0 ? 1/inertiaY : 0;
+        data[p + 2] = inertiaZ > 0 ? 1/inertiaZ : 0;
+        data[p + 3] = mass > 0 ? 1/mass : 0;
+        tex.needsUpdate = true;
+        this.massDirty = true;
+    },
     initTextures: function(maxBodies, maxParticles){
         var type = ( /(iPad|iPhone|iPod)/g.test( navigator.userAgent ) ) ? THREE.HalfFloatType : THREE.FloatType;
         var bodyTextureSize = powerOfTwoCeil(maxBodies);
@@ -805,13 +820,17 @@ Object.assign( World.prototype, {
     },
     // Render data to rendertargets
     flushData: function(){
+        if(this.massDirty){
+            this.flushDataToRenderTarget(this.textures.bodyMass, this.dataTextures.bodyMass);
+            this.massDirty = false;
+        }
+
         if(this.time > 0) return; // Only want to flush initial data
-        this.flushDataToRenderTarget(this.textures.bodyPosWrite, this.dataTextures.bodyPositions);
+        this.flushDataToRenderTarget(this.textures.bodyPosWrite, this.dataTextures.bodyPositions); // Need to initialize both read+write in case someone is interpolating..
         this.flushDataToRenderTarget(this.textures.bodyPosRead, this.dataTextures.bodyPositions);
         this.flushDataToRenderTarget(this.textures.bodyQuatWrite, this.dataTextures.bodyQuaternions);
         this.flushDataToRenderTarget(this.textures.bodyQuatRead, this.dataTextures.bodyQuaternions);
         this.flushDataToRenderTarget(this.textures.particlePosLocal, this.dataTextures.particleLocalPositions);
-        this.flushDataToRenderTarget(this.textures.bodyMass, this.dataTextures.bodyMass);
     },
     flushDataToRenderTarget: function(renderTarget, dataTexture){
         var texturedMaterial = this.materials.textured;

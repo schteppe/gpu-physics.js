@@ -88,7 +88,7 @@ function init(){
     controls.maxPolarAngle = Math.PI * 0.5;
 
     // Physics
-    world = new World({
+    world = window.world = new World({
         gravity: new THREE.Vector3(0,-1,0),
         renderer: renderer,
         maxBodies: numBodies * numBodies,
