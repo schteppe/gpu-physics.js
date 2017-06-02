@@ -863,6 +863,7 @@ Object.assign( World.prototype, {
         this.fullscreenQuad.material = null;
     },
     setBodyPositions: function(bodyIds, positions){
+        this.saveRendererState();
         if(!this.scenes.setBodyData){
 
             this.materials.setBodyData = new THREE.ShaderMaterial({
@@ -899,6 +900,7 @@ Object.assign( World.prototype, {
         this.onePointPerBodyGeometry.setDrawRange( 0, bodyIds.length );
         this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosWrite, false );
         this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosRead, false );
+        this.restoreRendererState();
     },
     updateWorldParticlePositions: function(){
         var mat = this.materials.localParticlePositionToWorld;
