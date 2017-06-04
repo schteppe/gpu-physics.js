@@ -614,33 +614,15 @@ function World(parameters){
                 return this.textures.bodyPosRead.width * this.textures.bodyPosRead.height;
             }
         },
-        bodyPositionTexture: {
-            get: function(){ return this.textures.bodyPosRead.texture; }
-        },
-        bodyMassTexture: {
-            get: function(){ return this.textures.bodyMass.texture; }
-        },
-        bodyQuaternionTexture: {
-            get: function(){ return this.textures.bodyQuatRead.texture; }
-        },
-        bodyForceTexture: {
-            get: function(){ return this.textures.bodyForce.texture; }
-        },
-        bodyTextureSize: {
-            get: function(){ return this.textures.bodyPosRead.width; }
-        },
-        particlePositionTexture: {
-            get: function(){ return this.textures.particlePosWorld.texture; }
-        },
-        particleForceTexture: {
-            get: function(){ return this.textures.particleForce.texture; }
-        },
-        particleTextureSize: {
-            get: function(){ return this.textures.particlePosWorld.width; }
-        },
-        gridTexture: {
-            get: function(){ return this.textures.grid.texture; }
-        }
+        bodyPositionTexture: {      get: function(){ return this.textures.bodyPosRead.texture; } },
+        bodyMassTexture: {          get: function(){ return this.textures.bodyMass.texture; } },
+        bodyQuaternionTexture: {    get: function(){ return this.textures.bodyQuatRead.texture; } },
+        bodyForceTexture: {         get: function(){ return this.textures.bodyForce.texture; } },
+        bodyTextureSize: {          get: function(){ return this.textures.bodyPosRead.width; } },
+        particlePositionTexture: {  get: function(){ return this.textures.particlePosWorld.texture; } },
+        particleForceTexture: {     get: function(){ return this.textures.particleForce.texture; } },
+        particleTextureSize: {      get: function(){ return this.textures.particlePosWorld.width; } },
+        gridTexture: {              get: function(){ return this.textures.grid.texture; } }
     });
 
     this.initTextures(
