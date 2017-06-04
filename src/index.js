@@ -263,6 +263,7 @@ var shaders = {
         "uniform sampler2D bodyForceTex;",
         "uniform sampler2D bodyMassTex;",
         "uniform float linearAngular;",
+        "uniform vec3 gravity;",
         "uniform vec3 maxVelocity;",
         "uniform vec4 params2;",
         "#define deltaTime params2.x",
@@ -277,7 +278,7 @@ var shaders = {
         "    vec3 newVelocity = velocity.xyz;",
         "    if( linearAngular < 0.5 ){",
         "        float invMass = massProps.w;",
-        "        newVelocity += force.xyz * deltaTime * invMass;",
+        "        newVelocity += (force.xyz + gravity) * deltaTime * invMass;",
         "    } else {",
         "        vec3 invInertia = massProps.xyz;",
         "        newVelocity += force.xyz * deltaTime * invInertiaWorld(quat, invInertia);",
@@ -358,9 +359,8 @@ var shaders = {
 
     addParticleForceToBodyFrag:[
         "varying vec3 vBodyForce;",
-        "uniform vec3 globalForce;",
         "void main() {",
-        "   gl_FragColor = vec4(vBodyForce + globalForce, 1.0); // alpha==0 is ok?",
+        "   gl_FragColor = vec4(vBodyForce, 1.0);",
         "}"
     ].join('\n'),
 
@@ -1144,7 +1144,6 @@ Object.assign( World.prototype, {
                     velTex:  { value: null },
                     bodyAngularVelTex:  { value: null },
                     gridTex:  { value: this.textures.grid.texture },
-                    gravity: { value: this.gravity },
                     params1: { value: this.params1 },
                     params2: { value: this.params2 },
                     params3: { value: this.params3 },
@@ -1222,8 +1221,7 @@ Object.assign( World.prototype, {
             addForceToBodyMaterial = this.materials.addForceToBody = new THREE.ShaderMaterial({
                 uniforms: {
                     relativeParticlePosTex:  { value: null },
-                    particleForceTex:  { value: null },
-                    globalForce:  { value: this.gravity },
+                    particleForceTex:  { value: null }
                 },
                 vertexShader: getShader( 'addParticleForceToBodyVert' ),
                 fragmentShader: getShader( 'addParticleForceToBodyFrag' ),
@@ -1288,8 +1286,7 @@ Object.assign( World.prototype, {
                 uniforms: {
                     relativeParticlePosTex: { value: null },
                     particleForceTex: { value: null },
-                    particleTorqueTex: { value: null },
-                    globalForce:  { value: new THREE.Vector3(0,0,0) },
+                    particleTorqueTex: { value: null }
                 },
                 vertexShader: getShader( 'addParticleTorqueToBodyVert' ),
                 fragmentShader: getShader( 'addParticleForceToBodyFrag' ), // reuse
@@ -1324,6 +1321,7 @@ Object.assign( World.prototype, {
                     bodyVelTex:  { value: null },
                     bodyMassTex:  { value: null },
                     params2: { value: this.params2 },
+                    gravity:  { value: this.gravity },
                     maxVelocity: { value: new THREE.Vector3(100,100,100) }
                 },
                 vertexShader: getShader( 'vertexShader' ),
