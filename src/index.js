@@ -935,6 +935,16 @@ Object.assign( World.prototype, {
             );
         }, this.textures.bodyVelRead, this.textures.bodyVelWrite);
     },
+    setBodyQuaternions: function(bodyIds, quaternions){
+        this.setRenderTargetSubData(bodyIds, function(out, i){
+            out.set(
+                quaternions[i].x,
+                quaternions[i].y,
+                quaternions[i].z,
+                quaternions[i].w
+            );
+        }, this.textures.bodyQuatRead, this.textures.bodyQuatWrite);
+    },
     updateWorldParticlePositions: function(){
         var mat = this.materials.localParticlePositionToWorld;
         if(!mat){
