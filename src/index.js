@@ -821,12 +821,12 @@ Object.assign( World.prototype, {
             bodyMass: createRenderTarget(bodyTextureSize, bodyTextureSize, type),           // (invInertia.xyz, invMass)
 
             // Particle textures
-            particlePosLocal: createRenderTarget(particleTextureSize, particleTextureSize, type),
-            particlePosRelative: createRenderTarget(particleTextureSize, particleTextureSize, type),
-            particlePosWorld: createRenderTarget(particleTextureSize, particleTextureSize, type),
-            particleVel: createRenderTarget(particleTextureSize, particleTextureSize, type),
-            particleForce: createRenderTarget(particleTextureSize, particleTextureSize, type),
-            particleTorque: createRenderTarget(particleTextureSize, particleTextureSize, type),
+            particlePosLocal: createRenderTarget(particleTextureSize, particleTextureSize, type),   // (x,y,z,bodyId)
+            particlePosRelative: createRenderTarget(particleTextureSize, particleTextureSize, type),// (x,y,z,bodyId)
+            particlePosWorld: createRenderTarget(particleTextureSize, particleTextureSize, type),   // (x,y,z,bodyId)
+            particleVel: createRenderTarget(particleTextureSize, particleTextureSize, type),        // (x,y,z,1)
+            particleForce: createRenderTarget(particleTextureSize, particleTextureSize, type),      // (x,y,z,1)
+            particleTorque: createRenderTarget(particleTextureSize, particleTextureSize, type),     // (x,y,z,1)
 
             // Broadphase
             grid: createRenderTarget(2*this.broadphase.resolution.x*this.broadphase.gridZTiling.x, 2*this.broadphase.resolution.z*this.broadphase.gridZTiling.y, type),
