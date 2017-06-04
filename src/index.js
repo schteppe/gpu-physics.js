@@ -864,6 +864,7 @@ Object.assign( World.prototype, {
     },
     setBodyPositions: function(bodyIds, positions){
         this.saveRendererState();
+        var numVertices = 128; // Good number?
         if(!this.scenes.setBodyData){
 
             this.materials.setBodyData = new THREE.ShaderMaterial({
@@ -875,9 +876,9 @@ Object.assign( World.prototype, {
 
             var onePointPerBodyGeometry = this.onePointPerBodyGeometry = new THREE.BufferGeometry();
             var maxBodies = this.maxBodies;
-            var bodyIndices = new Float32Array( maxBodies * maxBodies ); // TODO: this is a reeeally large mesh. Should render several times instead.
-            var pixelData = new Float32Array( 4 * maxBodies * maxBodies );
-            onePointPerBodyGeometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array(maxBodies * maxBodies * 3), 3 ) );
+            var bodyIndices = new Float32Array( numVertices ); // TODO: this is a reeeally large mesh. Should render several times instead.
+            var pixelData = new Float32Array( 4 * numVertices );
+            onePointPerBodyGeometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array( numVertices * 3 ), 3 ) );
             onePointPerBodyGeometry.addAttribute( 'data', new THREE.BufferAttribute( pixelData, 4 ) );
             onePointPerBodyGeometry.addAttribute( 'bodyIndex', new THREE.BufferAttribute( bodyIndices, 1 ) );
             this.setBodyDataMesh = new THREE.Points( onePointPerBodyGeometry, this.materials.setBodyData );
@@ -885,22 +886,29 @@ Object.assign( World.prototype, {
             this.scenes.setBodyData.add( this.setBodyDataMesh );
         }
 
-        this.onePointPerBodyGeometry.attributes.bodyIndex.needsUpdate = true;
-        this.onePointPerBodyGeometry.attributes.bodyIndex.updateRange.count = bodyIds.length;
+        for(var startIndex = 0; startIndex < bodyIds.length; startIndex += numVertices){
+            var count = Math.min(numVertices, bodyIds.length - startIndex);
+            var subIds = bodyIds.slice(startIndex, startIndex+count);
+            var subPositions = positions.slice(startIndex, startIndex+count);
 
-        this.onePointPerBodyGeometry.attributes.data.needsUpdate = true;
-        this.onePointPerBodyGeometry.attributes.data.updateRange.count = bodyIds.length;
+            console.log(startIndex, count);
+            this.onePointPerBodyGeometry.attributes.bodyIndex.needsUpdate = true;
+            this.onePointPerBodyGeometry.attributes.bodyIndex.updateRange.count = count;
 
-        for(var i=0; i<bodyIds.length; i++){
-            this.onePointPerBodyGeometry.attributes.bodyIndex.array[i] = bodyIds[i];
-            this.onePointPerBodyGeometry.attributes.data.array[4*i+0] = positions[i].x;
-            this.onePointPerBodyGeometry.attributes.data.array[4*i+1] = positions[i].y;
-            this.onePointPerBodyGeometry.attributes.data.array[4*i+2] = positions[i].z;
-            this.onePointPerBodyGeometry.attributes.data.array[4*i+3] = 1;
+            this.onePointPerBodyGeometry.attributes.data.needsUpdate = true;
+            this.onePointPerBodyGeometry.attributes.data.updateRange.count = count;
+
+            for(var i=0; i<count; i++){
+                this.onePointPerBodyGeometry.attributes.bodyIndex.array[i] = subIds[i];
+                this.onePointPerBodyGeometry.attributes.data.array[4*i+0] = subPositions[i].x;
+                this.onePointPerBodyGeometry.attributes.data.array[4*i+1] = subPositions[i].y;
+                this.onePointPerBodyGeometry.attributes.data.array[4*i+2] = subPositions[i].z;
+                this.onePointPerBodyGeometry.attributes.data.array[4*i+3] = 1;
+            }
+            this.onePointPerBodyGeometry.setDrawRange( 0, count );
+            this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosWrite, false );
+            this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosRead, false );
         }
-        this.onePointPerBodyGeometry.setDrawRange( 0, bodyIds.length );
-        this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosWrite, false );
-        this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosRead, false );
         this.restoreRendererState();
     },
     updateWorldParticlePositions: function(){
