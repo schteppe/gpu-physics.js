@@ -862,7 +862,7 @@ Object.assign( World.prototype, {
         texturedMaterial.uniforms.texture.value = null;
         this.fullscreenQuad.material = null;
     },
-    setBodyPositions: function(bodyIds, positions){
+    setRenderTargetSubData: function(ids, getDataCallback){
         this.saveRendererState();
         var numVertices = 128; // Good number?
         if(!this.scenes.setBodyData){
@@ -878,7 +878,7 @@ Object.assign( World.prototype, {
 
             var onePointPerBodyGeometry = this.onePointPerBodyGeometry = new THREE.BufferGeometry();
             var maxBodies = this.maxBodies;
-            var bodyIndices = new Float32Array( numVertices ); // TODO: this is a reeeally large mesh. Should render several times instead.
+            var bodyIndices = new Float32Array( numVertices );
             var pixelData = new Float32Array( 4 * numVertices );
             onePointPerBodyGeometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array( numVertices * 3 ), 3 ) );
             onePointPerBodyGeometry.addAttribute( 'data', new THREE.BufferAttribute( pixelData, 4 ) );
@@ -889,12 +889,10 @@ Object.assign( World.prototype, {
         }
 
         this.materials.setBodyData.uniforms.res.value.set(this.bodyTextureSize, this.bodyTextureSize);
-        for(var startIndex = 0; startIndex < bodyIds.length; startIndex += numVertices){
-            var count = Math.min(numVertices, bodyIds.length - startIndex);
-            var subIds = bodyIds.slice(startIndex, startIndex+count);
-            var subPositions = positions.slice(startIndex, startIndex+count);
+        var data = new THREE.Vector4();
+        for(var startIndex = 0; startIndex < ids.length; startIndex += numVertices){
+            var count = Math.min(numVertices, ids.length - startIndex);
 
-            console.log(startIndex, count);
             this.onePointPerBodyGeometry.attributes.bodyIndex.needsUpdate = true;
             this.onePointPerBodyGeometry.attributes.bodyIndex.updateRange.count = count;
 
@@ -902,17 +900,28 @@ Object.assign( World.prototype, {
             this.onePointPerBodyGeometry.attributes.data.updateRange.count = count;
 
             for(var i=0; i<count; i++){
-                this.onePointPerBodyGeometry.attributes.bodyIndex.array[i] = subIds[i];
-                this.onePointPerBodyGeometry.attributes.data.array[4*i+0] = subPositions[i].x;
-                this.onePointPerBodyGeometry.attributes.data.array[4*i+1] = subPositions[i].y;
-                this.onePointPerBodyGeometry.attributes.data.array[4*i+2] = subPositions[i].z;
-                this.onePointPerBodyGeometry.attributes.data.array[4*i+3] = 1;
+                getDataCallback(data, startIndex + i);
+                this.onePointPerBodyGeometry.attributes.bodyIndex.array[i] = ids[startIndex + i];
+                this.onePointPerBodyGeometry.attributes.data.array[4*i+0] = data.x;
+                this.onePointPerBodyGeometry.attributes.data.array[4*i+1] = data.y;
+                this.onePointPerBodyGeometry.attributes.data.array[4*i+2] = data.z;
+                this.onePointPerBodyGeometry.attributes.data.array[4*i+3] = data.w;
             }
             this.onePointPerBodyGeometry.setDrawRange( 0, count );
             this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosWrite, false );
             this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosRead, false );
         }
         this.restoreRendererState();
+    },
+    setBodyPositions: function(bodyIds, positions){
+        this.setRenderTargetSubData(bodyIds, function(out, i){
+            out.set(
+                positions[i].x,
+                positions[i].y,
+                positions[i].z,
+                1
+            );
+        });
     },
     updateWorldParticlePositions: function(){
         var mat = this.materials.localParticlePositionToWorld;
