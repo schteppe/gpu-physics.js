@@ -925,6 +925,16 @@ Object.assign( World.prototype, {
             );
         }, this.textures.bodyPosRead, this.textures.bodyPosWrite);
     },
+    setBodyQuaternions: function(bodyIds, quaternions){
+        this.setRenderTargetSubData(bodyIds, function(out, i){
+            out.set(
+                quaternions[i].x,
+                quaternions[i].y,
+                quaternions[i].z,
+                quaternions[i].w
+            );
+        }, this.textures.bodyQuatRead, this.textures.bodyQuatWrite);
+    },
     setBodyVelocities: function(bodyIds, velocities){
         this.setRenderTargetSubData(bodyIds, function(out, i){
             out.set(
@@ -935,15 +945,25 @@ Object.assign( World.prototype, {
             );
         }, this.textures.bodyVelRead, this.textures.bodyVelWrite);
     },
-    setBodyQuaternions: function(bodyIds, quaternions){
+    setBodyAngularVelocities: function(bodyIds, angularVelocities){
         this.setRenderTargetSubData(bodyIds, function(out, i){
             out.set(
-                quaternions[i].x,
-                quaternions[i].y,
-                quaternions[i].z,
-                quaternions[i].w
+                angularVelocities[i].x,
+                angularVelocities[i].y,
+                angularVelocities[i].z,
+                1
             );
-        }, this.textures.bodyQuatRead, this.textures.bodyQuatWrite);
+        }, this.textures.bodyAngularVelRead, this.textures.bodyAngularVelWrite);
+    },
+    setBodyMassProperties: function(bodyIds, masses, inertias){
+        this.setRenderTargetSubData(bodyIds, function(out, i){
+            out.set(
+                inertias[i].x > 0 ? 1 / inertias[i].x : 0,
+                inertias[i].y > 0 ? 1 / inertias[i].y : 0,
+                inertias[i].z > 0 ? 1 / inertias[i].z : 0,
+                masses[i] > 0 ? 1 / masses[i] : 0
+            );
+        }, this.textures.bodyMass);
     },
     updateWorldParticlePositions: function(){
         var mat = this.materials.localParticlePositionToWorld;
