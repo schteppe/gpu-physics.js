@@ -875,7 +875,7 @@ Object.assign( World.prototype, {
 
             var onePointPerBodyGeometry = this.onePointPerBodyGeometry = new THREE.BufferGeometry();
             var maxBodies = this.maxBodies;
-            var bodyIndices = new Float32Array( maxBodies * maxBodies );
+            var bodyIndices = new Float32Array( maxBodies * maxBodies ); // TODO: this is a reeeally large mesh. Should render several times instead.
             var pixelData = new Float32Array( 4 * maxBodies * maxBodies );
             onePointPerBodyGeometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array(maxBodies * maxBodies * 3), 3 ) );
             onePointPerBodyGeometry.addAttribute( 'data', new THREE.BufferAttribute( pixelData, 4 ) );
@@ -886,16 +886,17 @@ Object.assign( World.prototype, {
         }
 
         this.onePointPerBodyGeometry.attributes.bodyIndex.needsUpdate = true;
+        this.onePointPerBodyGeometry.attributes.bodyIndex.updateRange.count = bodyIds.length;
+
         this.onePointPerBodyGeometry.attributes.data.needsUpdate = true;
+        this.onePointPerBodyGeometry.attributes.data.updateRange.count = bodyIds.length;
+
         for(var i=0; i<bodyIds.length; i++){
             this.onePointPerBodyGeometry.attributes.bodyIndex.array[i] = bodyIds[i];
             this.onePointPerBodyGeometry.attributes.data.array[4*i+0] = positions[i].x;
             this.onePointPerBodyGeometry.attributes.data.array[4*i+1] = positions[i].y;
             this.onePointPerBodyGeometry.attributes.data.array[4*i+2] = positions[i].z;
             this.onePointPerBodyGeometry.attributes.data.array[4*i+3] = 1;
-        }
-        for(var i=bodyIds.length; i<world.maxBodies; i++){
-            this.onePointPerBodyGeometry.attributes.bodyIndex.array[i] = -1;
         }
         this.onePointPerBodyGeometry.setDrawRange( 0, bodyIds.length );
         this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosWrite, false );
