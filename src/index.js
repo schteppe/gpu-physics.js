@@ -808,17 +808,17 @@ Object.assign( World.prototype, {
 
         Object.assign(this.textures, {
             // Body textures
-            bodyPosRead: createRenderTarget(bodyTextureSize, bodyTextureSize, type),
+            bodyPosRead: createRenderTarget(bodyTextureSize, bodyTextureSize, type),        // (x,y,z,1)
             bodyPosWrite: createRenderTarget(bodyTextureSize, bodyTextureSize, type),
-            bodyQuatRead: createRenderTarget(bodyTextureSize, bodyTextureSize, type),
+            bodyQuatRead: createRenderTarget(bodyTextureSize, bodyTextureSize, type),       // (x,y,z,w)
             bodyQuatWrite: createRenderTarget(bodyTextureSize, bodyTextureSize, type),
-            bodyVelRead: createRenderTarget(bodyTextureSize, bodyTextureSize, type),
+            bodyVelRead: createRenderTarget(bodyTextureSize, bodyTextureSize, type),        // (vx,vy,vz,1)
             bodyVelWrite: createRenderTarget(bodyTextureSize, bodyTextureSize, type),
-            bodyAngularVelRead: createRenderTarget(bodyTextureSize, bodyTextureSize, type),
+            bodyAngularVelRead: createRenderTarget(bodyTextureSize, bodyTextureSize, type), // (wx,wy,wz,1)
             bodyAngularVelWrite: createRenderTarget(bodyTextureSize, bodyTextureSize, type),
-            bodyForce: createRenderTarget(bodyTextureSize, bodyTextureSize, type),
-            bodyTorque: createRenderTarget(bodyTextureSize, bodyTextureSize, type),
-            bodyMass: createRenderTarget(bodyTextureSize, bodyTextureSize, type), // (invInertia.xyz, invMass)
+            bodyForce: createRenderTarget(bodyTextureSize, bodyTextureSize, type),          // (fx,fy,fz,1)
+            bodyTorque: createRenderTarget(bodyTextureSize, bodyTextureSize, type),         // (tx,ty,tz,1)
+            bodyMass: createRenderTarget(bodyTextureSize, bodyTextureSize, type),           // (invInertia.xyz, invMass)
 
             // Particle textures
             particlePosLocal: createRenderTarget(particleTextureSize, particleTextureSize, type),
@@ -862,7 +862,7 @@ Object.assign( World.prototype, {
         texturedMaterial.uniforms.texture.value = null;
         this.fullscreenQuad.material = null;
     },
-    setRenderTargetSubData: function(ids, getDataCallback){
+    setRenderTargetSubData: function(ids, getDataCallback, renderTarget, renderTarget2){
         this.saveRendererState();
         var numVertices = 128; // Good number?
         if(!this.scenes.setBodyData){
@@ -908,8 +908,10 @@ Object.assign( World.prototype, {
                 this.onePointPerBodyGeometry.attributes.data.array[4*i+3] = data.w;
             }
             this.onePointPerBodyGeometry.setDrawRange( 0, count );
-            this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosWrite, false );
-            this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, this.textures.bodyPosRead, false );
+            this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, renderTarget, false );
+            if(renderTarget2){
+                this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, renderTarget2, false );
+            }
         }
         this.restoreRendererState();
     },
@@ -921,7 +923,17 @@ Object.assign( World.prototype, {
                 positions[i].z,
                 1
             );
-        });
+        }, this.textures.bodyPosRead, this.textures.bodyPosWrite);
+    },
+    setBodyVelocities: function(bodyIds, velocities){
+        this.setRenderTargetSubData(bodyIds, function(out, i){
+            out.set(
+                velocities[i].x,
+                velocities[i].y,
+                velocities[i].z,
+                1
+            );
+        }, this.textures.bodyVelRead, this.textures.bodyVelWrite);
     },
     updateWorldParticlePositions: function(){
         var mat = this.materials.localParticlePositionToWorld;
