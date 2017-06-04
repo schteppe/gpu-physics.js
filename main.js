@@ -89,7 +89,7 @@ function init(){
 
     // Physics
     world = window.world = new World({
-        gravity: new THREE.Vector3(0,-1,0),
+        gravity: new THREE.Vector3(0,-2,0),
         renderer: renderer,
         maxBodies: numBodies * numBodies,
         maxParticles: numParticles * numParticles,
@@ -300,7 +300,7 @@ function animate( time ) {
     stats.update();
 }
 
-var prevTime;
+var prevTime, prevSpawnedBody=0;
 function updatePhysics(time){
     var deltaTime = prevTime === undefined ? 0 : (time - prevTime) / 1000;
     if(!controller.paused){
@@ -313,6 +313,13 @@ function updatePhysics(time){
             interactionSphereMesh.position.set( x, y, z );
             world.setSpherePosition( 0, x, y, z );
         }
+/*
+        // Dynamic spawning
+        var x = 0.1*Math.sin(9 * world.fixedTime) + Math.random()*0.05;
+        var z = 0.1*Math.cos(10 * world.fixedTime) + Math.random()*0.05;
+        var y = 0.3 + 0.05*Math.cos(11 * world.fixedTime);
+        world.setBodyPositions([(prevSpawnedBody++) % world.maxBodies], [new THREE.Vector3(x,y,z)]);
+*/
         world.step( deltaTime );
     }
     prevTime = time;
@@ -418,7 +425,7 @@ function initGUI(){
   gui.add( world, "friction", 0, 10, 0.001 );
   gui.add( world, "fixedTimeStep", 0, 0.1, 0.001 );
   gui.add( controller, "paused" ).onChange( guiChanged );
-  gui.add( controller, "gravity", -1, 1, 0.1 ).onChange( guiChanged );
+  gui.add( controller, "gravity", -2, 2, 0.1 ).onChange( guiChanged );
   gui.add( controller, "moreObjects" );
   gui.add( controller, "lessObjects" );
   gui.add( controller, "renderParticles" ).onChange( guiChanged );
