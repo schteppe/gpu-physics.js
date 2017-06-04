@@ -19,13 +19,13 @@ var shaders = {
     ].join('\n'),
 
     setBodyDataVert: [
+        "uniform vec2 res;",
         "attribute float bodyIndex;",
         "attribute vec4 data;",
         "varying vec4 vData;",
         "void main() {",
-        "    vec2 uv = indexToUV(bodyIndex, bodyTextureResolution);",
-        "    uv += 0.5 / bodyTextureResolution;",
-        "    if(bodyIndex < 0.0) uv *= 1000.0;",
+        "    vec2 uv = indexToUV(bodyIndex, res);",
+        "    uv += 0.5 / res;",
         "    gl_PointSize = 1.0;",
         "    vData = data;",
         "    gl_Position = vec4(2.0*uv-1.0, 0, 1);",
@@ -868,7 +868,9 @@ Object.assign( World.prototype, {
         if(!this.scenes.setBodyData){
 
             this.materials.setBodyData = new THREE.ShaderMaterial({
-                uniforms: {},
+                uniforms: {
+                    res: { value: new THREE.Vector2() }
+                },
                 vertexShader: getShader( 'setBodyDataVert' ),
                 fragmentShader: getShader( 'setBodyDataFrag' ),
                 defines: this.getDefines()
@@ -886,6 +888,7 @@ Object.assign( World.prototype, {
             this.scenes.setBodyData.add( this.setBodyDataMesh );
         }
 
+        this.materials.setBodyData.uniforms.res.value.set(this.bodyTextureSize, this.bodyTextureSize);
         for(var startIndex = 0; startIndex < bodyIds.length; startIndex += numVertices){
             var count = Math.min(numVertices, bodyIds.length - startIndex);
             var subIds = bodyIds.slice(startIndex, startIndex+count);
