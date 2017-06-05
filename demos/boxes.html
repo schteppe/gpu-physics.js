@@ -58,13 +58,13 @@ var demo = new Demo({
         var gridRes = new THREE.Vector3(32,32,32);
         var r = 0.1;
         var world = new World({
-            gravity: new THREE.Vector3(0,-2,0),
+            gravity: new THREE.Vector3(0,-10,0),
             renderer: renderer,
             maxBodies: 128,
             maxParticles: 128,
             radius: r,
-            stiffness: 100,
-            damping: 1,
+            stiffness: 1000,
+            damping: 10,
             fixedTimeStep: 1/120,
             friction: 2,
             drag: 0.3,
@@ -73,9 +73,21 @@ var demo = new Demo({
             gridResolution: gridRes
         });
 
+        function calculateBoxInertia(out, mass, extents){
+            var c = 1 / 12 * mass;
+            out.set(
+                c * ( 2 * extents.y * 2 * extents.y + 2 * extents.z * 2 * extents.z ),
+                c * ( 2 * extents.x * 2 * extents.x + 2 * extents.z * 2 * extents.z ),
+                c * ( 2 * extents.y * 2 * extents.y + 2 * extents.x * 2 * extents.x )
+            );
+        }
+
+        var N = 4;
+        var mass = 0.5;
+        var inertia = new THREE.Vector3();
+        calculateBoxInertia(inertia, 1, new THREE.Vector3(world.radius*2*N,world.radius*2*N,world.radius*2*N));
         function addBox(x,y,z){
-            var N = 4;
-            var bodyId = world.addBody(x,y,z,  0,0,0,1,  1,  1,1,1);
+            var bodyId = world.addBody(x,y,z,  0,0,0,1,  mass,  inertia.x,inertia.y,inertia.z);
             for(var i=0; i<N; i++){
                 for(var j=0; j<N; j++){
                     for(var k=0; k<N; k++){

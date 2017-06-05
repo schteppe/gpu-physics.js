@@ -83,9 +83,9 @@ var shaders = {
     ].join('\n'),
 
     renderDepth: [
-        "uniform sampler2D bodyPosTex;",
-        "uniform sampler2D bodyQuatTex;",
-        "attribute float bodyIndex;",
+        "uniform sampler2D particleWorldPosTex;",
+        "uniform sampler2D quatTex;",
+        "attribute float particleIndex;",
         "#include <common>",
         "#include <uv_pars_vertex>",
         "#include <displacementmap_pars_vertex>",
@@ -98,11 +98,14 @@ var shaders = {
         "    #include <skinbase_vertex>",
         "    #include <begin_vertex>",
 
-        "    vec2 bodyUV = indexToUV(bodyIndex,bodyTextureResolution);",
-        "    vec3 bodyPos = texture2D(bodyPosTex,bodyUV).xyz;",
-        "    vec4 bodyQuat = texture2D(bodyQuatTex,bodyUV).xyzw;",
+        "    vec2 particleUV = indexToUV(particleIndex,resolution);",
+        "    vec4 particlePosAndBodyId = texture2D(particleWorldPosTex,particleUV);",
+        "    vec2 bodyUV = indexToUV(particlePosAndBodyId.w,bodyTextureResolution);",
+        "    vec4 bodyQuat = texture2D(quatTex,bodyUV).xyzw;",
+
+        "    vec3 particlePos = particlePosAndBodyId.xyz;",
         "    transformed.xyz = vec3_applyQuat(transformed.xyz, bodyQuat);",
-        "    transformed.xyz += bodyPos;",
+        "    transformed.xyz += particlePos;",
 
         "    #include <displacementmap_vertex>",
         "    #include <morphtarget_vertex>",
@@ -116,7 +119,7 @@ var shaders = {
 
 function Demo(parameters){
 
-    var world, scene, ambientLight, light, camera, controls, renderer;
+    var world, scene, ambientLight, light, camera, controls, renderer, customDepthMaterial;
     var debugMesh, debugGridMesh;
     var controller;
     var boxSize;
@@ -148,13 +151,13 @@ function Demo(parameters){
         light = new THREE.DirectionalLight();
         light.castShadow = true;
         light.shadow.mapSize.width = light.shadow.mapSize.height = 1024;
-        var d = 0.5;
+        var d = 10;
         light.shadow.camera.left = - d;
         light.shadow.camera.right = d;
         light.shadow.camera.top = d;
         light.shadow.camera.bottom = - d;
         light.shadow.camera.far = 100;
-        light.position.set(1,1,1);
+        light.position.set(1,2,1);
         scene.add(light);
 
         ambientLight = new THREE.AmbientLight( 0x222222 );
@@ -174,6 +177,12 @@ function Demo(parameters){
         controls.maxPolarAngle = Math.PI * 0.5;
 
         world = parameters.create(renderer);
+
+        var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x000000 } );
+        groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000 ), groundMaterial );
+        groundMesh.rotation.x = - Math.PI / 2;
+        groundMesh.receiveShadow = true;
+        scene.add( groundMesh );
 
         // Create an instanced mesh for debug spheres
         var sphereGeometry = new THREE.SphereBufferGeometry(world.radius, 8, 8);
@@ -217,11 +226,11 @@ function Demo(parameters){
         initDebugGrid();
 
         var meshUniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
-        meshUniforms.bodyQuatTex = { value: null };
-        meshUniforms.bodyPosTex = { value: null };
+        meshUniforms.particleWorldPosTex = { value: null };
+        meshUniforms.quatTex = { value: null };
 
         // Create a depth material for rendering instances to shadow map
-        var customDepthMaterial = new THREE.ShaderMaterial({
+        customDepthMaterial = new THREE.ShaderMaterial({
             uniforms: THREE.UniformsUtils.merge([
                 THREE.ShaderLib.depth.uniforms,
                 meshUniforms
@@ -234,6 +243,9 @@ function Demo(parameters){
                 resolution: 'vec2(' + world.particleTextureSize.toFixed(1) + ',' + world.particleTextureSize.toFixed(1) + ')'
             }
         });
+        debugMesh.customDepthMaterial = customDepthMaterial;
+        debugMesh.castShadow = true;
+        debugMesh.receiveShadow = true;
 
         // interaction
         interactionSphereMesh = new THREE.Mesh(new THREE.SphereBufferGeometry(1,16,16), new THREE.MeshPhongMaterial({ color: 0xffffff }));
@@ -306,8 +318,8 @@ function Demo(parameters){
         // Render main scene
         updateDebugGrid();
 
-        debugMesh.material.uniforms.particleWorldPosTex.value = world.particlePositionTexture;
-        debugMesh.material.uniforms.quatTex.value = world.bodyQuaternionTexture;
+        customDepthMaterial.uniforms.particleWorldPosTex.value = debugMesh.material.uniforms.particleWorldPosTex.value = world.particlePositionTexture;
+        customDepthMaterial.uniforms.quatTex.value = debugMesh.material.uniforms.quatTex.value = world.bodyQuaternionTexture;
 
         renderer.render( scene, camera );
 
@@ -360,7 +372,7 @@ function Demo(parameters){
         gui.add( world, "friction", 0, 10, 0.001 );
         gui.add( world, "fixedTimeStep", 0, 0.1, 0.001 );
         gui.add( controller, "paused" ).onChange( guiChanged );
-        gui.add( controller, "gravity", -2, 2, 0.1 ).onChange( guiChanged );
+        gui.add( controller, "gravity", -10, 10, 0.1 ).onChange( guiChanged );
         gui.add( controller, "moreObjects" );
         gui.add( controller, "lessObjects" );
         gui.add( controller, "renderParticles" ).onChange( guiChanged );
