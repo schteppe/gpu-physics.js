@@ -559,7 +559,7 @@ function World(parameters){
         parameters.drag !== undefined ? parameters.drag : 0.1,
         0 // unused
     );
-    var params3 = this.params3 = new THREE.Vector4();
+    var params3 = this.params3 = new THREE.Vector4(10,10,10, 1);
     this.time = 0;
     this.fixedTime = 0;
     this.broadphase = new Broadphase();
@@ -1453,6 +1453,13 @@ Object.assign( World.prototype, {
         this.params3.x = x;
         this.params3.y = y;
         this.params3.z = z;
+    },
+
+    getSpherePosition: function(sphereIndex, out){
+        if(sphereIndex !== 0) throw new Error("Multiple spheres not supported yet");
+        out.x = this.params3.x;
+        out.y = this.params3.y;
+        out.z = this.params3.z;
     }
 });
 

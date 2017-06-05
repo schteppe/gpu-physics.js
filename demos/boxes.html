@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>gpu-physics.js by schteppe</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <meta name="twitter:creator" content="@schteppe" />
+    <meta property="og:title" content="gpu-physics.js by schteppe" />
+    <meta property="og:description" content="Play around with a massive amount of rigid bodies in this demo." />
+    <meta property="og:url" content="https://schteppe.github.io/gpu-physics.js/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://schteppe.github.io/gpu-physics.js/gpu-physics.jpg" />
+
+    <style>
+        body {
+            color: #000000;
+            font-family: "Lucida Grande", sans-serif;
+            font-size: 12px;
+            font-weight: normal;
+            text-align: center;
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #info {
+            position: absolute;
+            bottom: 0px;
+            width: 100%;
+            padding: 5px;
+        }
+
+        a {
+            color: #000000;
+            font-weight: bold;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="container"></div>
+<div id="info">
+    <b>gpu physics</b> by <a href="http://twitter.com/schteppe">@schteppe</a> | <a href="https://www.youtube.com/watch?v=PfCZEQxTvqA">video</a> | <a href="https://github.com/schteppe/gpu-physics.js">github</a>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script src="../lib/dat.gui.min.js"></script>
+<script src="../lib/stats.min.js"></script>
+<script src="../lib/three.orbitcontrols.js"></script>
+<script src="../lib/three.transformcontrols.js"></script>
+<script src="../src/index.js"></script>
+<script src="../src/demo.js"></script>
+<script>
+var demo = new Demo({
+    cameraPosition: new THREE.Vector3(10,10,10),
+    create: function(renderer){
+        var gridRes = new THREE.Vector3(32,32,32);
+        var r = 0.1;
+        var world = new World({
+            gravity: new THREE.Vector3(0,-2,0),
+            renderer: renderer,
+            maxBodies: 128,
+            maxParticles: 128,
+            radius: r,
+            stiffness: 100,
+            damping: 1,
+            fixedTimeStep: 1/120,
+            friction: 2,
+            drag: 0.3,
+            boxSize: new THREE.Vector3(gridRes.x*r,10,gridRes.z*r),
+            gridPosition: new THREE.Vector3(-gridRes.x*r,0,-gridRes.z*r),
+            gridResolution: gridRes
+        });
+
+        function addBox(x,y,z){
+            var N = 4;
+            var bodyId = world.addBody(x,y,z,  0,0,0,1,  1,  1,1,1);
+            for(var i=0; i<N; i++){
+                for(var j=0; j<N; j++){
+                    for(var k=0; k<N; k++){
+                        world.addParticle(bodyId,
+                            (i-(N-1)/2)*world.radius*2,
+                            (j-(N-1)/2)*world.radius*2,
+                            (k-(N-1)/2)*world.radius*2
+                        );
+                    }
+                }
+            }
+        }
+        addBox(0,1,0);
+        addBox(0,2,0);
+        addBox(0,3,0);
+        addBox(0,4,0);
+
+        return world;
+    }
+});
+</script>
+</body>
+</html>
