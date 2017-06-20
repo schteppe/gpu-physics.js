@@ -53,22 +53,22 @@
 <script src="../src/demo.js"></script>
 <script>
 var demo = new Demo({
-    cameraPosition: new THREE.Vector3(10,10,10),
+    cameraPosition: new THREE.Vector3(20,20,10),
     create: function(renderer){
         var gridRes = new THREE.Vector3(32,32,32);
-        var r = 0.1;
+        var r = 0.08;
         var world = new World({
-            gravity: new THREE.Vector3(0,-5,0),
+            gravity: new THREE.Vector3(0,-1,0),
             renderer: renderer,
-            maxBodies: 128,
-            maxParticles: 4096,
+            maxBodies: 128*128,
+            maxParticles: 128*128,
             radius: r,
-            stiffness: 1000,
-            damping: 1,
-            fixedTimeStep: 1/120,
-            friction: 2,
+            stiffness: 100,
+            damping: 0.1,
+            fixedTimeStep: 1/60,
+            friction: 0.1,
             drag: 0.3,
-            boxSize: new THREE.Vector3(gridRes.x*r,20,gridRes.z*r),
+            boxSize: new THREE.Vector3(gridRes.x*r,10000,gridRes.z*r),
             gridPosition: new THREE.Vector3(-gridRes.x*r,0,-gridRes.z*r),
             gridResolution: gridRes
         });
@@ -109,18 +109,23 @@ var demo = new Demo({
                 }
             }
         }
-        var M = 5;
-        for(var i=0; i<M; i++){
-            for(var j=0; j<M; j++){
-                for(var k=0; k<M; k++){
+        var M = 3;
+        var maxBoxes = world.maxParticles / (N*N*N);
+        var count = 0;
+        for(var k=0; k<maxBoxes; k++){
+            for(var i=0; i<M; i++){
+                for(var j=0; j<M; j++){
+                    count++;
+                    if(count >= maxBoxes) continue;
                     addBox(
                         world.boxSize.x*(i/(M-1)-0.5)*1 + (Math.random()-0.5)*0.1,
-                        world.boxSize.x*(j/(M-1))*1+1 + (Math.random()-0.5)*0.1,
-                        world.boxSize.z*(k/(M-1)-0.5)*1 + (Math.random()-0.5)*0.1
+                        world.boxSize.x*(k/(M-1))*0.8 + 3 + (Math.random()-0.5)*0.1,
+                        world.boxSize.z*(j/(M-1)-0.5)*1 + (Math.random()-0.5)*0.1
                     );
                 }
             }
         }
+        console.log(world.particleCount + ' particles out of ' + world.maxParticles)
 
         return world;
     }
