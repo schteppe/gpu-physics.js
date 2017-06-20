@@ -56,7 +56,7 @@ var demo = new Demo({
     cameraPosition: new THREE.Vector3(20,20,10),
     create: function(renderer){
         var gridRes = new THREE.Vector3(32,32,32);
-        var r = 0.08;
+        var r = 0.05;
         var world = new World({
             gravity: new THREE.Vector3(0,-1,0),
             renderer: renderer,
@@ -91,10 +91,12 @@ var demo = new Demo({
         var mass = 0.5;
         var inertia = new THREE.Vector3();
         var rotation = new THREE.Quaternion();
-        rotation.setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI/2);
         calculateBoxInertia(inertia, 1, new THREE.Vector3(world.radius*N,world.radius*N,world.radius*N));
         function addBox(x,y,z){
             var bodyId = world.addBody(x,y,z,  rotation.x,rotation.y,rotation.z,rotation.w,  mass,  inertia.x,inertia.y,inertia.z);
+            var axis = new THREE.Vector3(Math.random(),Math.random(),Math.random());
+            axis.normalize();
+            rotation.setFromAxisAngle(axis,Math.PI*Math.random());
             for(var i=0; i<N; i++){
                 for(var j=0; j<N; j++){
                     for(var k=0; k<N; k++){
