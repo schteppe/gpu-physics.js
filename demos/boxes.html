@@ -58,20 +58,25 @@ var demo = new Demo({
         var gridRes = new THREE.Vector3(32,32,32);
         var r = 0.1;
         var world = new World({
-            gravity: new THREE.Vector3(0,-10,0),
+            gravity: new THREE.Vector3(0,-5,0),
             renderer: renderer,
             maxBodies: 128,
-            maxParticles: 128,
+            maxParticles: 4096,
             radius: r,
             stiffness: 1000,
-            damping: 10,
+            damping: 1,
             fixedTimeStep: 1/120,
             friction: 2,
             drag: 0.3,
-            boxSize: new THREE.Vector3(gridRes.x*r,10,gridRes.z*r),
+            boxSize: new THREE.Vector3(gridRes.x*r,20,gridRes.z*r),
             gridPosition: new THREE.Vector3(-gridRes.x*r,0,-gridRes.z*r),
             gridResolution: gridRes
         });
+
+        world.setSpherePosition(
+            0,
+            6,1,0
+        );
 
         function calculateBoxInertia(out, mass, extents){
             var c = 1 / 12 * mass;
@@ -82,28 +87,40 @@ var demo = new Demo({
             );
         }
 
-        var N = 4;
+        var N = 3;
         var mass = 0.5;
         var inertia = new THREE.Vector3();
-        calculateBoxInertia(inertia, 1, new THREE.Vector3(world.radius*2*N,world.radius*2*N,world.radius*2*N));
+        var rotation = new THREE.Quaternion();
+        rotation.setFromAxisAngle(new THREE.Vector3(1,0,0),Math.PI/2);
+        calculateBoxInertia(inertia, 1, new THREE.Vector3(world.radius*N,world.radius*N,world.radius*N));
         function addBox(x,y,z){
-            var bodyId = world.addBody(x,y,z,  0,0,0,1,  mass,  inertia.x,inertia.y,inertia.z);
+            var bodyId = world.addBody(x,y,z,  rotation.x,rotation.y,rotation.z,rotation.w,  mass,  inertia.x,inertia.y,inertia.z);
             for(var i=0; i<N; i++){
                 for(var j=0; j<N; j++){
                     for(var k=0; k<N; k++){
-                        world.addParticle(bodyId,
-                            (i-(N-1)/2)*world.radius*2,
-                            (j-(N-1)/2)*world.radius*2,
-                            (k-(N-1)/2)*world.radius*2
-                        );
+                        if(i*j*k===0 || (i===N-1 || j===N-1 || k===N-1)){ //Dont fill box
+                            world.addParticle(bodyId,
+                                (i-(N-1)/2)*world.radius*2,
+                                (j-(N-1)/2)*world.radius*2,
+                                (k-(N-1)/2)*world.radius*2
+                            );
+                        }
                     }
                 }
             }
         }
-        addBox(0,1,0);
-        addBox(0,2,0);
-        addBox(0,3,0);
-        addBox(0,4,0);
+        var M = 5;
+        for(var i=0; i<M; i++){
+            for(var j=0; j<M; j++){
+                for(var k=0; k<M; k++){
+                    addBox(
+                        world.boxSize.x*(i/(M-1)-0.5)*1 + (Math.random()-0.5)*0.1,
+                        world.boxSize.x*(j/(M-1))*1+1 + (Math.random()-0.5)*0.1,
+                        world.boxSize.z*(k/(M-1)-0.5)*1 + (Math.random()-0.5)*0.1
+                    );
+                }
+            }
+        }
 
         return world;
     }

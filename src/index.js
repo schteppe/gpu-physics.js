@@ -83,6 +83,7 @@ var shaders = {
         "uniform sampler2D posTex;",
         "uniform sampler2D velTex;",
         "uniform sampler2D bodyAngularVelTex;",
+        "uniform sampler2D particlePosRelative;",
         "uniform sampler2D gridTex;",
 
         "vec3 particleForce(float STIFFNESS, float DAMPING, float DAMPING_T, float distance, vec3 xi, vec3 xj, vec3 vi, vec3 vj){",
@@ -108,6 +109,10 @@ var shaders = {
         "    vec3 particleGridPos = worldPosToGridPos(position, gridPos, cellSize);",
         "    vec3 bodyAngularVelocity = texture2D(bodyAngularVelTex, indexToUV(bodyId,bodyTextureResolution)).xyz;",
 
+        "    // Get local particle position",
+        "    vec4 relativePositionAndBodyId = texture2D(particlePosRelative, uv);",
+        "    vec3 relativePosition = relativePositionAndBodyId.xyz;",
+
         "    vec3 force = vec3(0);",
         "    ivec3 iGridRes = ivec3(gridResolution);",
 
@@ -127,12 +132,16 @@ var shaders = {
         "                    float neighborBodyId = neighborPositionAndBodyId.w;",
         "                    vec3 neighborAngularVelocity = texture2D(bodyAngularVelTex, indexToUV(neighborBodyId,bodyTextureResolution)).xyz;",
         "                    vec3 neighborVelocity = texture2D(velTex, neighborUV).xyz;",
-        "                    if(neighborIndex >=0 && neighborIndex != particleIndex && iNeighborCellGridPos.x>=0 && iNeighborCellGridPos.y>=0 && iNeighborCellGridPos.z>=0 && iNeighborCellGridPos.x<iGridRes.x && iNeighborCellGridPos.y<iGridRes.y && iNeighborCellGridPos.z<iGridRes.z){ // Not self!",
+        "                    vec3 neighborRelativePosition = texture2D(particlePosRelative, neighborUV).xyz;",
+        "                    if(neighborIndex >=0 && neighborIndex != particleIndex && neighborBodyId != bodyId && iNeighborCellGridPos.x>=0 && iNeighborCellGridPos.y>=0 && iNeighborCellGridPos.z>=0 && iNeighborCellGridPos.x<iGridRes.x && iNeighborCellGridPos.y<iGridRes.y && iNeighborCellGridPos.z<iGridRes.z){ // Not self!",
         "                        // Apply contact force from neighbor",
         "                        vec3 r = position - neighborPosition;",
         "                        float len = length(r);",
         "                        if(len > 0.0 && len < radius * 2.0){",
-        "                            force += particleForce(stiffness, damping, friction, 2.0 * radius, position, neighborPosition, velocity, neighborVelocity);",
+        "                            vec3 dir = normalize(r);",
+        "                            vec3 v = velocity - cross(relativePosition + radius * dir, bodyAngularVelocity);",
+        "                            vec3 nv = neighborVelocity - cross(neighborRelativePosition + radius * (-dir), neighborAngularVelocity);",
+        "                            force += particleForce(stiffness, damping, friction, 2.0 * radius, position, neighborPosition, v, nv);",
         "                        }",
         "                    }",
         "                }",
@@ -149,16 +158,17 @@ var shaders = {
         "    dirs[2] = vec3(0,0,1);",
         "    for(int i=0; i<3; i++){",
         "        vec3 dir = dirs[i];",
-        "        vec3 tangentVel = (cross(radius * dir, bodyAngularVelocity) + velocity - dot(velocity,dir) * dir);",
+        "        vec3 v = velocity - cross(relativePosition + radius * dir, bodyAngularVelocity);",
+        "        vec3 tangentVel = v - dot(v,dir) * dir;",
         "        float x = dot(dir,position) - radius;",
         "        if(x < boxMin[i]){",
-        "            force += -( stiffness * (x - boxMin[i]) * dir + damping * dot(velocity,dir) * dir);",
+        "            force += -( stiffness * (x - boxMin[i]) * dir + damping * dot(v,dir) * dir);",
         "            force -= friction * tangentVel;",
         "        }",
         "        x = dot(dir,position) + radius;",
         "        if(x > boxMax[i]){",
         "            dir = -dir;",
-        "            force -= -( stiffness * (x - boxMax[i]) * dir - damping * dot(velocity,dir) * dir);",
+        "            force -= -( stiffness * (x - boxMax[i]) * dir - damping * dot(v,dir) * dir);",
         "            force -= friction * tangentVel;",
         "        }",
         "    }",
@@ -184,6 +194,7 @@ var shaders = {
         "uniform vec3 gridPos;",
 
         "uniform sampler2D posTex;",
+        "uniform sampler2D particlePosRelative;",
         "uniform sampler2D velTex;",
         "uniform sampler2D bodyAngularVelTex;",
         "uniform sampler2D gridTex;",
@@ -192,15 +203,22 @@ var shaders = {
         "    vec2 uv = gl_FragCoord.xy / resolution;",
         "    int particleIndex = uvToIndex(uv, resolution);",
 
-        "    // Get id and position of current",
+        "    // Get id and position of current particle",
         "    vec4 positionAndBodyId = texture2D(posTex, uv);",
         "    vec3 position = positionAndBodyId.xyz;",
         "    float bodyId = positionAndBodyId.w;",
+
+        "    // Get local particle position",
+        "    vec4 relativePositionAndBodyId = texture2D(particlePosRelative, uv);",
+        "    vec3 relativePosition = relativePositionAndBodyId.xyz;",
+
         "    vec3 velocity = texture2D(velTex, uv).xyz;",
         "    vec3 angularVelocity = texture2D(bodyAngularVelTex, indexToUV(bodyId, bodyTextureResolution)).xyz;",
         "    vec3 particleGridPos = worldPosToGridPos(position, gridPos, cellSize);",
         "    ivec3 iGridRes = ivec3(gridResolution);",
+
         "    vec3 torque = vec3(0);",
+
         "    // Neighbor friction",
         "    for(int i=-1; i<2; i++){",
         "        for(int j=-1; j<2; j++){",
@@ -212,19 +230,22 @@ var shaders = {
         "                    neighborCellTexUV += vec2(0.5) / (2.0 * gridTextureResolution); // center to cell pixel",
         "                    int neighborIndex = int(floor(texture2D(gridTex, neighborCellTexUV).x-1.0 + 0.5)); // indices are stored incremented by 1",
         "                    vec2 neighborUV = indexToUV(float(neighborIndex), resolution);",
-        "                    vec3 neighborPosition = texture2D(posTex, neighborUV).xyz;",
+        "                    vec4 neighborPositionAndBodyId = texture2D(posTex, neighborUV);",
+        "                    vec3 neighborPosition = neighborPositionAndBodyId.xyz;",
+        "                    float neighborBodyId = neighborPositionAndBodyId.w;",
         "                    vec3 neighborVelocity = texture2D(velTex, neighborUV).xyz;",
         "                    vec3 neighborAngularVelocity = texture2D(bodyAngularVelTex, neighborUV).xyz;",
-        "                    if(neighborIndex >=0 && neighborIndex != particleIndex && iNeighborCellGridPos.x>=0 && iNeighborCellGridPos.y>=0 && iNeighborCellGridPos.z>=0 && iNeighborCellGridPos.x<iGridRes.x && iNeighborCellGridPos.y<iGridRes.y && iNeighborCellGridPos.z<iGridRes.z){ // Not self!",
+        "                    vec3 neighborRelativePosition = texture2D(particlePosRelative, neighborUV).xyz;",
+        "                    if(neighborIndex >=0 && neighborIndex != particleIndex && neighborBodyId != bodyId && iNeighborCellGridPos.x>=0 && iNeighborCellGridPos.y>=0 && iNeighborCellGridPos.z>=0 && iNeighborCellGridPos.x<iGridRes.x && iNeighborCellGridPos.y<iGridRes.y && iNeighborCellGridPos.z<iGridRes.z){ // Not self!",
         "                        // Apply contact torque from neighbor",
         "                        vec3 r = position - neighborPosition;",
         "                        float len = length(r);",
         "                        if(len > 0.0 && len < radius * 2.0){",
         "                            vec3 dir = normalize(r);",
-        "                            vec3 relVel = velocity - neighborVelocity;",
-        "                            vec3 relAngularVel = angularVelocity - neighborAngularVelocity;",
-        "                            vec3 relTangentVel = (relVel - dot(relVel, dir) * dir) + cross(radius*dir, relAngularVel);",
-        "                            torque += friction * cross(radius*dir, relTangentVel);",
+        "                            vec3 relVel = (velocity - cross(relativePosition + radius * dir, angularVelocity)) - (neighborVelocity - cross(neighborRelativePosition + radius * (-dir), neighborAngularVelocity));",
+        "                            ",
+        "                            vec3 relTangentVel = relVel - dot(relVel, dir) * dir;",
+        "                            torque += friction * cross(relativePosition + radius * dir, relTangentVel);",
         "                        }",
         "                    }",
         "                }",
@@ -240,19 +261,18 @@ var shaders = {
         "    dirs[2] = vec3(0,0,1);",
         "    for(int i=0; i<3; i++){",
         "        vec3 dir = dirs[i];",
-        "        vec3 relVel = velocity;",
-        "        vec3 relAngularVel = angularVelocity;",
+        "        vec3 v = velocity - cross(relativePosition + radius * dir, angularVelocity);",
         "        if(dot(dir,position) - radius < boxMin[i]){",
-        "            vec3 relTangentVel = (relVel - dot(relVel, dir) * dir) + cross(radius * dir, relAngularVel);",
-        "            torque += friction * cross(radius * dir, relTangentVel);",
+        "            vec3 relTangentVel = (v - dot(v, dir) * dir);",
+        "            //torque += friction * cross(relativePosition + radius * dir, relTangentVel);",
         "        }",
         "        if(dot(dir,position) + radius > boxMax[i]){",
         "            dir = -dir;",
-        "            vec3 relTangentVel = relVel - dot(relVel, dir) * dir + cross(radius * dir, relAngularVel);",
-        "            torque += friction * cross(radius * dir, relTangentVel);",
+        "            vec3 relTangentVel = v - dot(v, dir) * dir;",
+        "            //torque += friction * cross(relativePosition + radius * dir, relTangentVel);",
         "        }",
         "    }",
-        "    gl_FragColor = vec4(torque, 0.0);",
+        "    gl_FragColor = vec4(0.0*torque, 0.0);",
         "}"
     ].join('\n'),
 
@@ -349,7 +369,7 @@ var shaders = {
         "    vec3 particleForce = texture2D( particleForceTex, particleUV ).xyz;",
         "    vec3 particleTorque = texture2D( particleTorqueTex, particleUV ).xyz;",
         "    vec3 relativeParticlePos = texture2D( relativeParticlePosTex, particleUV ).xyz;",
-        "    vBodyForce = cross(relativeParticlePos, particleForce) + particleTorque;",
+        "    vBodyForce = particleTorque + cross(relativeParticlePos, particleForce);",
         "    vec2 bodyUV = indexToUV( bodyIndex, bodyTextureResolution );",
         "    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel",
         "    gl_PointSize = 1.0;",
@@ -717,6 +737,12 @@ Object.assign( World.prototype, {
         this.fixedTime += this.fixedTimeStep;
     },
     addBody: function(x, y, z, qx, qy, qz, qw, mass, inertiaX, inertiaY, inertiaZ){
+
+        if(this.bodyCount >= this.maxBodies){
+            console.warn("Too many bodies: " + this.bodyCount);
+            return;
+        }
+
         // Position
         var tex = this.dataTextures.bodyPositions;
         tex.needsUpdate = true;
@@ -748,6 +774,10 @@ Object.assign( World.prototype, {
         return this.bodyCount++;
     },
     addParticle: function(bodyId, x, y, z){
+        if(this.particleCount >= this.maxParticles){
+            console.warn("Too many particles: " + this.particleCount);
+            return;
+        }
         // Position
         var tex = this.dataTextures.particleLocalPositions;
         tex.needsUpdate = true;
@@ -1141,6 +1171,7 @@ Object.assign( World.prototype, {
                     cellSize: { value: new THREE.Vector3(this.radius*2,this.radius*2,this.radius*2) },
                     gridPos: { value: this.broadphase.position },
                     posTex:  { value: null },
+                    particlePosRelative:  { value: null },
                     velTex:  { value: null },
                     bodyAngularVelTex:  { value: null },
                     gridTex:  { value: this.textures.grid.texture },
@@ -1159,10 +1190,12 @@ Object.assign( World.prototype, {
         buffers.stencil.setTest( false );
         this.fullscreenQuad.material = this.materials.force;
         forceMaterial.uniforms.posTex.value = this.textures.particlePosWorld.texture;
+        forceMaterial.uniforms.particlePosRelative.value = this.textures.particlePosRelative.texture;
         forceMaterial.uniforms.velTex.value = this.textures.particleVel.texture;
         forceMaterial.uniforms.bodyAngularVelTex.value = this.textures.bodyAngularVelRead.texture;
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particleForce, false );
         forceMaterial.uniforms.posTex.value = null;
+        forceMaterial.uniforms.particlePosRelative.value = null;
         forceMaterial.uniforms.velTex.value = null;
         forceMaterial.uniforms.bodyAngularVelTex.value = null;
         this.fullscreenQuad.material = null;
@@ -1182,6 +1215,7 @@ Object.assign( World.prototype, {
                     cellSize: { value: new THREE.Vector3(this.radius*2, this.radius*2, this.radius*2) },
                     gridPos: { value: this.broadphase.position },
                     posTex:  { value: null },
+                    particlePosRelative:  { value: null },
                     velTex:  { value: null },
                     bodyAngularVelTex:  { value: null },
                     gridTex:  { value: null },
@@ -1200,10 +1234,12 @@ Object.assign( World.prototype, {
         this.fullscreenQuad.material = this.materials.updateTorque;
         updateTorqueMaterial.uniforms.gridTex.value = this.textures.grid.texture;
         updateTorqueMaterial.uniforms.posTex.value = this.textures.particlePosWorld.texture;
+        updateTorqueMaterial.uniforms.particlePosRelative.value = this.textures.particlePosRelative.texture;
         updateTorqueMaterial.uniforms.velTex.value = this.textures.particleVel.texture;
         updateTorqueMaterial.uniforms.bodyAngularVelTex.value = this.textures.bodyAngularVelRead.texture; // Angular velocity for indivitual particles and bodies are the same
         renderer.render( this.scenes.fullscreen, this.fullscreenCamera, this.textures.particleTorque, false );
         updateTorqueMaterial.uniforms.posTex.value = null;
+        updateTorqueMaterial.uniforms.particlePosRelative.value = null;
         updateTorqueMaterial.uniforms.velTex.value = null;
         updateTorqueMaterial.uniforms.bodyAngularVelTex.value = null; // Angular velocity for indivitual particles and bodies are the same
         updateTorqueMaterial.uniforms.gridTex.value = null;
