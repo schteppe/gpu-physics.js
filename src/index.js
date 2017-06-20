@@ -86,12 +86,12 @@ var shaders = {
         "uniform sampler2D particlePosRelative;",
         "uniform sampler2D gridTex;",
 
-        "vec3 particleForce(float STIFFNESS, float DAMPING, float DAMPING_T, float distance, vec3 xi, vec3 xj, vec3 vi, vec3 vj){",
+        "vec3 particleForce(float STIFFNESS, float DAMPING, float DAMPING_T, float distance, float minDistance, vec3 xi, vec3 xj, vec3 vi, vec3 vj){",
         "    vec3 rij = xj - xi;",
         "    vec3 rij_unit = normalize(rij);",
         "    vec3 vij = vj - vi;",
         "    vec3 vij_t = vij - dot(vij, rij_unit) * rij_unit;",
-        "    vec3 springForce = - STIFFNESS * (distance - length(rij)) * rij_unit; // TODO: Should be max 2*radius?",
+        "    vec3 springForce = - STIFFNESS * (distance - max(length(rij), minDistance)) * rij_unit;",
         "    vec3 dampingForce = DAMPING * dot(vij,rij_unit) * rij_unit;",
         "    vec3 tangentForce = DAMPING_T * vij_t;",
         "    return springForce + dampingForce + tangentForce;",
@@ -141,7 +141,7 @@ var shaders = {
         "                            vec3 dir = normalize(r);",
         "                            vec3 v = velocity - cross(relativePosition + radius * dir, bodyAngularVelocity);",
         "                            vec3 nv = neighborVelocity - cross(neighborRelativePosition + radius * (-dir), neighborAngularVelocity);",
-        "                            force += particleForce(stiffness, damping, friction, 2.0 * radius, position, neighborPosition, v, nv);",
+        "                            force += particleForce(stiffness, damping, friction, 2.0 * radius, radius, position, neighborPosition, v, nv);",
         "                        }",
         "                    }",
         "                }",
@@ -176,7 +176,7 @@ var shaders = {
         "    vec3 r = position - interactionSpherePos;",
         "    float len = length(r);",
         "    if(len > 0.0 && len < interactionSphereRadius+radius){",
-        "        force += particleForce(stiffness, damping, friction, radius + interactionSphereRadius, position, interactionSpherePos, velocity, vec3(0));",
+        "        force += particleForce(stiffness, damping, friction, radius + interactionSphereRadius, interactionSphereRadius, position, interactionSpherePos, velocity, vec3(0));",
         "    }",
         "    gl_FragColor = vec4(force, 1.0);",
         "}"
@@ -584,6 +584,7 @@ function World(parameters){
     this.fixedTime = 0;
     this.broadphase = new Broadphase();
     this.gravity = new THREE.Vector3(0,0,0);
+    this.maxVelocity = new THREE.Vector3(100000,100000,100000);
     if(parameters.gravity) this.gravity.copy(parameters.gravity);
     this.boxSize = new THREE.Vector3(1,1,1);
     if(parameters.boxSize) this.boxSize.copy(parameters.boxSize);
@@ -598,15 +599,29 @@ function World(parameters){
     this.bodyCount = 0;
     this.particleCount = 0;
     this.massDirty = true;
+
+    var that = this;
+    function updateMaxVelocity(){
+        // Set max velocity so that we don't get too much overlap between 2 particles in one time step
+        var v = 2 * that.radius / that.fixedTimeStep;
+        that.maxVelocity.set(v,v,v);
+    }
+
     Object.defineProperties( this, {
         // Size of a cell side, and diameter of a particle
         radius: {
             get: function(){ return params1.z; },
-            set: function(s){ params1.z = s; }
+            set: function(s){
+                params1.z = s;
+                updateMaxVelocity();
+            }
         },
         fixedTimeStep: {
             get: function(){ return params2.x; },
-            set: function(fixedTimeStep){ params2.x = fixedTimeStep; }
+            set: function(fixedTimeStep){
+                params2.x = fixedTimeStep;
+                updateMaxVelocity();
+            }
         },
         stiffness: {
             get: function(){ return params1.x; },
@@ -644,6 +659,8 @@ function World(parameters){
         particleTextureSize: {      get: function(){ return this.textures.particlePosWorld.width; } },
         gridTexture: {              get: function(){ return this.textures.grid.texture; } }
     });
+
+    updateMaxVelocity();
 
     this.initTextures(
         parameters.maxBodies || 8,
@@ -1358,7 +1375,7 @@ Object.assign( World.prototype, {
                     bodyMassTex:  { value: null },
                     params2: { value: this.params2 },
                     gravity:  { value: this.gravity },
-                    maxVelocity: { value: new THREE.Vector3(100,100,100) }
+                    maxVelocity: { value: this.maxVelocity }
                 },
                 vertexShader: getShader( 'vertexShader' ),
                 fragmentShader: getShader( 'updateBodyVelocityFrag' ),
