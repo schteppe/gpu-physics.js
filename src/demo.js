@@ -84,8 +84,14 @@ var shaders = {
         "    vec4 particlePosAndBodyId = texture2D(particleLocalPosTex,particleUV);",
         "    vec2 bodyUV = indexToUV(particlePosAndBodyId.w,bodyTextureResolution);",
         "    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel",
+
         "    vec4 bodyQuat = texture2D(quatTex,bodyUV).xyzw;",
         "    vec3 bodyPos = texture2D(posTex,bodyUV).xyz;",
+        "    vec4 bodyQuatPrev = texture2D(quatTexPrev,bodyUV).xyzw;",
+        "    vec3 bodyPosPrev = texture2D(posTexPrev,bodyUV).xyz;",
+        "    bodyPos = mix(bodyPosPrev,bodyPos,interpolationValue);",
+        "    bodyQuat = quat_slerp(bodyQuatPrev,bodyQuat,interpolationValue);",
+
         "    objectNormal.xyz = vec3_applyQuat(objectNormal.xyz, bodyQuat);",
         "    vec3 particlePos = particlePosAndBodyId.xyz;",
         "    vec3 worldParticlePos = vec3_applyQuat(particlePos, bodyQuat) + bodyPos;",
@@ -134,8 +140,14 @@ var shaders = {
         "    vec4 particlePosAndBodyId = texture2D(particleLocalPosTex,particleUV);",
         "    vec2 bodyUV = indexToUV(particlePosAndBodyId.w,bodyTextureResolution);",
         "    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel",
+
         "    vec4 bodyQuat = texture2D(quatTex,bodyUV).xyzw;",
         "    vec3 bodyPos = texture2D(posTex,bodyUV).xyz;",
+        "    vec4 bodyQuatPrev = texture2D(quatTexPrev,bodyUV).xyzw;",
+        "    vec3 bodyPosPrev = texture2D(posTexPrev,bodyUV).xyz;",
+        "    bodyPos = mix(bodyPosPrev,bodyPos,interpolationValue);",
+        "    bodyQuat = quat_slerp(bodyQuatPrev,bodyQuat,interpolationValue);",
+
         "    vec3 particlePos = particlePosAndBodyId.xyz;",
         "    vec3 worldParticlePos = vec3_applyQuat(particlePos, bodyQuat) + bodyPos;",
         "    transformed.xyz = vec3_applyQuat(transformed.xyz, bodyQuat);",
@@ -365,6 +377,7 @@ function Demo(parameters){
         customDepthMaterial.uniforms.posTexPrev.value =             debugMesh.material.uniforms.posTexPrev.value =              world.bodyPositionPrevTexture;
         customDepthMaterial.uniforms.quatTex.value =                debugMesh.material.uniforms.quatTex.value =                 world.bodyQuaternionTexture;
         customDepthMaterial.uniforms.quatTexPrev.value =            debugMesh.material.uniforms.quatTexPrev.value =             world.bodyQuaternionPrevTexture;
+        customDepthMaterial.uniforms.interpolationValue.value =            debugMesh.material.uniforms.interpolationValue.value =             world.interpolationValue;
 
         renderer.render( scene, camera );
 
