@@ -20,12 +20,37 @@ var shaders = {
         "        iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z,",
         "        iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x",
         "    );",
-        "}"
+        "}",
+
+        "vec4 quat_slerp(vec4 v0, vec4 v1, float t){",
+        "   float d = dot(v0, v1);",
+
+        "    if (abs(d) > 0.9995) {",
+        "        return normalize(mix(v0,v1,t));",
+        "    }",
+
+        "    if (d < 0.0) {",
+        "        v1 = -v1;",
+        "        d = -d;",
+        "    }",
+        "    d = clamp(d, -1.0, 1.0);",
+        "    float theta0 = acos(d);",
+        "    float theta = theta0*t;",
+
+        "    vec4 v2 = normalize(v1 - v0*d);",
+
+        "    return v0*cos(theta) + v2*sin(theta);",
+        "}",
+        ""
     ].join('\n'),
 
     renderParticlesVertex: [
-        "uniform sampler2D particleWorldPosTex;",
+        "uniform sampler2D particleLocalPosTex;",
+        "uniform sampler2D posTex;",
+        "uniform sampler2D posTexPrev;",
         "uniform sampler2D quatTex;",
+        "uniform sampler2D quatTexPrev;",
+        "uniform float interpolationValue;",
         "attribute float particleIndex;",
         "#define PHONG",
         "varying vec3 vViewPosition;",
@@ -56,18 +81,21 @@ var shaders = {
         "    #include <morphnormal_vertex>",
         "    #include <skinbase_vertex>",
         "    #include <skinnormal_vertex>",
-        "    vec4 particlePosAndBodyId = texture2D(particleWorldPosTex,particleUV);",
+        "    vec4 particlePosAndBodyId = texture2D(particleLocalPosTex,particleUV);",
         "    vec2 bodyUV = indexToUV(particlePosAndBodyId.w,bodyTextureResolution);",
+        "    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel",
         "    vec4 bodyQuat = texture2D(quatTex,bodyUV).xyzw;",
+        "    vec3 bodyPos = texture2D(posTex,bodyUV).xyz;",
         "    objectNormal.xyz = vec3_applyQuat(objectNormal.xyz, bodyQuat);",
+        "    vec3 particlePos = particlePosAndBodyId.xyz;",
+        "    vec3 worldParticlePos = vec3_applyQuat(particlePos, bodyQuat) + bodyPos;",
         "#include <defaultnormal_vertex>",
         "#ifndef FLAT_SHADED",
         "    vNormal = normalize( transformedNormal );",
         "#endif",
         "    #include <begin_vertex>",
-        "    vec3 particlePos = particlePosAndBodyId.xyz;",
         "    transformed.xyz = vec3_applyQuat(transformed.xyz, bodyQuat);",
-        "    transformed.xyz += particlePos;",
+        "    transformed.xyz += worldParticlePos;",
         "    #include <displacementmap_vertex>",
         "    #include <morphtarget_vertex>",
         "    #include <skinning_vertex>",
@@ -83,8 +111,12 @@ var shaders = {
     ].join('\n'),
 
     renderDepth: [
-        "uniform sampler2D particleWorldPosTex;",
+        "uniform sampler2D particleLocalPosTex;",
+        "uniform sampler2D posTex;",
+        "uniform sampler2D posTexPrev;",
         "uniform sampler2D quatTex;",
+        "uniform sampler2D quatTexPrev;",
+        "uniform float interpolationValue;",
         "attribute float particleIndex;",
         "#include <common>",
         "#include <uv_pars_vertex>",
@@ -99,13 +131,15 @@ var shaders = {
         "    #include <begin_vertex>",
 
         "    vec2 particleUV = indexToUV(particleIndex,resolution);",
-        "    vec4 particlePosAndBodyId = texture2D(particleWorldPosTex,particleUV);",
+        "    vec4 particlePosAndBodyId = texture2D(particleLocalPosTex,particleUV);",
         "    vec2 bodyUV = indexToUV(particlePosAndBodyId.w,bodyTextureResolution);",
+        "    bodyUV += vec2(0.5) / bodyTextureResolution;// center to pixel",
         "    vec4 bodyQuat = texture2D(quatTex,bodyUV).xyzw;",
-
+        "    vec3 bodyPos = texture2D(posTex,bodyUV).xyz;",
         "    vec3 particlePos = particlePosAndBodyId.xyz;",
+        "    vec3 worldParticlePos = vec3_applyQuat(particlePos, bodyQuat) + bodyPos;",
         "    transformed.xyz = vec3_applyQuat(transformed.xyz, bodyQuat);",
-        "    transformed.xyz += particlePos;",
+        "    transformed.xyz += worldParticlePos;",
 
         "    #include <displacementmap_vertex>",
         "    #include <morphtarget_vertex>",
@@ -203,8 +237,12 @@ function Demo(parameters){
         // Particle spheres material / debug material - extend the phong shader in three.js
         var phongShader = THREE.ShaderLib.phong;
         var uniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
-        uniforms.particleWorldPosTex = { value: null };
+        uniforms.particleLocalPosTex = { value: null };
+        uniforms.posTex = { value: null };
+        uniforms.posTexPrev = { value: null };
         uniforms.quatTex = { value: null };
+        uniforms.quatTexPrev = { value: null };
+        uniforms.interpolationValue = { value: 0 };
         var debugMaterial = new THREE.ShaderMaterial({
             uniforms: uniforms,
             vertexShader: shaders.shared + shaders.renderParticlesVertex,
@@ -226,8 +264,12 @@ function Demo(parameters){
         initDebugGrid();
 
         var meshUniforms = THREE.UniformsUtils.clone(phongShader.uniforms);
-        meshUniforms.particleWorldPosTex = { value: null };
+        meshUniforms.particleLocalPosTex = { value: null };
+        meshUniforms.posTex = { value: null };
+        meshUniforms.posTexPrev = { value: null };
         meshUniforms.quatTex = { value: null };
+        meshUniforms.quatTexPrev = { value: null };
+        meshUniforms.interpolationValue = { value: 0 };
 
         // Create a depth material for rendering instances to shadow map
         customDepthMaterial = new THREE.ShaderMaterial({
@@ -318,12 +360,15 @@ function Demo(parameters){
         // Render main scene
         updateDebugGrid();
 
-        customDepthMaterial.uniforms.particleWorldPosTex.value = debugMesh.material.uniforms.particleWorldPosTex.value = world.particlePositionTexture;
-        customDepthMaterial.uniforms.quatTex.value = debugMesh.material.uniforms.quatTex.value = world.bodyQuaternionTexture;
+        customDepthMaterial.uniforms.particleLocalPosTex.value =    debugMesh.material.uniforms.particleLocalPosTex.value =     world.particleLocalPositionTexture;
+        customDepthMaterial.uniforms.posTex.value =                 debugMesh.material.uniforms.posTex.value =                  world.bodyPositionTexture;
+        customDepthMaterial.uniforms.posTexPrev.value =             debugMesh.material.uniforms.posTexPrev.value =              world.bodyPositionPrevTexture;
+        customDepthMaterial.uniforms.quatTex.value =                debugMesh.material.uniforms.quatTex.value =                 world.bodyQuaternionTexture;
+        customDepthMaterial.uniforms.quatTexPrev.value =            debugMesh.material.uniforms.quatTexPrev.value =             world.bodyQuaternionPrevTexture;
 
         renderer.render( scene, camera );
 
-        debugMesh.material.uniforms.particleWorldPosTex.value = null;
+        debugMesh.material.uniforms.posTex.value = null;
         debugMesh.material.uniforms.quatTex.value = null;
     }
 

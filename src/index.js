@@ -654,11 +654,14 @@ function World(parameters){
             }
         },
         bodyPositionTexture: {      get: function(){ return this.textures.bodyPosRead.texture; } },
-        bodyMassTexture: {          get: function(){ return this.textures.bodyMass.texture; } },
+        bodyPositionPrevTexture: {  get: function(){ return this.textures.bodyPosWrite.texture; } },
         bodyQuaternionTexture: {    get: function(){ return this.textures.bodyQuatRead.texture; } },
+        bodyQuaternionPrevTexture: {get: function(){ return this.textures.bodyQuatWrite.texture; } },
+        bodyMassTexture: {          get: function(){ return this.textures.bodyMass.texture; } },
         bodyForceTexture: {         get: function(){ return this.textures.bodyForce.texture; } },
         bodyTextureSize: {          get: function(){ return this.textures.bodyPosRead.width; } },
         particlePositionTexture: {  get: function(){ return this.textures.particlePosWorld.texture; } },
+        particleLocalPositionTexture: {  get: function(){ return this.textures.particlePosLocal.texture; } },
         particleForceTexture: {     get: function(){ return this.textures.particleForce.texture; } },
         particleTextureSize: {      get: function(){ return this.textures.particlePosWorld.width; } },
         gridTexture: {              get: function(){ return this.textures.grid.texture; } }
