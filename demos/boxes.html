@@ -53,9 +53,9 @@
 <script src="../src/demo.js"></script>
 <script>
 var demo = new Demo({
-    cameraPosition: new THREE.Vector3(20,20,10),
+    cameraPosition: new THREE.Vector3(10,10,10),
     create: function(renderer){
-        var gridRes = new THREE.Vector3(32,32,32);
+        var gridRes = new THREE.Vector3(128,16,128);
         var r = 0.05;
         var world = new World({
             gravity: new THREE.Vector3(0,-1,0),
@@ -63,10 +63,10 @@ var demo = new Demo({
             maxBodies: 128*128,
             maxParticles: 128*128,
             radius: r,
-            stiffness: 100,
-            damping: 0.1,
+            stiffness: 200,
+            damping: 0.4,
             fixedTimeStep: 1/60,
-            friction: 0.1,
+            friction: 0.4,
             drag: 0.3,
             boxSize: new THREE.Vector3(gridRes.x*r,10000,gridRes.z*r),
             gridPosition: new THREE.Vector3(-gridRes.x*r,0,-gridRes.z*r),
@@ -75,7 +75,7 @@ var demo = new Demo({
 
         world.setSpherePosition(
             0,
-            6,1,0
+            60,1,0
         );
 
         function calculateBoxInertia(out, mass, extents){
@@ -87,11 +87,11 @@ var demo = new Demo({
             );
         }
 
-        var N = 3;
+        var N = 2;
         var mass = 0.5;
         var inertia = new THREE.Vector3();
         var rotation = new THREE.Quaternion();
-        calculateBoxInertia(inertia, 1, new THREE.Vector3(world.radius*N,world.radius*N,world.radius*N));
+        calculateBoxInertia(inertia, mass, new THREE.Vector3(world.radius*N,world.radius*N,world.radius*N));
         function addBox(x,y,z){
             var bodyId = world.addBody(x,y,z,  rotation.x,rotation.y,rotation.z,rotation.w,  mass,  inertia.x,inertia.y,inertia.z);
             var axis = new THREE.Vector3(Math.random(),Math.random(),Math.random());
@@ -112,21 +112,23 @@ var demo = new Demo({
             }
         }
         var M = 3;
-        var maxBoxes = world.maxParticles / (N*N*N);
+        var maxBoxes = Math.floor(world.maxParticles / (N*N*N));
         var count = 0;
         for(var k=0; k<maxBoxes; k++){
             for(var i=0; i<M; i++){
                 for(var j=0; j<M; j++){
                     count++;
                     if(count >= maxBoxes) continue;
+                    var boxSize = r * 2 * N;
                     addBox(
-                        world.boxSize.x*(i/(M-1)-0.5)*1 + (Math.random()-0.5)*0.1,
-                        world.boxSize.x*(k/(M-1))*0.8 + 3 + (Math.random()-0.5)*0.1,
-                        world.boxSize.z*(j/(M-1)-0.5)*1 + (Math.random()-0.5)*0.1
+                        (i-(M-1)/2)*boxSize*1.7 + (Math.random()-0.5)*0.1,
+                        k*boxSize*1.7 + 3 + (Math.random()-0.5)*0.1,
+                        (j-(M-1)/2)*boxSize*1.7 + (Math.random()-0.5)*0.1
                     );
                 }
             }
         }
+        console.log(maxBoxes + ' boxes');
         console.log(world.particleCount + ' particles out of ' + world.maxParticles)
 
         return world;
