@@ -89,6 +89,7 @@ function init(){
 
     // Physics
     world = window.world = new World({
+        maxSubSteps: 1, // TODO: fix
         gravity: new THREE.Vector3(0,-2,0),
         renderer: renderer,
         maxBodies: numBodies * numBodies,

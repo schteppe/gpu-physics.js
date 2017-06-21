@@ -600,6 +600,10 @@ function World(parameters){
     this.particleCount = 0;
     this.massDirty = true;
 
+    this.maxSubSteps = parameters.maxSubSteps || 5;
+    this.accumulator = 0;
+    this.interpolationValue = 0;
+
     var that = this;
     function updateMaxVelocity(){
         // Set max velocity so that we don't get too much overlap between 2 particles in one time step
@@ -732,10 +736,21 @@ Object.assign( World.prototype, {
         return defines;
     },
     step: function(deltaTime){
-        this.internalStep();
+        this.accumulator += deltaTime;
+        var substeps = 0;
+        while (this.accumulator >= this.fixedTimeStep) {
+            // Do fixed steps to catch up
+            if(substeps < this.maxSubSteps){
+                this.singleStep();
+            }
+            this.accumulator -= this.fixedTimeStep;
+            substeps++;
+        }
+
+        this.interpolationValue = (this.accumulator % this.fixedTimeStep) / this.fixedTimeStep;
         this.time += deltaTime;
     },
-    internalStep: function(){
+    singleStep: function(){
         this.saveRendererState();
         this.flushData();
         this.updateWorldParticlePositions();
