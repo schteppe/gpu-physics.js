@@ -49,15 +49,15 @@
 <script src="../lib/stats.min.js"></script>
 <script src="../lib/three.orbitcontrols.js"></script>
 <script src="../lib/three.transformcontrols.js"></script>
-<script src="../src/index.js"></script>
-<script src="../src/demo.js"></script>
+<script src="../build/gp.js"></script>
+<script src="../build/demo.js"></script>
 <script>
 var demo = new Demo({
     cameraPosition: new THREE.Vector3(10,10,10),
     create: function(renderer){
         var gridRes = new THREE.Vector3(128,16,128);
         var r = 0.05;
-        var world = new World({
+        var world = new gp.World({
             gravity: new THREE.Vector3(0,-1,0),
             renderer: renderer,
             maxBodies: 128*128,

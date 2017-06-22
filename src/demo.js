@@ -1,4 +1,4 @@
-(function(){
+import * as THREE from 'three';
 
 var shaders = {
     shared: [
@@ -163,13 +163,9 @@ var shaders = {
     ].join('\n')
 };
 
-function Demo(parameters){
+export default function Demo(parameters){
 
-    var world, scene, ambientLight, light, camera, controls, renderer, customDepthMaterial;
-    var debugMesh, debugGridMesh;
-    var controller;
-    var boxSize;
-    var numParticles;
+    var world, scene, ambientLight, light, camera, controls, renderer, customDepthMaterial, gizmo, gui, stats, groundMesh, interactionSphereMesh, debugMesh, debugGridMesh, controller, boxSize, numParticles;
 
     init();
     animate();
@@ -453,12 +449,4 @@ function Demo(parameters){
             }
         });
     }
-
-    return {
-        world: world
-    };
 }
-
-window.Demo = Demo;
-
-})();

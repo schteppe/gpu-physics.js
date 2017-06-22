@@ -1,4 +1,8 @@
-import * as THREE from 'three';
+'use strict';
+
+Object.defineProperty(exports, '__esModule', { value: true });
+
+var THREE = require('three');
 
 var shaders = {
 
@@ -564,7 +568,7 @@ Object.assign(Broadphase.prototype, {
     }
 });
 
-export function World(parameters){
+function World(parameters){
     parameters = parameters || {};
     var params1 = this.params1 = new THREE.Vector4(
         parameters.stiffness !== undefined ? parameters.stiffness : 1700,
@@ -703,9 +707,6 @@ function powerOfTwoCeil(x){
     return result;
 }
 
-function pixelToId(x,y,sx,sy){
-    return x * sx + y;
-}
 function idToX(id,sx,sy){
     return id % sx;
 }
@@ -1541,3 +1542,5 @@ function createRenderTarget(w,h,type,format){
         type: type
     });
 }
+
+exports.World = World;

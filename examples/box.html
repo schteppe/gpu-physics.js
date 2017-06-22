@@ -125,7 +125,7 @@ void main() {
 <script src="../lib/dat.gui.min.js"></script>
 <script src="../lib/three.orbitcontrols.js"></script>
 <script src="../lib/three.transformcontrols.js"></script>
-<script src="../src/index.js"></script>
+<script src="../build/gp.js"></script>
 <script>
 var scene, ambientLight, light, camera, controls, renderer, mesh;
 var world, numBodies = 32, numParticles = 32, radius = 0.1, N=10, boxSize = new THREE.Vector3(20,20,20), gridResolution = new THREE.Vector3(32,32,32);
@@ -167,7 +167,7 @@ function init(){
 
     var gridRes = new THREE.Vector3(128,16,128);
     var r = 0.05;
-    world = new World({
+    world = new gp.World({
         gravity: new THREE.Vector3(0,-1,0),
         renderer: renderer,
         maxBodies: 128*128,
