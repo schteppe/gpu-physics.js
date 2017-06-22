@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>gpu-physics.js by schteppe</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <meta name="twitter:creator" content="@schteppe" />
+    <meta property="og:title" content="gpu-physics.js by schteppe" />
+    <meta property="og:description" content="Play around with a massive amount of rigid bodies in this demo." />
+    <meta property="og:url" content="https://schteppe.github.io/gpu-physics.js/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://schteppe.github.io/gpu-physics.js/gpu-physics.jpg" />
+
+    <style>
+        body {
+            color: #000000;
+            font-family: "Lucida Grande", sans-serif;
+            font-size: 12px;
+            font-weight: normal;
+            text-align: center;
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #info {
+            position: absolute;
+            bottom: 0px;
+            width: 100%;
+            padding: 5px;
+        }
+
+        a {
+            color: #000000;
+            font-weight: bold;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="container"></div>
+<div id="info">
+    <b>gpu physics</b> by <a href="http://twitter.com/schteppe">@schteppe</a> | <a href="https://www.youtube.com/watch?v=PfCZEQxTvqA">video</a> | <a href="https://github.com/schteppe/gpu-physics.js">github</a>
+</div>
+
+<script id="boxVertexShader" type="x-shader/x-vertex">
+uniform sampler2D bodyPosTex;
+uniform sampler2D bodyQuatTex;
+#define PHONG
+varying vec3 vViewPosition;
+#ifndef FLAT_SHADED
+    varying vec3 vNormal;
+#endif
+#include <common>
+#include <uv_pars_vertex>
+#include <uv2_pars_vertex>
+#include <displacementmap_pars_vertex>
+#include <envmap_pars_vertex>
+#include <color_pars_vertex>
+#include <fog_pars_vertex>
+#include <morphtarget_pars_vertex>
+#include <skinning_pars_vertex>
+#include <shadowmap_pars_vertex>
+#include <logdepthbuf_pars_vertex>
+#include <clipping_planes_pars_vertex>
+
+// Convert an index to an UV-coordinate
+vec2 indexToUV(float index, vec2 res){
+    vec2 uv = vec2(mod(index/res.x,1.0), floor( index/res.y ) / res.x);
+    return uv;
+}
+
+// Rotate a vector by a quaternion
+vec3 vec3_applyQuat(vec3 v, vec4 q){
+    float ix =  q.w * v.x + q.y * v.z - q.z * v.y;
+    float iy =  q.w * v.y + q.z * v.x - q.x * v.z;
+    float iz =  q.w * v.z + q.x * v.y - q.y * v.x;
+    float iw = -q.x * v.x - q.y * v.y - q.z * v.z;
+
+    return vec3(
+        ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y,
+        iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z,
+        iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x
+    );
+}
+
+void main() {
+    #include <uv_vertex>
+    #include <uv2_vertex>
+    #include <color_vertex>
+    vec2 bodyUV = indexToUV(0.0,bodyTextureResolution);
+#ifdef USE_COLOR
+    vColor = vec3((floor(bodyUV*3.0)+1.0)/3.0,0);
+#endif
+    #include <beginnormal_vertex>
+    #include <morphnormal_vertex>
+    #include <skinbase_vertex>
+    #include <skinnormal_vertex>
+    vec3 bodyPos = texture2D(bodyPosTex,bodyUV).xyz;
+    vec4 bodyQuat = texture2D(bodyQuatTex,bodyUV).xyzw;
+    objectNormal.xyz = vec3_applyQuat(objectNormal.xyz, bodyQuat);
+    #include <defaultnormal_vertex>
+#ifndef FLAT_SHADED
+    vNormal = normalize( transformedNormal );
+#endif
+    #include <begin_vertex>
+    transformed.xyz = vec3_applyQuat(transformed.xyz, bodyQuat);
+    transformed.xyz += bodyPos;
+    #include <displacementmap_vertex>
+    #include <morphtarget_vertex>
+    #include <skinning_vertex>
+    #include <project_vertex>
+    #include <logdepthbuf_vertex>
+    #include <clipping_planes_vertex>
+    vViewPosition = - mvPosition.xyz;
+    #include <worldpos_vertex>
+    #include <envmap_vertex>
+    #include <shadowmap_vertex>
+    #include <fog_vertex>
+}
+</script>
+
+<script src="../lib/three.min.js"></script>
+<script src="../lib/dat.gui.min.js"></script>
+<script src="../lib/three.orbitcontrols.js"></script>
+<script src="../lib/three.transformcontrols.js"></script>
+<script src="../src/index.js"></script>
+<script>
+var scene, ambientLight, light, camera, controls, renderer, mesh;
+var world, numBodies = 32, numParticles = 32, radius = 0.1, N=10, boxSize = new THREE.Vector3(20,20,20), gridResolution = new THREE.Vector3(32,32,32);
+
+init();
+animate();
+
+function init(){
+    renderer = new THREE.WebGLRenderer();
+    renderer.setPixelRatio( 1 );
+    renderer.setSize( window.innerWidth, window.innerHeight );
+    var container = document.getElementById( 'container' );
+    container.appendChild( renderer.domElement );
+    window.addEventListener( 'resize', onWindowResize, false );
+
+    scene = new THREE.Scene();
+
+    light = new THREE.DirectionalLight();
+    light.position.set(1,1,1);
+    scene.add(light);
+
+    ambientLight = new THREE.AmbientLight( 0x222222 );
+    scene.add( ambientLight );
+    renderer.setClearColor(ambientLight.color, 1.0);
+
+    camera = new THREE.PerspectiveCamera( 30, window.innerWidth / window.innerHeight, 0.01, 100 );
+    camera.position.set(4,2,-5);
+
+    var groundMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x000000 } );
+    groundMesh = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2000, 2000 ), groundMaterial );
+    groundMesh.rotation.x = - Math.PI / 2;
+    scene.add( groundMesh );
+
+    // Add controls
+    controls = new THREE.OrbitControls( camera, renderer.domElement );
+    controls.enableZoom = true;
+    controls.target.set(0.0, 0.5, 0.0);
+    controls.maxPolarAngle = Math.PI * 0.5;
+
+    var gridRes = new THREE.Vector3(128,16,128);
+    var r = 0.05;
+    world = new World({
+        gravity: new THREE.Vector3(0,-1,0),
+        renderer: renderer,
+        maxBodies: 128*128,
+        maxParticles: 128*128,
+        radius: r,
+        stiffness: 100,
+        damping: 0.4,
+        fixedTimeStep: 1/60,
+        friction: 0.4,
+        drag: 0.3,
+        boxSize: new THREE.Vector3(gridRes.x*r,10000,gridRes.z*r),
+        gridPosition: new THREE.Vector3(-gridRes.x*r,0,-gridRes.z*r),
+        gridResolution: gridRes
+    });
+
+    var N = 5;
+    var mass = 0.5;
+    var inertia = new THREE.Vector3();
+    var rotation = new THREE.Quaternion();
+    calculateBoxInertia(inertia, mass, new THREE.Vector3(r*N,r*N,r*N));
+    function addBox(x,y,z){
+        var axis = new THREE.Vector3(Math.random(),Math.random(),Math.random());
+        axis.normalize();
+        rotation.setFromAxisAngle(axis,Math.PI*Math.random());
+        var bodyId = world.addBody(x,y,z,  rotation.x,rotation.y,rotation.z,rotation.w,  mass,  inertia.x,inertia.y,inertia.z);
+        for(var i=0; i<N; i++){
+            for(var j=0; j<N; j++){
+                for(var k=0; k<N; k++){
+                    if(i*j*k===0 || (i===N-1 || j===N-1 || k===N-1)){ //Dont fill box
+                        world.addParticle(bodyId,
+                            (i-(N-1)/2)*r*2,
+                            (j-(N-1)/2)*r*2,
+                            (k-(N-1)/2)*r*2
+                        );
+                    }
+                }
+            }
+        }
+    }
+    addBox(0, 1, 0);
+
+    // Create a box mesh
+    var geometry = new THREE.BoxGeometry(2*world.radius*N,2*world.radius*N,2*world.radius*N);
+    var uniforms = THREE.UniformsUtils.clone(THREE.ShaderLib.phong.uniforms);
+    uniforms.bodyPosTex = { value: null };
+    uniforms.bodyQuatTex = { value: null };
+    var material = new THREE.ShaderMaterial({
+        uniforms: uniforms,
+        vertexShader: boxVertexShader.innerText,
+        fragmentShader: THREE.ShaderLib.phong.fragmentShader,
+        lights: true,
+        defines: {
+            bodyTextureResolution: 'vec2(' + world.bodyTextureSize.toFixed(1) + ',' + world.bodyTextureSize.toFixed(1) + ')',
+            resolution: 'vec2(' + world.particleTextureSize.toFixed(1) + ',' + world.particleTextureSize.toFixed(1) + ')'
+        }
+    });
+    mesh = new THREE.Mesh( geometry, material );
+    mesh.frustumCulled = false;
+    scene.add(mesh);
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize( window.innerWidth, window.innerHeight );
+}
+
+function animate( time ) {
+    requestAnimationFrame( animate );
+    updatePhysics( time );
+    render();
+}
+
+var prevTime;
+function updatePhysics(time){
+    var deltaTime = prevTime === undefined ? 0 : (time - prevTime) / 1000;
+    world.step( deltaTime );
+    prevTime = time;
+}
+
+function render() {
+    controls.update();
+
+    mesh.material.uniforms.bodyPosTex.value = world.bodyPositionTexture;
+    mesh.material.uniforms.bodyQuatTex.value = world.bodyQuaternionTexture;
+
+    renderer.render( scene, camera );
+
+    mesh.material.uniforms.bodyPosTex.value = null;
+    mesh.material.uniforms.bodyQuatTex.value = null;
+}
+
+function calculateBoxInertia(out, mass, extents){
+  var c = 1 / 12 * mass;
+  out.set(
+    c * ( 2 * extents.y * 2 * extents.y + 2 * extents.z * 2 * extents.z ),
+    c * ( 2 * extents.x * 2 * extents.x + 2 * extents.z * 2 * extents.z ),
+    c * ( 2 * extents.y * 2 * extents.y + 2 * extents.x * 2 * extents.x )
+  );
+}
+</script>
+</body>
+</html>
