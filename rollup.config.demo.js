@@ -1,8 +1,10 @@
+import glsl from './src/rollup.glsl.js';
+
 export default {
 	entry: 'src/demo.js',
 	indent: '\t',
 	plugins: [
-		//glsl()
+		glsl()
 	],
 	targets: [
 		{
