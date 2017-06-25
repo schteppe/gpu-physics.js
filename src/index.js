@@ -591,35 +591,13 @@ Object.assign( World.prototype, {
         mat.uniforms.bodyAngularVelTex.value = null;
     },
 
-    updateGrid: function(){
+    resetGridStencil: function(){
+
         var gridTexture = this.textures.grid;
         var mat = this.materials.mapParticle;
         var setGridStencilMaterial = this.materials.setGridStencil;
-        if(!mat){
-            mat = this.materials.mapParticle = new THREE.ShaderMaterial({
-                uniforms: {
-                    posTex: { value: null },
-                    cellSize: { value: new THREE.Vector3(this.radius*2, this.radius*2, this.radius*2) },
-                    gridPos: { value: this.broadphase.position },
-                },
-                vertexShader: getShader( 'mapParticleToCellVert' ),
-                fragmentShader: getShader( 'mapParticleToCellFrag' ),
-                defines: this.getDefines()
-            });
 
-            this.scenes.mapParticlesToGrid = new THREE.Scene();
-            var mapParticleGeometry = new THREE.BufferGeometry();
-            var size = this.textures.particlePosLocal.width;
-            var positions = new Float32Array( 3 * size * size );
-            var particleIndices = new Float32Array( size * size );
-            for(var i=0; i<size*size; i++){
-                particleIndices[i] = i; // Need to do this because there's no way to get the vertex index in webgl1 shaders...
-            }
-            mapParticleGeometry.addAttribute( 'position', new THREE.BufferAttribute( positions, 3 ) );
-            mapParticleGeometry.addAttribute( 'particleIndex', new THREE.BufferAttribute( particleIndices, 1 ) );
-            this.mapParticleToCellMesh = new THREE.Points( mapParticleGeometry, this.materials.mapParticle );
-            this.scenes.mapParticlesToGrid.add( this.mapParticleToCellMesh );
-
+        if(this.scenes.stencil === undefined){
             // Scene for rendering the stencil buffer - one GL_POINT for each grid cell that we render 4 times
             var sceneStencil = this.scenes.stencil = new THREE.Scene();
             var onePointPerTexelGeometry = new THREE.Geometry();
@@ -673,6 +651,44 @@ Object.assign( World.prototype, {
         buffers.color.setMask( true );
         buffers.depth.setLocked( false );
         buffers.depth.setMask( true );
+    },
+
+    updateGrid: function(){
+
+        this.resetGridStencil();
+
+        var renderer = this.renderer;
+        var buffers = renderer.state.buffers;
+        var gl = renderer.context;
+
+        var gridTexture = this.textures.grid;
+        var mat = this.materials.mapParticle;
+        var setGridStencilMaterial = this.materials.setGridStencil;
+        if(!mat){
+            mat = this.materials.mapParticle = new THREE.ShaderMaterial({
+                uniforms: {
+                    posTex: { value: null },
+                    cellSize: { value: new THREE.Vector3(this.radius*2, this.radius*2, this.radius*2) },
+                    gridPos: { value: this.broadphase.position },
+                },
+                vertexShader: getShader( 'mapParticleToCellVert' ),
+                fragmentShader: getShader( 'mapParticleToCellFrag' ),
+                defines: this.getDefines()
+            });
+
+            this.scenes.mapParticlesToGrid = new THREE.Scene();
+            var mapParticleGeometry = new THREE.BufferGeometry();
+            var size = this.textures.particlePosLocal.width;
+            var positions = new Float32Array( 3 * size * size );
+            var particleIndices = new Float32Array( size * size );
+            for(var i=0; i<size*size; i++){
+                particleIndices[i] = i; // Need to do this because there's no way to get the vertex index in webgl1 shaders...
+            }
+            mapParticleGeometry.addAttribute( 'position', new THREE.BufferAttribute( positions, 3 ) );
+            mapParticleGeometry.addAttribute( 'particleIndex', new THREE.BufferAttribute( particleIndices, 1 ) );
+            this.mapParticleToCellMesh = new THREE.Points( mapParticleGeometry, this.materials.mapParticle );
+            this.scenes.mapParticlesToGrid.add( this.mapParticleToCellMesh );
+        }
 
         // Draw particle positions to grid, use stencil routing.
         buffers.stencil.setFunc( gl.EQUAL, 3, 0xffffffff );
