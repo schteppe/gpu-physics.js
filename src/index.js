@@ -181,7 +181,6 @@ export function World(parameters){
     });
     this.scenes.fullscreen = new THREE.Scene();
     this.fullscreenCamera = new THREE.Camera();
-    this.fullscreenCamera.position.z = 1;
     var plane = new THREE.PlaneBufferGeometry( 2, 2 );
     var fullscreenQuad = this.fullscreenQuad = new THREE.Mesh( plane, this.materials.textured );
     this.scenes.fullscreen.add( fullscreenQuad );
