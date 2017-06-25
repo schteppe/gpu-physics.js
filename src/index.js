@@ -16,6 +16,7 @@ import addParticleForceToBodyFrag from './shaders/addParticleForceToBodyFrag.gls
 import localParticlePositionToRelativeFrag from './shaders/localParticlePositionToRelativeFrag.glsl';
 import localParticlePositionToWorldFrag from './shaders/localParticlePositionToWorldFrag.glsl';
 import bodyVelocityToParticleVelocityFrag from './shaders/bodyVelocityToParticleVelocityFrag.glsl';
+import setStencilFrag from './shaders/setStencilFrag.glsl';
 import shared from './shaders/shared.glsl';
 
 var shaders = {
@@ -654,7 +655,6 @@ Object.assign( World.prototype, {
     },
 
     resetGridStencil: function(){
-        var renderer = this.renderer;
 
         if(this.scenes.stencil2 === undefined){
             this.materials.stencil = new THREE.ShaderMaterial({
@@ -662,23 +662,8 @@ Object.assign( World.prototype, {
                     res: { value: new THREE.Vector2(this.textures.grid.width,this.textures.grid.height) },
                     quadrant: { value: 0.0 }
                 },
-                vertexShader: [
-                    "void main() {",
-                    "	gl_Position = vec4( position, 1.0 );",
-                    "}"
-                ].join('\n'),
-                fragmentShader: [
-                    "uniform vec2 res;",
-                    "uniform float quadrant;",
-                    "void main() {",
-                    "    vec2 coord = floor(gl_FragCoord.xy);",
-                    "    if(mod(coord.x,2.0) + 2.0 * mod(coord.y,2.0) == quadrant){",
-                    "        gl_FragColor = vec4(1,1,1,1);",
-                    "    } else {",
-                    "        discard;",
-                    "    }",
-                    "}"
-                ].join('\n'),
+                vertexShader: vertexShader,
+                fragmentShader: setStencilFrag,
             });
 
             this.scenes.stencil2 = new THREE.Scene();
@@ -686,8 +671,9 @@ Object.assign( World.prototype, {
             this.scenes.stencil2.add( quad );
         }
 
+        var renderer = this.renderer;
         renderer.setClearColor(0x000000, 1.0);
-        renderer.clearTarget( this.textures.grid, true, true, true );
+        renderer.clearTarget( this.textures.grid, true, false, true ); // color, depth, stencil
         var buffers = renderer.state.buffers;
         var gl = renderer.context;
         buffers.depth.setTest( false );
