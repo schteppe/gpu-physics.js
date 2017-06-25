@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import vertexShader from './shaders/vertexShader.glsl';
-import testFrag from './shaders/testFrag.glsl';
+import passThroughVert from './shaders/passThroughVert.glsl';
+import passThroughFrag from './shaders/passThroughFrag.glsl';
 import setBodyDataVert from './shaders/setBodyDataVert.glsl';
 import setBodyDataFrag from './shaders/setBodyDataFrag.glsl';
 import mapParticleToCellVert from './shaders/mapParticleToCellVert.glsl';
@@ -20,8 +20,8 @@ import setStencilFrag from './shaders/setStencilFrag.glsl';
 import shared from './shaders/shared.glsl';
 
 var shaders = {
-    vertexShader,
-    testFrag,
+    passThroughVert,
+    passThroughFrag,
     setBodyDataVert,
     setBodyDataFrag,
     mapParticleToCellVert,
@@ -175,8 +175,8 @@ export function World(parameters){
                 texture: { value: null },
                 res: { value: new THREE.Vector2() },
             },
-            vertexShader: vertexShader,
-            fragmentShader: testFrag
+            vertexShader: passThroughVert,
+            fragmentShader: passThroughFrag
         })
     });
     this.scenes.fullscreen = new THREE.Scene();
@@ -432,22 +432,24 @@ Object.assign( World.prototype, {
 
         this.materials.setBodyData.uniforms.res.value.set(this.bodyTextureSize, this.bodyTextureSize);
         var data = new THREE.Vector4();
+        var attributes = this.onePointPerBodyGeometry.attributes;
+
         for(var startIndex = 0; startIndex < ids.length; startIndex += numVertices){
             var count = Math.min(numVertices, ids.length - startIndex);
 
-            this.onePointPerBodyGeometry.attributes.bodyIndex.needsUpdate = true;
-            this.onePointPerBodyGeometry.attributes.bodyIndex.updateRange.count = count;
+            attributes.bodyIndex.needsUpdate = true;
+            attributes.bodyIndex.updateRange.count = count;
 
-            this.onePointPerBodyGeometry.attributes.data.needsUpdate = true;
-            this.onePointPerBodyGeometry.attributes.data.updateRange.count = count;
+            attributes.data.needsUpdate = true;
+            attributes.data.updateRange.count = count;
 
             for(var i=0; i<count; i++){
                 getDataCallback(data, startIndex + i);
-                this.onePointPerBodyGeometry.attributes.bodyIndex.array[i] = ids[startIndex + i];
-                this.onePointPerBodyGeometry.attributes.data.array[4*i+0] = data.x;
-                this.onePointPerBodyGeometry.attributes.data.array[4*i+1] = data.y;
-                this.onePointPerBodyGeometry.attributes.data.array[4*i+2] = data.z;
-                this.onePointPerBodyGeometry.attributes.data.array[4*i+3] = data.w;
+                attributes.bodyIndex.array[i] = ids[startIndex + i];
+                attributes.data.array[4*i+0] = data.x;
+                attributes.data.array[4*i+1] = data.y;
+                attributes.data.array[4*i+2] = data.z;
+                attributes.data.array[4*i+3] = data.w;
             }
             this.onePointPerBodyGeometry.setDrawRange( 0, count );
             this.renderer.render( this.scenes.setBodyData, this.fullscreenCamera, renderTarget, false );
@@ -516,7 +518,7 @@ Object.assign( World.prototype, {
                     bodyPosTex: { value: null },
                     bodyQuatTex: { value: null },
                 },
-                vertexShader: vertexShader,
+                vertexShader: passThroughVert,
                 fragmentShader: getShader( 'localParticlePositionToWorldFrag' ),
                 defines: this.getDefines()
             });
@@ -547,7 +549,7 @@ Object.assign( World.prototype, {
                     bodyPosTex:  { value: null },
                     bodyQuatTex:  { value: null },
                 },
-                vertexShader: vertexShader,
+                vertexShader: passThroughVert,
                 fragmentShader: getShader( 'localParticlePositionToRelativeFrag' ),
                 defines: this.getDefines()
             });
@@ -576,7 +578,7 @@ Object.assign( World.prototype, {
                     bodyVelTex:  { value: null },
                     bodyAngularVelTex:  { value: null },
                 },
-                vertexShader: vertexShader,
+                vertexShader: passThroughVert,
                 fragmentShader: getShader( 'bodyVelocityToParticleVelocityFrag' ),
                 defines: this.getDefines()
             });
@@ -664,7 +666,7 @@ Object.assign( World.prototype, {
                     res: { value: new THREE.Vector2(this.textures.grid.width,this.textures.grid.height) },
                     quadrant: { value: 0.0 }
                 },
-                vertexShader: vertexShader,
+                vertexShader: passThroughVert,
                 fragmentShader: setStencilFrag,
             });
 
@@ -779,7 +781,7 @@ Object.assign( World.prototype, {
                     params2: { value: this.params2 },
                     params3: { value: this.params3 },
                 },
-                vertexShader: vertexShader,
+                vertexShader: passThroughVert,
                 fragmentShader: getShader( 'updateForceFrag' ),
                 defines: this.getDefines()
             });
@@ -823,7 +825,7 @@ Object.assign( World.prototype, {
                     params2: { value: this.params2 },
                     params3: { value: this.params3 },
                 },
-                vertexShader: vertexShader,
+                vertexShader: passThroughVert,
                 fragmentShader: getShader( 'updateTorqueFrag' ),
                 defines: this.getDefines()
             });
@@ -960,7 +962,7 @@ Object.assign( World.prototype, {
                     gravity:  { value: this.gravity },
                     maxVelocity: { value: this.maxVelocity }
                 },
-                vertexShader: vertexShader,
+                vertexShader: passThroughVert,
                 fragmentShader: getShader( 'updateBodyVelocityFrag' ),
                 defines: this.getDefines()
             });
@@ -1018,7 +1020,7 @@ Object.assign( World.prototype, {
                     bodyVelTex:  { value: null },
                     params2: { value: this.params2 }
                 },
-                vertexShader: vertexShader,
+                vertexShader: passThroughVert,
                 fragmentShader: getShader( 'updateBodyPositionFrag' ),
                 defines: this.getDefines()
             });
@@ -1047,7 +1049,7 @@ Object.assign( World.prototype, {
                     bodyAngularVelTex: { value: null },
                     params2: { value: this.params2 }
                 },
-                vertexShader: vertexShader,
+                vertexShader: passThroughVert,
                 fragmentShader: getShader( 'updateBodyQuaternionFrag' ),
                 defines: this.getDefines()
             });
