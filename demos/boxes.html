@@ -60,15 +60,15 @@ var demo = new Demo({
         var world = new gp.World({
             gravity: new THREE.Vector3(0,-1,0),
             renderer: renderer,
-            maxBodies: 128*128,
-            maxParticles: 128*128,
+            maxBodies: 64*64,
+            maxParticles: 64*64,
             radius: r,
-            stiffness: 200,
+            stiffness: 500,
             damping: 0.4,
             fixedTimeStep: 1/60,
             friction: 0.4,
-            drag: 0.3,
-            boxSize: new THREE.Vector3(gridRes.x*r,10000,gridRes.z*r),
+            drag: 0.5,
+            boxSize: new THREE.Vector3(gridRes.x*r,1000000,gridRes.z*r),
             gridPosition: new THREE.Vector3(-gridRes.x*r,0,-gridRes.z*r),
             gridResolution: gridRes
         });
