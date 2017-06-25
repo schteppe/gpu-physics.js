@@ -591,7 +591,7 @@ Object.assign( World.prototype, {
         mat.uniforms.bodyAngularVelTex.value = null;
     },
 
-    resetGridStencil: function(){
+    resetGridStencilOld: function(){
 
         var gridTexture = this.textures.grid;
         var mat = this.materials.mapParticle;
@@ -653,9 +653,78 @@ Object.assign( World.prototype, {
         buffers.depth.setMask( true );
     },
 
+    resetGridStencil: function(){
+        var renderer = this.renderer;
+
+        if(this.scenes.stencil2 === undefined){
+            this.materials.stencil = new THREE.ShaderMaterial({
+                uniforms: {
+                    res: { value: new THREE.Vector2(this.textures.grid.width,this.textures.grid.height) },
+                    quadrant: { value: 0.0 }
+                },
+                vertexShader: [
+                    "void main() {",
+                    "	gl_Position = vec4( position, 1.0 );",
+                    "}"
+                ].join('\n'),
+                fragmentShader: [
+                    "uniform vec2 res;",
+                    "uniform float quadrant;",
+                    "void main() {",
+                    "    vec2 coord = floor(gl_FragCoord.xy);",
+                    "    if(mod(coord.x,2.0) + 2.0 * mod(coord.y,2.0) == quadrant){",
+                    "        gl_FragColor = vec4(1,1,1,1);",
+                    "    } else {",
+                    "        discard;",
+                    "    }",
+                    "}"
+                ].join('\n'),
+            });
+
+            this.scenes.stencil2 = new THREE.Scene();
+            var quad = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2, 2 ), this.materials.stencil );
+            this.scenes.stencil2.add( quad );
+        }
+
+        renderer.setClearColor(0x000000, 1.0);
+        renderer.clearTarget( this.textures.grid, true, true, true );
+        var buffers = renderer.state.buffers;
+        var gl = renderer.context;
+        buffers.depth.setTest( false );
+        buffers.depth.setMask( false ); // dont draw depth
+        buffers.depth.setLocked( true );
+        buffers.color.setMask( false ); // dont draw color
+        buffers.color.setLocked( true );
+        buffers.stencil.setTest( true );
+        buffers.stencil.setOp( gl.REPLACE, gl.REPLACE, gl.REPLACE );
+        buffers.stencil.setClear( 0 );
+        buffers.stencil.setFunc( gl.ALWAYS, 1, 0xffffffff ); //always set stencil to 1
+        for(var i=0;i<2;i++){
+            for(var j=0;j<2;j++){
+                var x = i, y = j;
+                var stencilValue = i + j * 2;
+                if(stencilValue === 0){
+                    continue; // No need to set 0 stencil value, it's already cleared
+                }
+                this.materials.stencil.uniforms.quadrant.value = stencilValue;
+                buffers.stencil.setFunc( gl.ALWAYS, stencilValue, 0xffffffff );
+                renderer.render( this.scenes.stencil2, this.fullscreenCamera, this.textures.grid, false );
+            }
+        }
+        buffers.depth.setLocked( false );
+        buffers.depth.setMask( true );
+        buffers.depth.setTest( true );
+        buffers.color.setLocked( false );
+        buffers.color.setMask( true );
+    },
+
     updateGrid: function(){
 
-        this.resetGridStencil();
+        if(!window.a){
+            this.resetGridStencil();
+        } else {
+            this.resetGridStencilOld();
+        }
 
         var renderer = this.renderer;
         var buffers = renderer.state.buffers;
