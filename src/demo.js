@@ -1,48 +1,8 @@
 import * as THREE from 'three';
+import shared from './shaders/shared.glsl';
 
 var shaders = {
-    shared: [
-        "// Convert an index to an UV-coordinate",
-        "vec2 indexToUV(float index, vec2 res){",
-        "    vec2 uv = vec2(mod(index/res.x,1.0), floor( index/res.y ) / res.x);",
-        "    return uv;",
-        "}",
-
-        "// Rotate a vector by a quaternion",
-        "vec3 vec3_applyQuat(vec3 v, vec4 q){",
-        "    float ix =  q.w * v.x + q.y * v.z - q.z * v.y;",
-        "    float iy =  q.w * v.y + q.z * v.x - q.x * v.z;",
-        "    float iz =  q.w * v.z + q.x * v.y - q.y * v.x;",
-        "    float iw = -q.x * v.x - q.y * v.y - q.z * v.z;",
-
-        "    return vec3(",
-        "        ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y,",
-        "        iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z,",
-        "        iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x",
-        "    );",
-        "}",
-
-        "vec4 quat_slerp(vec4 v0, vec4 v1, float t){",
-        "   float d = dot(v0, v1);",
-
-        "    if (abs(d) > 0.9995) {",
-        "        return normalize(mix(v0,v1,t));",
-        "    }",
-
-        "    if (d < 0.0) {",
-        "        v1 = -v1;",
-        "        d = -d;",
-        "    }",
-        "    d = clamp(d, -1.0, 1.0);",
-        "    float theta0 = acos(d);",
-        "    float theta = theta0*t;",
-
-        "    vec4 v2 = normalize(v1 - v0*d);",
-
-        "    return v0*cos(theta) + v2*sin(theta);",
-        "}",
-        ""
-    ].join('\n'),
+    shared,
 
     renderParticlesVertex: [
         "uniform sampler2D particleLocalPosTex;",

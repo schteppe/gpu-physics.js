@@ -55,7 +55,7 @@ void main() {
                 vec3 neighborCellGridPos = particleGridPos + vec3(i,j,k);
                 ivec3 iNeighborCellGridPos = ivec3(particleGridPos) + ivec3(i,j,k);
                 for(int l=0; l<4; l++){
-                    vec2 neighborCellTexUV = gridPosToGridUV(neighborCellGridPos, l, gridResolution);
+                    vec2 neighborCellTexUV = gridPosToGridUV(neighborCellGridPos, l, gridResolution, gridTextureResolution, gridZTiling);
                     neighborCellTexUV += vec2(0.5) / (2.0 * gridTextureResolution); // center to cell pixel
                     int neighborIndex = int(floor(texture2D(gridTex, neighborCellTexUV).x-1.0 + 0.5)); // indices are stored incremented by 1
                     vec2 neighborUV = indexToUV(float(neighborIndex), resolution);

@@ -11,19 +11,19 @@ vec3 worldPosToGridPos(vec3 particlePos, vec3 gridPos, vec3 cellSize){
 	return floor((particlePos - gridPos)/cellSize);
 }
 // Convert grid position to UV coord in the grid texture
-vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes){
+vec2 gridPosToGridUV(vec3 gridPos, int subIndex, vec3 gridRes, vec2 gridTextureRes, vec2 gridZTile){
 	gridPos = clamp(gridPos, vec3(0), gridRes-vec3(1)); // Keep within limits
 
-	vec2 gridUV = 2.0 * gridPos.xz / gridTextureResolution;
+	vec2 gridUV = 2.0 * gridPos.xz / gridTextureRes;
 
 	// move to correct z square
-	vec2 zPos = vec2( mod(gridPos.y, gridZTiling.x), floor(gridPos.y / gridZTiling.y) );
-	zPos /= gridZTiling;
+	vec2 zPos = vec2( mod(gridPos.y, gridZTile.x), floor(gridPos.y / gridZTile.y) );
+	zPos /= gridZTile;
 	gridUV += zPos;
 
 	// Choose sub pixel
 	float fSubIndex = float(subIndex);
-	gridUV += vec2( mod(fSubIndex,2.0), floor(fSubIndex/2.0) ) / gridTextureResolution;
+	gridUV += vec2( mod(fSubIndex,2.0), floor(fSubIndex/2.0) ) / gridTextureRes;
 
 	return gridUV;
 }
@@ -96,4 +96,24 @@ mat3 invInertiaWorld(vec4 q, vec3 invInertia){
 		0, 0, invInertia.z
 	);
 	return transpose2(R) * I * R;
+}
+
+vec4 quat_slerp(vec4 v0, vec4 v1, float t){
+	float d = dot(v0, v1);
+
+	if (abs(d) > 0.9995) {
+		return normalize(mix(v0,v1,t));
+	}
+
+	if (d < 0.0) {
+		v1 = -v1;
+		d = -d;
+	}
+	d = clamp(d, -1.0, 1.0);
+	float theta0 = acos(d);
+	float theta = theta0*t;
+
+	vec4 v2 = normalize(v1 - v0*d);
+
+	return v0*cos(theta) + v2*sin(theta);
 }
