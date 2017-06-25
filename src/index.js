@@ -230,19 +230,23 @@ Object.assign( World.prototype, {
         return defines;
     },
     step: function(deltaTime){
-        this.accumulator += deltaTime;
+        var accumulator = this.accumulator;
+        var fixedTimeStep = this.fixedTimeStep;
+
+        accumulator += deltaTime;
         var substeps = 0;
-        while (this.accumulator >= this.fixedTimeStep) {
+        while (accumulator >= fixedTimeStep) {
             // Do fixed steps to catch up
             if(substeps < this.maxSubSteps){
                 this.singleStep();
             }
-            this.accumulator -= this.fixedTimeStep;
+            accumulator -= fixedTimeStep;
             substeps++;
         }
 
-        this.interpolationValue = (this.accumulator % this.fixedTimeStep) / this.fixedTimeStep;
+        this.interpolationValue = accumulator / fixedTimeStep;
         this.time += deltaTime;
+        this.accumulator = accumulator;
     },
     singleStep: function(){
         this.saveRendererState();
