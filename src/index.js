@@ -513,7 +513,7 @@ Object.assign( World.prototype, {
                     bodyPosTex: { value: null },
                     bodyQuatTex: { value: null },
                 },
-                vertexShader: getShader( 'vertexShader' ),
+                vertexShader: vertexShader,
                 fragmentShader: getShader( 'localParticlePositionToWorldFrag' ),
                 defines: this.getDefines()
             });
@@ -544,7 +544,7 @@ Object.assign( World.prototype, {
                     bodyPosTex:  { value: null },
                     bodyQuatTex:  { value: null },
                 },
-                vertexShader: getShader( 'vertexShader' ),
+                vertexShader: vertexShader,
                 fragmentShader: getShader( 'localParticlePositionToRelativeFrag' ),
                 defines: this.getDefines()
             });
@@ -573,7 +573,7 @@ Object.assign( World.prototype, {
                     bodyVelTex:  { value: null },
                     bodyAngularVelTex:  { value: null },
                 },
-                vertexShader: getShader( 'vertexShader' ),
+                vertexShader: vertexShader,
                 fragmentShader: getShader( 'bodyVelocityToParticleVelocityFrag' ),
                 defines: this.getDefines()
             });
@@ -776,7 +776,7 @@ Object.assign( World.prototype, {
                     params2: { value: this.params2 },
                     params3: { value: this.params3 },
                 },
-                vertexShader: getShader( 'vertexShader' ),
+                vertexShader: vertexShader,
                 fragmentShader: getShader( 'updateForceFrag' ),
                 defines: this.getDefines()
             });
@@ -820,7 +820,7 @@ Object.assign( World.prototype, {
                     params2: { value: this.params2 },
                     params3: { value: this.params3 },
                 },
-                vertexShader: getShader( 'vertexShader' ),
+                vertexShader: vertexShader,
                 fragmentShader: getShader( 'updateTorqueFrag' ),
                 defines: this.getDefines()
             });
@@ -957,7 +957,7 @@ Object.assign( World.prototype, {
                     gravity:  { value: this.gravity },
                     maxVelocity: { value: this.maxVelocity }
                 },
-                vertexShader: getShader( 'vertexShader' ),
+                vertexShader: vertexShader,
                 fragmentShader: getShader( 'updateBodyVelocityFrag' ),
                 defines: this.getDefines()
             });
@@ -1015,7 +1015,7 @@ Object.assign( World.prototype, {
                     bodyVelTex:  { value: null },
                     params2: { value: this.params2 }
                 },
-                vertexShader: getShader( 'vertexShader' ),
+                vertexShader: vertexShader,
                 fragmentShader: getShader( 'updateBodyPositionFrag' ),
                 defines: this.getDefines()
             });
@@ -1044,7 +1044,7 @@ Object.assign( World.prototype, {
                     bodyAngularVelTex: { value: null },
                     params2: { value: this.params2 }
                 },
-                vertexShader: getShader( 'vertexShader' ),
+                vertexShader: vertexShader,
                 fragmentShader: getShader( 'updateBodyQuaternionFrag' ),
                 defines: this.getDefines()
             });
