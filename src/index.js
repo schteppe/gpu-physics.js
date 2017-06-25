@@ -175,9 +175,8 @@ export function World(parameters){
                 texture: { value: null },
                 res: { value: new THREE.Vector2() },
             },
-            vertexShader: getShader( 'vertexShader' ),
-            fragmentShader: getShader( 'testFrag' ),
-            defines: this.getDefines()
+            vertexShader: vertexShader,
+            fragmentShader: testFrag
         })
     });
     this.scenes.fullscreen = new THREE.Scene();
