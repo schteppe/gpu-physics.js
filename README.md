@@ -44,7 +44,7 @@ world.addParticle(bodyId, 0,0,0); // Add a particle in the center of the body
 
 // Get the UV coordinate for the body
 var uv = world.getBodyUV(bodyId);
-myCustomShaderMaterial.uniforms.bodyUV = uv;
+myCustomShaderMaterial.uniforms.bodyUV.value = uv;
 
 // A simple render loop can look like this:
 var prevTime;
