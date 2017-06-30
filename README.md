@@ -1,15 +1,68 @@
-GPU physics simulation in WebGL
-===============================
+GPGPU rigid body physics for Three.js
+=====================================
 
 [Launch demo](https://schteppe.github.io/gpu-physics.js/) or [watch the video](https://www.youtube.com/watch?v=PfCZEQxTvqA). NOTE: Works only on desktops with good GPUs.
 
 ![Demo](gpu-physics.jpg)
 
-## About the demo
+## Usage
 
-An insane amount of rigid bodies are waiting to spawn. How many can your GPU handle? Use the GUI to tweak simulation parameters or just shove the sphere into the container to see what happens.
+Include gp.js into your Three.js project HTML:
 
-For now, this repo is just a single demo, but hopefully it can become a proper library usable with three.js or other webgl renderers.
+```html
+<script src="gp.js"></script>
+```
+
+Sample code below. See the [examples/](examples/) directory for full examples.
+
+```js
+    // Create a simulation world
+    var world = new gp.World({
+        renderer: threejsRenderer,            // Must be a THREE.WebGLRenderer
+        maxBodies: 128 * 128,                 // Max number of bodies
+        maxParticles: 128 * 128,              // Max number of particles (each body consists of a number of particles)
+        radius: 0.05,                         // Size of a particle in the simulation
+        stiffness: 100,                       // Contact stiffness
+        damping: 0.4,                         // Contact damping
+        fixedTimeStep: 1/60,                  // Simulation timestep
+        boxSize: new THREE.Vector3(10,10,10), // World collision bounds
+
+        // The "grid" is a box where collisions can occur. Specify its position and resolution.
+        // The size of the grid box is gridResolution * radius
+        gridPosition: new THREE.Vector3(0,0,0),
+        gridResolution: new THREE.Vector3(128,16,128),
+
+        gravity: new THREE.Vector3(0,-1,0),
+        friction: 0.4,
+        drag: 0.3,
+    });
+
+    // Create a body
+    //                         position   rotation   mass  inertia
+    var bodyId = world.addBody(0, 0, 0,   0,0,0,1,   1,    0.1,0.1,0.1);
+    world.addParticle(bodyId, 0,0,0); // Add a particle in the center of the body
+
+    // Get the UV coordinate for the body
+    var uv = world.getBodyUV(bodyId);
+    myCustomShaderMaterial.uniforms.bodyUV = uv;
+
+    // A simple render loop can look like this:
+    var prevTime;
+    function render() {
+        // Update physics
+        var deltaTime = prevTime === undefined ? 0 : (time - prevTime) / 1000;
+        world.step( deltaTime );
+        prevTime = time;
+
+        // You can during runtime use textures from the world, they contain positions and rotations of all bodies
+        // Note that you need to fetch these textures every frame, since they are swapped by the World every step.
+        myCustomShaderMaterial.uniforms.bodyPositionTex.value = world.bodyPositionTexture;
+        myCustomShaderMaterial.uniforms.bodyQuaternionTex.value = world.bodyQuaternionTexture;
+
+        // Render scene
+        renderer.render( scene, camera );
+    }
+```
 
 ## Implementation
 
@@ -34,8 +87,3 @@ The simulation loop is in short:
 <li>Render each body by looking up body position and quaternion in the correct render target texture.</li>
 </ol>
 </ol>
-
-## Possible improvements
-
-* Seems like a lot of the simulation loop is spent updating the stencil buffer for the large grid render target. Using PBOs and drawPixels (available in WebGL2?) could speed it up.
-* Using a single channel for the grid texture could save some graphics memory.
