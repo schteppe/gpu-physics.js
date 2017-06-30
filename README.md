@@ -16,52 +16,52 @@ Include gp.js into your Three.js project HTML:
 Sample code below. See the [examples/](examples/) directory for full examples.
 
 ```js
-    // Create a simulation world
-    var world = new gp.World({
-        renderer: threejsRenderer,            // Must be a THREE.WebGLRenderer
-        maxBodies: 128 * 128,                 // Max number of bodies
-        maxParticles: 128 * 128,              // Max number of particles (each body consists of a number of particles)
-        radius: 0.05,                         // Size of a particle in the simulation
-        stiffness: 100,                       // Contact stiffness
-        damping: 0.4,                         // Contact damping
-        fixedTimeStep: 1/60,                  // Simulation timestep
-        boxSize: new THREE.Vector3(10,10,10), // World collision bounds
+// Create a simulation world
+var world = new gp.World({
+    renderer: threejsRenderer,            // Must be a THREE.WebGLRenderer
+    maxBodies: 128 * 128,                 // Max number of bodies
+    maxParticles: 128 * 128,              // Max number of particles (each body consists of a number of particles)
+    radius: 0.05,                         // Size of a particle in the simulation
+    stiffness: 100,                       // Contact stiffness
+    damping: 0.4,                         // Contact damping
+    fixedTimeStep: 1/60,                  // Simulation timestep
+    boxSize: new THREE.Vector3(10,10,10), // World collision bounds
 
-        // The "grid" is a box where collisions can occur. Specify its position and resolution.
-        // The size of the grid box is gridResolution * radius
-        gridPosition: new THREE.Vector3(0,0,0),
-        gridResolution: new THREE.Vector3(128,16,128),
+    // The "grid" is a box where collisions can occur. Specify its position and resolution.
+    // The size of the grid box is gridResolution * radius
+    gridPosition: new THREE.Vector3(0,0,0),
+    gridResolution: new THREE.Vector3(128,16,128),
 
-        gravity: new THREE.Vector3(0,-1,0),
-        friction: 0.4,
-        drag: 0.3,
-    });
+    gravity: new THREE.Vector3(0,-1,0),
+    friction: 0.4,
+    drag: 0.3,
+});
 
-    // Create a body
-    //                         position   rotation   mass  inertia
-    var bodyId = world.addBody(0, 0, 0,   0,0,0,1,   1,    0.1,0.1,0.1);
-    world.addParticle(bodyId, 0,0,0); // Add a particle in the center of the body
+// Create a body
+//                         position   rotation   mass  inertia
+var bodyId = world.addBody(0, 0, 0,   0,0,0,1,   1,    0.1,0.1,0.1);
+world.addParticle(bodyId, 0,0,0); // Add a particle in the center of the body
 
-    // Get the UV coordinate for the body
-    var uv = world.getBodyUV(bodyId);
-    myCustomShaderMaterial.uniforms.bodyUV = uv;
+// Get the UV coordinate for the body
+var uv = world.getBodyUV(bodyId);
+myCustomShaderMaterial.uniforms.bodyUV = uv;
 
-    // A simple render loop can look like this:
-    var prevTime;
-    function render() {
-        // Update physics
-        var deltaTime = prevTime === undefined ? 0 : (time - prevTime) / 1000;
-        world.step( deltaTime );
-        prevTime = time;
+// A simple render loop can look like this:
+var prevTime;
+function render() {
+    // Update physics
+    var deltaTime = prevTime === undefined ? 0 : (time - prevTime) / 1000;
+    world.step( deltaTime );
+    prevTime = time;
 
-        // You can during runtime use textures from the world, they contain positions and rotations of all bodies
-        // Note that you need to fetch these textures every frame, since they are swapped by the World every step.
-        myCustomShaderMaterial.uniforms.bodyPositionTex.value = world.bodyPositionTexture;
-        myCustomShaderMaterial.uniforms.bodyQuaternionTex.value = world.bodyQuaternionTexture;
+    // You can during runtime use textures from the world, they contain positions and rotations of all bodies
+    // Note that you need to fetch these textures every frame, since they are swapped by the World every step.
+    myCustomShaderMaterial.uniforms.bodyPositionTex.value = world.bodyPositionTexture;
+    myCustomShaderMaterial.uniforms.bodyQuaternionTex.value = world.bodyQuaternionTexture;
 
-        // Render scene
-        renderer.render( scene, camera );
-    }
+    // Render scene
+    renderer.render( scene, camera );
+}
 ```
 
 ## Implementation
