@@ -1,0 +1,27 @@
+{
+  "name": "gpu-physics",
+  "version": "0.0.1",
+  "description": "GPGPU physics for three.js",
+  "main": "build/gp.module.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schteppe/gpu-physics.js.git"
+  },
+  "keywords": [
+    "webgl",
+    "physics",
+    "threejs"
+  ],
+  "author": "Stefan Hedman",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/schteppe/gpu-physics.js/issues"
+  },
+  "homepage": "https://github.com/schteppe/gpu-physics.js#readme"
+}
