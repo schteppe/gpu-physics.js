@@ -5,6 +5,14 @@ GPGPU rigid body physics for Three.js
 
 ![Demo](gpu-physics.jpg)
 
+## Full examples
+
+* [Single box](https://schteppe.github.io/gpu-physics.js/examples/box.html)
+
+## Demos
+
+* [Many boxes](https://schteppe.github.io/gpu-physics.js/demos/boxes.html)
+
 ## Usage
 
 Include [gp.js](https://raw.githubusercontent.com/schteppe/gpu-physics.js/master/build/gp.js) into your Three.js project HTML:
