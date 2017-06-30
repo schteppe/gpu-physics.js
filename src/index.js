@@ -330,6 +330,13 @@ Object.assign( World.prototype, {
         var p = idToDataIndex(particleId, w, h);
         return this.dataTextures.particleLocalPositions.image.data[p+3];
     },
+    getBodyUV: function(bodyId){
+        var s = this.bodyTextureSize;
+        return new THREE.Vector2(
+            idToX(bodyId, s, s) / s,
+            idToY(bodyId, s, s) / s
+        );
+    },
     setBodyMass: function(bodyId, mass, inertiaX, inertiaY, inertiaZ){
         var tex = this.dataTextures.bodyMass;
         var data = tex.image.data;
