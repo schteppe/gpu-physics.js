@@ -7,7 +7,7 @@ GPGPU rigid body physics for Three.js
 
 ## Usage
 
-Include gp.js into your Three.js project HTML:
+Include [gp.js](https://raw.githubusercontent.com/schteppe/gpu-physics.js/master/build/gp.js) into your Three.js project HTML:
 
 ```html
 <script src="gp.js"></script>
