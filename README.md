@@ -36,7 +36,7 @@ var world = new gp.World({
     boxSize: new THREE.Vector3(10,10,10), // World collision bounds
 
     // The "grid" is a box where collisions can occur. Specify its position and resolution.
-    // The size of the grid box is gridResolution * radius
+    // The size of the grid box is gridResolution * radius * 2
     gridPosition: new THREE.Vector3(0,0,0),
     gridResolution: new THREE.Vector3(128,16,128),
 
@@ -56,20 +56,25 @@ myCustomShaderMaterial.uniforms.bodyUV.value = uv;
 
 // A simple render loop can look like this:
 var prevTime;
-function render() {
-    // Update physics
-    var deltaTime = prevTime === undefined ? 0 : (time - prevTime) / 1000;
-    world.step( deltaTime );
+function render(time) {
+    requestAnimationFrame(render);
+    
+    // Calculate time since last frame
+    var deltaTime = prevTime ? (time - prevTime) / 1000 : 0;
     prevTime = time;
+    
+    // Update physics    
+    world.step( deltaTime );
 
-    // You can during runtime use textures from the world, they contain positions and rotations of all bodies
-    // Note that you need to fetch these textures every frame, since they are swapped by the World every step.
+    // Use textures from the world, they contain positions and rotations of all bodies.
+    // Note: you need to fetch these textures every frame from the World, since they are swapped by the World every step.
     myCustomShaderMaterial.uniforms.bodyPositionTex.value = world.bodyPositionTexture;
     myCustomShaderMaterial.uniforms.bodyQuaternionTex.value = world.bodyQuaternionTexture;
 
     // Render scene
     renderer.render( scene, camera );
 }
+requestAnimationFrame(render);
 ```
 
 ## Implementation
