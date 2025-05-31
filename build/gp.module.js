@@ -1,8 +1,25 @@
 'use strict';
 
-Object.defineProperty(exports, '__esModule', { value: true });
-
 var THREE = require('three');
+
+function _interopNamespaceDefault(e) {
+    var n = Object.create(null);
+    if (e) {
+        Object.keys(e).forEach(function (k) {
+            if (k !== 'default') {
+                var d = Object.getOwnPropertyDescriptor(e, k);
+                Object.defineProperty(n, k, d.get ? d : {
+                    enumerable: true,
+                    get: function () { return e[k]; }
+                });
+            }
+        });
+    }
+    n.default = e;
+    return Object.freeze(n);
+}
+
+var THREE__namespace = /*#__PURE__*/_interopNamespaceDefault(THREE);
 
 var passThroughVert = "void main() {\n    gl_Position = vec4( position, 1.0 );\n}";
 
@@ -68,9 +85,9 @@ function getShader(id){
 }
 
 function Broadphase(parameters){
-    this.position = new THREE.Vector3(0,0,0);
-    this.resolution = new THREE.Vector3(64,64,64);
-    this.gridZTiling = new THREE.Vector2();
+    this.position = new THREE__namespace.Vector3(0,0,0);
+    this.resolution = new THREE__namespace.Vector3(64,64,64);
+    this.gridZTiling = new THREE__namespace.Vector2();
     this.update();
 }
 Object.assign(Broadphase.prototype, {
@@ -83,26 +100,26 @@ Object.assign(Broadphase.prototype, {
 
 function World(parameters){
     parameters = parameters || {};
-    var params1 = this.params1 = new THREE.Vector4(
+    var params1 = this.params1 = new THREE__namespace.Vector4(
         parameters.stiffness !== undefined ? parameters.stiffness : 1700,
         parameters.damping !== undefined ? parameters.damping : 6,
         parameters.radius !== undefined ? parameters.radius : 0.5,
         0 // unused
     );
-    var params2 = this.params2 = new THREE.Vector4(
+    var params2 = this.params2 = new THREE__namespace.Vector4(
         parameters.fixedTimeStep !== undefined ? parameters.fixedTimeStep : 1/120,
         parameters.friction !== undefined ? parameters.friction : 2,
         parameters.drag !== undefined ? parameters.drag : 0.1,
         0 // unused
     );
-    var params3 = this.params3 = new THREE.Vector4(10,10,10, 1);
+    this.params3 = new THREE__namespace.Vector4(10,10,10, 1);
     this.time = 0;
     this.fixedTime = 0;
     this.broadphase = new Broadphase();
-    this.gravity = new THREE.Vector3(0,0,0);
-    this.maxVelocity = new THREE.Vector3(100000,100000,100000);
+    this.gravity = new THREE__namespace.Vector3(0,0,0);
+    this.maxVelocity = new THREE__namespace.Vector3(100000,100000,100000);
     if(parameters.gravity) this.gravity.copy(parameters.gravity);
-    this.boxSize = new THREE.Vector3(1,1,1);
+    this.boxSize = new THREE__namespace.Vector3(1,1,1);
     if(parameters.boxSize) this.boxSize.copy(parameters.boxSize);
     if(parameters.gridPosition) this.broadphase.position.copy(parameters.gridPosition);
     if(parameters.gridResolution) this.broadphase.resolution.copy(parameters.gridResolution);
@@ -193,19 +210,19 @@ function World(parameters){
     // Fullscreen render pass helpers
     Object.assign( this.materials, {
         // For rendering a full screen quad
-        textured: new THREE.ShaderMaterial({
+        textured: new THREE__namespace.ShaderMaterial({
             uniforms: {
                 texture: { value: null },
-                res: { value: new THREE.Vector2() },
+                res: { value: new THREE__namespace.Vector2() },
             },
             vertexShader: passThroughVert,
             fragmentShader: passThroughFrag
         })
     });
-    this.scenes.fullscreen = new THREE.Scene();
-    this.fullscreenCamera = new THREE.Camera();
-    var plane = new THREE.PlaneBufferGeometry( 2, 2 );
-    var fullscreenQuad = this.fullscreenQuad = new THREE.Mesh( plane, this.materials.textured );
+    this.scenes.fullscreen = new THREE__namespace.Scene();
+    this.fullscreenCamera = new THREE__namespace.Camera();
+    var plane = new THREE__namespace.PlaneBufferGeometry( 2, 2 );
+    var fullscreenQuad = this.fullscreenQuad = new THREE__namespace.Mesh( plane, this.materials.textured );
     this.scenes.fullscreen.add( fullscreenQuad );
 }
 
@@ -217,7 +234,6 @@ function powerOfTwoCeil(x){
     }
     return result;
 }
-
 function idToX(id,sx,sy){
     return id % sx;
 }
@@ -225,7 +241,7 @@ function idToY(id,sx,sy){
     return Math.floor(id / sy);
 }
 function idToDataIndex(id, w, h){
-    var px = idToX(id, w, h);
+    var px = idToX(id, w);
     var py = idToY(id, w, h);
     var p = 4 * (py * w + px);
     return p;
@@ -344,7 +360,7 @@ Object.assign( World.prototype, {
     },
     getBodyId: function(particleId){
         var tex = this.dataTextures.particleLocalPositions;
-        var data = tex.image.data;
+        tex.image.data;
         var w = tex.image.width;
         var h = tex.image.height;
         var p = idToDataIndex(particleId, w, h);
@@ -352,8 +368,8 @@ Object.assign( World.prototype, {
     },
     getBodyUV: function(bodyId){
         var s = this.bodyTextureSize;
-        return new THREE.Vector2(
-            idToX(bodyId, s, s) / s,
+        return new THREE__namespace.Vector2(
+            idToX(bodyId, s) / s,
             idToY(bodyId, s, s) / s
         );
     },
@@ -371,7 +387,7 @@ Object.assign( World.prototype, {
         this.massDirty = true;
     },
     initTextures: function(maxBodies, maxParticles){
-        var type = ( /(iPad|iPhone|iPod)/g.test( navigator.userAgent ) ) ? THREE.HalfFloatType : THREE.FloatType;
+        var type = ( /(iPad|iPhone|iPod)/g.test( navigator.userAgent ) ) ? THREE__namespace.HalfFloatType : THREE__namespace.FloatType;
         var bodyTextureSize = powerOfTwoCeil(maxBodies);
         var particleTextureSize = powerOfTwoCeil(maxParticles);
 
@@ -402,10 +418,10 @@ Object.assign( World.prototype, {
         });
 
         Object.assign(this.dataTextures, {
-            bodyPositions: new THREE.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
-            bodyQuaternions: new THREE.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
-            particleLocalPositions: new THREE.DataTexture( new Float32Array(4*particleTextureSize*particleTextureSize), particleTextureSize, particleTextureSize, THREE.RGBAFormat, type ),
-            bodyMass: new THREE.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE.RGBAFormat, type ),
+            bodyPositions: new THREE__namespace.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE__namespace.RGBAFormat, type ),
+            bodyQuaternions: new THREE__namespace.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE__namespace.RGBAFormat, type ),
+            particleLocalPositions: new THREE__namespace.DataTexture( new Float32Array(4*particleTextureSize*particleTextureSize), particleTextureSize, particleTextureSize, THREE__namespace.RGBAFormat, type ),
+            bodyMass: new THREE__namespace.DataTexture( new Float32Array(4*bodyTextureSize*bodyTextureSize), bodyTextureSize, bodyTextureSize, THREE__namespace.RGBAFormat, type ),
         });
     },
     // Render data to rendertargets
@@ -436,29 +452,29 @@ Object.assign( World.prototype, {
         var numVertices = 128; // Good number?
         if(!this.scenes.setBodyData){
 
-            this.materials.setBodyData = new THREE.ShaderMaterial({
+            this.materials.setBodyData = new THREE__namespace.ShaderMaterial({
                 uniforms: {
-                    res: { value: new THREE.Vector2() }
+                    res: { value: new THREE__namespace.Vector2() }
                 },
                 vertexShader: getShader( 'setBodyDataVert' ),
                 fragmentShader: getShader( 'setBodyDataFrag' ),
                 defines: this.getDefines()
             });
 
-            var onePointPerBodyGeometry = this.onePointPerBodyGeometry = new THREE.BufferGeometry();
-            var maxBodies = this.maxBodies;
+            var onePointPerBodyGeometry = this.onePointPerBodyGeometry = new THREE__namespace.BufferGeometry();
+            this.maxBodies;
             var bodyIndices = new Float32Array( numVertices );
             var pixelData = new Float32Array( 4 * numVertices );
-            onePointPerBodyGeometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array( numVertices * 3 ), 3 ) );
-            onePointPerBodyGeometry.addAttribute( 'data', new THREE.BufferAttribute( pixelData, 4 ) );
-            onePointPerBodyGeometry.addAttribute( 'bodyIndex', new THREE.BufferAttribute( bodyIndices, 1 ) );
-            this.setBodyDataMesh = new THREE.Points( onePointPerBodyGeometry, this.materials.setBodyData );
-            this.scenes.setBodyData = new THREE.Scene();
+            onePointPerBodyGeometry.addAttribute( 'position', new THREE__namespace.BufferAttribute( new Float32Array( numVertices * 3 ), 3 ) );
+            onePointPerBodyGeometry.addAttribute( 'data', new THREE__namespace.BufferAttribute( pixelData, 4 ) );
+            onePointPerBodyGeometry.addAttribute( 'bodyIndex', new THREE__namespace.BufferAttribute( bodyIndices, 1 ) );
+            this.setBodyDataMesh = new THREE__namespace.Points( onePointPerBodyGeometry, this.materials.setBodyData );
+            this.scenes.setBodyData = new THREE__namespace.Scene();
             this.scenes.setBodyData.add( this.setBodyDataMesh );
         }
 
         this.materials.setBodyData.uniforms.res.value.set(this.bodyTextureSize, this.bodyTextureSize);
-        var data = new THREE.Vector4();
+        var data = new THREE__namespace.Vector4();
         var attributes = this.onePointPerBodyGeometry.attributes;
 
         for(var startIndex = 0; startIndex < ids.length; startIndex += numVertices){
@@ -539,7 +555,7 @@ Object.assign( World.prototype, {
     updateWorldParticlePositions: function(){
         var mat = this.materials.localParticlePositionToWorld;
         if(!mat){
-            mat = this.materials.localParticlePositionToWorld = new THREE.ShaderMaterial({
+            mat = this.materials.localParticlePositionToWorld = new THREE__namespace.ShaderMaterial({
                 uniforms: {
                     localParticlePosTex:  { value: null },
                     bodyPosTex: { value: null },
@@ -570,7 +586,7 @@ Object.assign( World.prototype, {
     updateRelativeParticlePositions: function(){
         var mat = this.materials.localParticlePositionToRelative;
         if(!mat){
-            mat = this.materials.localParticlePositionToRelative = new THREE.ShaderMaterial({
+            mat = this.materials.localParticlePositionToRelative = new THREE__namespace.ShaderMaterial({
                 uniforms: {
                     localParticlePosTex:  { value: null },
                     bodyPosTex:  { value: null },
@@ -599,7 +615,7 @@ Object.assign( World.prototype, {
         // bodyVelocityToParticleVelocity
         var mat = this.materials.updateParticleVelocity;
         if(!mat){
-            mat = this.materials.updateParticleVelocity = new THREE.ShaderMaterial({
+            mat = this.materials.updateParticleVelocity = new THREE__namespace.ShaderMaterial({
                 uniforms: {
                     relativeParticlePosTex:  { value: null },
                     bodyVelTex:  { value: null },
@@ -626,18 +642,18 @@ Object.assign( World.prototype, {
     resetGridStencilOld: function(){
 
         var gridTexture = this.textures.grid;
-        var mat = this.materials.mapParticle;
+        this.materials.mapParticle;
         var setGridStencilMaterial = this.materials.setGridStencil;
 
         if(this.scenes.stencil === undefined){
             // Scene for rendering the stencil buffer - one GL_POINT for each grid cell that we render 4 times
-            var sceneStencil = this.scenes.stencil = new THREE.Scene();
-            var onePointPerTexelGeometry = new THREE.Geometry();
+            var sceneStencil = this.scenes.stencil = new THREE__namespace.Scene();
+            var onePointPerTexelGeometry = new THREE__namespace.Geometry();
             gridTexture = this.textures.grid;
             for(var i=0; i<gridTexture.width/2; i++){
                 for(var j=0; j<gridTexture.height/2; j++){
                     onePointPerTexelGeometry.vertices.push(
-                        new THREE.Vector3(
+                        new THREE__namespace.Vector3(
                             2*i/(gridTexture.width/2)-1,
                             2*j/(gridTexture.height/2)-1,
                             0
@@ -645,8 +661,8 @@ Object.assign( World.prototype, {
                     );
                 }
             }
-            setGridStencilMaterial = this.materials.setGridStencil = new THREE.PointsMaterial({ size: 1, sizeAttenuation: false, color: 0xffffff });
-            this.setGridStencilMesh = new THREE.Points( onePointPerTexelGeometry, setGridStencilMaterial );
+            setGridStencilMaterial = this.materials.setGridStencil = new THREE__namespace.PointsMaterial({ size: 1, sizeAttenuation: false, color: 0xffffff });
+            this.setGridStencilMesh = new THREE__namespace.Points( onePointPerTexelGeometry, setGridStencilMaterial );
             sceneStencil.add( this.setGridStencilMesh );
         }
 
@@ -655,7 +671,7 @@ Object.assign( World.prototype, {
         var renderer = this.renderer;
         var buffers = renderer.state.buffers;
         var gl = renderer.context;
-        renderer.clearTarget( gridTexture, true, false, true );
+        renderer.clearTarget( gridTexture, true, true, true );
         buffers.depth.setTest( false );
         buffers.depth.setMask( false ); // dont draw depth
         buffers.color.setMask( false ); // dont draw color
@@ -688,17 +704,17 @@ Object.assign( World.prototype, {
     resetGridStencil: function(){
 
         if(this.scenes.stencil2 === undefined){
-            this.materials.stencil = new THREE.ShaderMaterial({
+            this.materials.stencil = new THREE__namespace.ShaderMaterial({
                 uniforms: {
-                    res: { value: new THREE.Vector2(this.textures.grid.width,this.textures.grid.height) },
+                    res: { value: new THREE__namespace.Vector2(this.textures.grid.width,this.textures.grid.height) },
                     quadrant: { value: 0.0 }
                 },
                 vertexShader: passThroughVert,
                 fragmentShader: setStencilFrag,
             });
 
-            this.scenes.stencil2 = new THREE.Scene();
-            var quad = new THREE.Mesh( new THREE.PlaneBufferGeometry( 2, 2 ), this.materials.stencil );
+            this.scenes.stencil2 = new THREE__namespace.Scene();
+            var quad = new THREE__namespace.Mesh( new THREE__namespace.PlaneBufferGeometry( 2, 2 ), this.materials.stencil );
             this.scenes.stencil2.add( quad );
         }
 
@@ -718,7 +734,6 @@ Object.assign( World.prototype, {
         buffers.stencil.setFunc( gl.ALWAYS, 1, 0xffffffff ); //always set stencil to 1
         for(var i=0;i<2;i++){
             for(var j=0;j<2;j++){
-                var x = i, y = j;
                 var stencilValue = i + j * 2;
                 if(stencilValue === 0){
                     continue; // No need to set 0 stencil value, it's already cleared
@@ -747,14 +762,14 @@ Object.assign( World.prototype, {
         var buffers = renderer.state.buffers;
         var gl = renderer.context;
 
-        var gridTexture = this.textures.grid;
+        this.textures.grid;
         var mat = this.materials.mapParticle;
-        var setGridStencilMaterial = this.materials.setGridStencil;
+        this.materials.setGridStencil;
         if(!mat){
-            mat = this.materials.mapParticle = new THREE.ShaderMaterial({
+            mat = this.materials.mapParticle = new THREE__namespace.ShaderMaterial({
                 uniforms: {
                     posTex: { value: null },
-                    cellSize: { value: new THREE.Vector3(this.radius*2, this.radius*2, this.radius*2) },
+                    cellSize: { value: new THREE__namespace.Vector3(this.radius*2, this.radius*2, this.radius*2) },
                     gridPos: { value: this.broadphase.position },
                 },
                 vertexShader: getShader( 'mapParticleToCellVert' ),
@@ -762,17 +777,17 @@ Object.assign( World.prototype, {
                 defines: this.getDefines()
             });
 
-            this.scenes.mapParticlesToGrid = new THREE.Scene();
-            var mapParticleGeometry = new THREE.BufferGeometry();
+            this.scenes.mapParticlesToGrid = new THREE__namespace.Scene();
+            var mapParticleGeometry = new THREE__namespace.BufferGeometry();
             var size = this.textures.particlePosLocal.width;
             var positions = new Float32Array( 3 * size * size );
             var particleIndices = new Float32Array( size * size );
             for(var i=0; i<size*size; i++){
                 particleIndices[i] = i; // Need to do this because there's no way to get the vertex index in webgl1 shaders...
             }
-            mapParticleGeometry.addAttribute( 'position', new THREE.BufferAttribute( positions, 3 ) );
-            mapParticleGeometry.addAttribute( 'particleIndex', new THREE.BufferAttribute( particleIndices, 1 ) );
-            this.mapParticleToCellMesh = new THREE.Points( mapParticleGeometry, this.materials.mapParticle );
+            mapParticleGeometry.addAttribute( 'position', new THREE__namespace.BufferAttribute( positions, 3 ) );
+            mapParticleGeometry.addAttribute( 'particleIndex', new THREE__namespace.BufferAttribute( particleIndices, 1 ) );
+            this.mapParticleToCellMesh = new THREE__namespace.Points( mapParticleGeometry, this.materials.mapParticle );
             this.scenes.mapParticlesToGrid.add( this.mapParticleToCellMesh );
         }
 
@@ -790,14 +805,14 @@ Object.assign( World.prototype, {
     updateParticleForce: function(){
         var renderer = this.renderer;
         var buffers = renderer.state.buffers;
-        var gl = renderer.context;
+        renderer.context;
 
         // Update force material
         var forceMaterial = this.materials.force;
         if(!forceMaterial){
-            forceMaterial = this.materials.force = new THREE.ShaderMaterial({
+            forceMaterial = this.materials.force = new THREE__namespace.ShaderMaterial({
                 uniforms: {
-                    cellSize: { value: new THREE.Vector3(this.radius*2,this.radius*2,this.radius*2) },
+                    cellSize: { value: new THREE__namespace.Vector3(this.radius*2,this.radius*2,this.radius*2) },
                     gridPos: { value: this.broadphase.position },
                     posTex:  { value: null },
                     particlePosRelative:  { value: null },
@@ -834,14 +849,14 @@ Object.assign( World.prototype, {
     updateParticleTorque: function(){
         var renderer = this.renderer;
         var buffers = renderer.state.buffers;
-        var gl = renderer.context;
+        renderer.context;
 
         // Update torque material
         var updateTorqueMaterial = this.materials.updateTorque;
         if(!updateTorqueMaterial){
-            updateTorqueMaterial = this.materials.updateTorque = new THREE.ShaderMaterial({
+            updateTorqueMaterial = this.materials.updateTorque = new THREE__namespace.ShaderMaterial({
                 uniforms: {
-                    cellSize: { value: new THREE.Vector3(this.radius*2, this.radius*2, this.radius*2) },
+                    cellSize: { value: new THREE__namespace.Vector3(this.radius*2, this.radius*2, this.radius*2) },
                     gridPos: { value: this.broadphase.position },
                     posTex:  { value: null },
                     particlePosRelative:  { value: null },
@@ -878,12 +893,12 @@ Object.assign( World.prototype, {
     updateBodyForce: function(){
         var renderer = this.renderer;
         var buffers = renderer.state.buffers;
-        var gl = renderer.context;
+        renderer.context;
 
         // Add force to body material
         var addForceToBodyMaterial = this.materials.addForceToBody;
         if(!addForceToBodyMaterial){
-            addForceToBodyMaterial = this.materials.addForceToBody = new THREE.ShaderMaterial({
+            addForceToBodyMaterial = this.materials.addForceToBody = new THREE__namespace.ShaderMaterial({
                 uniforms: {
                     relativeParticlePosTex:  { value: null },
                     particleForceTex:  { value: null }
@@ -891,13 +906,13 @@ Object.assign( World.prototype, {
                 vertexShader: getShader( 'addParticleForceToBodyVert' ),
                 fragmentShader: getShader( 'addParticleForceToBodyFrag' ),
                 defines: this.getDefines(),
-                blending: THREE.AdditiveBlending,
+                blending: THREE__namespace.AdditiveBlending,
                 transparent: true
             });
 
             // Scene for mapping the particle force to bodies - one GL_POINT for each particle
-            this.scenes.mapParticlesToBodies = new THREE.Scene();
-            var mapParticleToBodyGeometry = new THREE.BufferGeometry();
+            this.scenes.mapParticlesToBodies = new THREE__namespace.Scene();
+            var mapParticleToBodyGeometry = new THREE__namespace.BufferGeometry();
             var numParticles = this.textures.particlePosLocal.width;
             var bodyIndices = new Float32Array( numParticles * numParticles );
             var particleIndices = new Float32Array( numParticles * numParticles );
@@ -906,10 +921,10 @@ Object.assign( World.prototype, {
                 particleIndices[i] = particleId;
                 bodyIndices[i] = this.getBodyId(particleId);
             }
-            mapParticleToBodyGeometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array(numParticles*numParticles*3), 3 ) );
-            mapParticleToBodyGeometry.addAttribute( 'particleIndex', new THREE.BufferAttribute( particleIndices, 1 ) );
-            mapParticleToBodyGeometry.addAttribute( 'bodyIndex', new THREE.BufferAttribute( bodyIndices, 1 ) );
-            this.mapParticleToBodyMesh = new THREE.Points( mapParticleToBodyGeometry, addForceToBodyMaterial );
+            mapParticleToBodyGeometry.addAttribute( 'position', new THREE__namespace.BufferAttribute( new Float32Array(numParticles*numParticles*3), 3 ) );
+            mapParticleToBodyGeometry.addAttribute( 'particleIndex', new THREE__namespace.BufferAttribute( particleIndices, 1 ) );
+            mapParticleToBodyGeometry.addAttribute( 'bodyIndex', new THREE__namespace.BufferAttribute( bodyIndices, 1 ) );
+            this.mapParticleToBodyMesh = new THREE__namespace.Points( mapParticleToBodyGeometry, addForceToBodyMaterial );
             this.scenes.mapParticlesToBodies.add( this.mapParticleToBodyMesh );
         }
 
@@ -947,7 +962,7 @@ Object.assign( World.prototype, {
         // Add torque to body material
         var addTorqueToBodyMaterial = this.materials.addTorqueToBody;
         if(!addTorqueToBodyMaterial){
-            addTorqueToBodyMaterial = this.materials.addTorqueToBody = new THREE.ShaderMaterial({
+            addTorqueToBodyMaterial = this.materials.addTorqueToBody = new THREE__namespace.ShaderMaterial({
                 uniforms: {
                     relativeParticlePosTex: { value: null },
                     particleForceTex: { value: null },
@@ -956,7 +971,7 @@ Object.assign( World.prototype, {
                 vertexShader: getShader( 'addParticleTorqueToBodyVert' ),
                 fragmentShader: getShader( 'addParticleForceToBodyFrag' ), // reuse
                 defines: this.getDefines(),
-                blending: THREE.AdditiveBlending,
+                blending: THREE__namespace.AdditiveBlending,
                 transparent: true
             });
         }
@@ -978,7 +993,7 @@ Object.assign( World.prototype, {
         // Update body velocity - should work for both linear and angular
         var updateBodyVelocityMaterial = this.materials.updateBodyVelocity;
         if(!updateBodyVelocityMaterial){
-            updateBodyVelocityMaterial = this.materials.updateBodyVelocity = new THREE.ShaderMaterial({
+            updateBodyVelocityMaterial = this.materials.updateBodyVelocity = new THREE__namespace.ShaderMaterial({
                 uniforms: {
                     linearAngular:  { type: 'f', value: 0.0 },
                     bodyQuatTex:  { value: null },
@@ -1041,7 +1056,7 @@ Object.assign( World.prototype, {
         // Body position update
         var updateBodyPositionMaterial = this.materials.updateBodyPosition;
         if(!updateBodyPositionMaterial){
-            updateBodyPositionMaterial = this.materials.updateBodyPosition = new THREE.ShaderMaterial({
+            updateBodyPositionMaterial = this.materials.updateBodyPosition = new THREE__namespace.ShaderMaterial({
                 uniforms: {
                     bodyPosTex:  { value: null },
                     bodyVelTex:  { value: null },
@@ -1070,7 +1085,7 @@ Object.assign( World.prototype, {
         // Update body quaternions
         var updateBodyQuaternionMaterial = this.materials.updateBodyQuaternion;
         if(!updateBodyQuaternionMaterial){
-            updateBodyQuaternionMaterial = this.materials.updateBodyQuaternion = new THREE.ShaderMaterial({
+            updateBodyQuaternionMaterial = this.materials.updateBodyQuaternion = new THREE__namespace.ShaderMaterial({
                 uniforms: {
                     bodyQuatTex: { value: null },
                     bodyAngularVelTex: { value: null },
@@ -1129,10 +1144,10 @@ Object.assign( World.prototype, {
 });
 
 function createRenderTarget(w,h,type,format){
-    return new THREE.WebGLRenderTarget(w, h, {
-        minFilter: THREE.NearestFilter,
-        magFilter: THREE.NearestFilter,
-        format: format === undefined ? THREE.RGBAFormat : format,
+    return new THREE__namespace.WebGLRenderTarget(w, h, {
+        minFilter: THREE__namespace.NearestFilter,
+        magFilter: THREE__namespace.NearestFilter,
+        format: THREE__namespace.RGBAFormat ,
         type: type
     });
 }

@@ -1,20 +1,19 @@
 import glsl from './src/rollup.glsl.js';
 
 export default {
-	entry: 'src/demo.js',
-	indent: '\t',
+	input: 'src/demo.js',
 	plugins: [
 		glsl()
 	],
-	targets: [
+	output: [
 		{
 			format: 'umd',
-			moduleName: 'Demo',
-			dest: 'build/demo.js'
+			name: 'Demo',
+			file: 'build/demo.js',
+			globals: {
+				"three": "THREE"
+			}
 		},
 	],
 	external: [ 'three' ],
-	globals: {
-		"three": "THREE"
-	}
 };

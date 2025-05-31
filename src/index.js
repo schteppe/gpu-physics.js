@@ -635,7 +635,7 @@ Object.assign( World.prototype, {
         var renderer = this.renderer;
         var buffers = renderer.state.buffers;
         var gl = renderer.context;
-        renderer.clearTarget( gridTexture, true, false, true );
+        renderer.clearTarget( gridTexture, true, true, true );
         buffers.depth.setTest( false );
         buffers.depth.setMask( false ); // dont draw depth
         buffers.color.setMask( false ); // dont draw color
